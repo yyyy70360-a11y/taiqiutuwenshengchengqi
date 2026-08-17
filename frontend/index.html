@@ -1,0 +1,297 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><title>台球图文生成器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,"Segoe UI",sans-serif}
+:root{--bg:#1E1E1E;--bg2:#262626;--bg3:#323232;--bg4:#383838;--border:#404040;--border2:#4A4A4A;--t1:#E8E8E8;--t2:#A0A0A0;--t3:#707070;--accent:#2680EB;--accent-h:#3A8FFF;--danger:#FA6F3C;--purple:#6B4FBB}
+body{background:var(--bg);color:var(--t1);min-height:100vh;font-size:13px}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#4A4A4A;border:2px solid var(--bg);border-radius:5px}::-webkit-scrollbar-thumb:hover{background:#5A5A5A}
+.tabs{display:flex;background:var(--bg2);padding:0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.tab{padding:14px 20px;cursor:pointer;color:var(--t2);font-size:12px;font-weight:500;border-bottom:2px solid transparent;transition:all .15s;border-right:1px solid var(--border)}
+.tab:hover{color:var(--t1);background:var(--bg3)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tab.active{color:var(--t1);border-color:var(--accent);background:var(--bg)}
+.page{display:none}.page.active{display:flex}
+.left{width:440px;background:var(--bg2);padding:20px;overflow-y:auto;height:calc(100vh - 47px);border-right:1px solid var(--border)}
+.left h1{font-size:16px;font-weight:600;margin-bottom:4px;color:var(--t1)}
+.left .sub{font-size:11px;color:var(--t3);margin-bottom:18px}
+.col-l{width:330px;background:var(--bg2);padding:18px 16px;overflow-y:auto;height:calc(100vh - 47px);border-right:1px solid var(--border)}
+.col-l h1{font-size:16px;font-weight:600;margin-bottom:4px;color:var(--t1)}
+.col-l .sub{font-size:11px;color:var(--t3);margin-bottom:14px}
+.col-c{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;position:relative;background:var(--bg)}
+.col-r{width:230px;background:var(--bg2);padding:14px;overflow-y:auto;height:calc(100vh - 47px);border-left:1px solid var(--border)}
+.col-c .preview{max-height:92vh;border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.5);cursor:zoom-in}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;color:var(--t2);margin-bottom:6px;font-weight:500}
+.field input,.field textarea,.field select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:8px 10px;border-radius:4px;font-size:12px;outline:none;transition:all .15s}
+.field input:hover,.field textarea:hover,.field select:hover{border-color:var(--border2)}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.field textarea.prompt-generated{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.field textarea{resize:vertical;min-height:72px;line-height:1.5}
+.row{display:flex;gap:8px}.row .field{flex:1}
+.colors{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.color-opt{height:32px;border-radius:4px;cursor:pointer;border:1px solid var(--border);transition:all .15s}
+.color-opt:hover{border-color:var(--border2)}
+.color-opt.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+input[type=color]{width:50px;height:50px;border:2px solid var(--border2);border-radius:50%;cursor:pointer;background:none;padding:0;overflow:hidden;transition:all .15s;box-shadow:0 0 0 2px var(--bg2),0 2px 8px rgba(0,0,0,.3)}
+input[type=color]:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--bg2),0 0 0 3px var(--accent),0 0 14px rgba(38,128,235,.4);transform:scale(1.05)}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:50%}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;border-radius:50%}
+button{padding:10px;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;width:100%;transition:all .15s}
+button:hover{background:var(--accent-h);border-color:var(--accent-h)}
+button.sec{background:var(--bg3);color:var(--t1);border:1px solid var(--border);margin-top:8px}
+button.sec:hover{background:var(--bg4);border-color:var(--border2)}
+.action-status{min-height:18px;margin-top:7px;font-size:11px;line-height:1.45;color:var(--t2)}
+.action-status.success{color:#4ADE80}.action-status.error{color:#FF8855}
+.hint{color:var(--t3);font-size:12px;text-align:center;line-height:1.7}
+.sect{font-size:10px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.render-badge{position:absolute;top:16px;left:16px;background:rgba(38,128,235,.92);color:#fff;font-size:10px;padding:4px 10px;border-radius:3px;display:none;z-index:5;font-weight:500}
+.hist-h{font-size:10px;color:var(--t2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.hist-clear{float:right;width:auto;padding:0;background:none;border:0;color:var(--t3);font-size:10px;font-weight:500}
+.hist-clear:hover{background:none;border:0;color:var(--t1)}
+.hist-item{width:100%;margin-bottom:8px;border-radius:4px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.hist-item:hover{border-color:var(--accent)}
+.hist-item img{width:100%;display:block}
+.hist-empty{font-size:11px;color:var(--t3);text-align:center;padding:20px 0;line-height:1.6}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{padding:5px 4px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--t2);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+td input,td select,td textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:4px 6px;border-radius:3px;font-size:11px}
+td input:focus,td select:focus,td textarea:focus{border-color:var(--accent)}
+td textarea{min-height:48px;resize:vertical}
+.acc-tbl{font-size:12px;margin-top:12px}.acc-tbl th{color:var(--t2);padding:7px 5px}
+.batch-grid{flex:1;display:flex;flex-wrap:wrap;gap:12px;overflow-y:auto;padding:24px;align-content:flex-start}
+.batch-item{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
+.batch-item:hover{border-color:var(--border2)}
+.batch-item img{height:320px;display:block;cursor:zoom-in}
+.batch-item .dl{position:absolute;bottom:6px;right:6px;background:rgba(30,30,30,.85);color:#fff;padding:4px 8px;border-radius:3px;font-size:10px;text-decoration:none;border:1px solid var(--border)}
+.del{color:var(--danger);cursor:pointer;font-size:14px;padding:2px}
+.del:hover{color:#FF8855}
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:24px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 16px;font-size:10px;color:var(--t3);z-index:40;gap:18px}
+.statusbar .item{display:flex;align-items:center;gap:5px}
+.statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--t3)}
+.statusbar .dot.on{background:#4ADE80}
+.col-l,.col-r,.left{height:calc(100vh - 71px)!important}
+.lightbox{position:fixed;inset:0;background:rgba(15,15,15,.97);display:none;align-items:center;justify-content:center;z-index:999;cursor:zoom-out}
+.lightbox.show{display:flex}
+.lightbox img{max-width:94vw;max-height:94vh;border-radius:4px;box-shadow:0 12px 48px rgba(0,0,0,.7)}
+.lightbox .close{position:fixed;top:16px;right:24px;color:#fff;font-size:36px;cursor:pointer;z-index:1000;opacity:.6}
+.lightbox .close:hover{opacity:1}
+</style></head><body>
+<div class="tabs" role="tablist" aria-label="功能页面">
+  <div class="tab active" id="tab0" role="tab" aria-controls="p0" aria-selected="true" tabindex="0" data-tab-index="0" title="单条图文实时预览编辑">单条生成</div>
+  <div class="tab" id="tab1" role="tab" aria-controls="p1" aria-selected="false" tabindex="-1" data-tab-index="1" title="一次生成N条差异化文案批量渲染">批量生成</div>
+  <div class="tab" id="tab2" role="tab" aria-controls="p2" aria-selected="false" tabindex="-1" data-tab-index="2" title="API与存储路径配置">设置</div>
+</div>
+
+<div class="page active" id="p0" role="tabpanel" aria-labelledby="tab0">
+  <div class="col-l">
+    <h1>单条生成</h1>
+    <div class="sect">模板与配色</div>
+    <div class="field"><label>模板风格</label><select id="tpl"></select></div>
+    <div class="field"><label>题材预设（自动填充）</label><select id="preset"></select></div>
+    <div class="field"><label>配色方案</label>
+    <div style="display:flex;gap:12px;align-items:center">
+      <input type="color" id="color1" value="#FF8A5C" title="主色：点击拾色器选择渐变起始色">
+      <div style="flex:1;height:44px;border-radius:22px;background:linear-gradient(90deg,#FF8A5C,#FF5E62);border:1px solid var(--border);transition:all .15s" id="gradPreview" title="渐变预览：实时显示主辅色渐变效果"></div>
+      <input type="color" id="color2" value="#FF5E62" title="辅色：点击拾色器选择渐变结束色">
+    </div></div>
+    <div class="sect">内容</div>
+    <div class="row">
+      <div class="field"><label>序号</label><input id="num" value="01"></div>
+      <div class="field"><label>标签(英文)</label><input id="tag" value="BILLIARDS"></div>
+    </div>
+    <div class="field"><label>标题</label><input id="title"></div>
+    <div class="field"><label>正文（换行用回车）</label><textarea id="bodytxt"></textarea></div>
+    <div class="field"><label>话题标签</label><input id="tags"></div>
+    <details>
+    <summary class="sect" style="cursor:pointer;list-style:none">AI生成文案</summary>
+    <div class="row" style="margin-bottom:8px">
+      <div class="field" style="margin:0"><label>题材</label><select id="gTheme"><option>找搭子</option><option>球房测评</option><option>新手避坑</option><option>约球吐槽</option><option>球杆科普</option><option>技术段位</option><option>球友日常</option><option>赛事战报</option></select></div>
+      <div class="field" style="margin:0"><label>档位</label><select id="gLevel"><option>1档</option><option selected>2档</option><option>3档</option></select></div>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <div class="field" style="margin:0"><label>区域</label><input id="gRegion" value="斗门"></div>
+      <div class="field" style="margin:0"><label>性格</label><select id="gPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div>
+    </div>
+    <div class="field"><label>语气</label><select id="gTone"><option selected>口语化</option><option>略专业</option><option>搞笑自嘲</option></select></div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="useEmoji" style="width:auto;cursor:pointer"> 文案含表情</label>
+    <button id="generatePromptButton" type="button" class="sec" style="margin-bottom:8px" title="根据上方人设配置生成提示词">生成提示词</button>
+    <div class="field"><label>提示词（可编辑）</label><textarea id="promptView" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:80px"></textarea></div>
+    <button id="singleGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="用提示词调API生成文案">用提示词生成文案</button>
+    <div id="singleAiStatus" class="action-status" aria-live="polite"></div>
+    </details>
+  </div>
+  <div class="col-c">
+    <div class="render-badge" id="renderBadge">渲染中</div>
+    <div class="hint" id="hint0">改左侧参数 · 中间实时预览</div>
+    <img class="preview" id="preview0" style="display:none" alt="当前图文预览">
+  </div>
+  <div class="col-r">
+    <div class="hist-h">渲染历史 <button id="clearHistoryButton" type="button" class="hist-clear">清空</button></div>
+    <div id="histList"><div class="hist-empty">暂无历史<br>改参数自动预览</div></div>
+    <div class="hist-h" style="margin-top:18px">文案库</div>
+    <div id="libList"><div class="hist-empty">AI生成的文案<br>存这里可复用</div></div>
+    <div style="margin-top:14px"><button id="saveRenderButton" type="button" class="sec" style="font-size:11px;padding:8px" title="将当前预览图保存到输出文件夹">保存到文件夹</button></div>
+  </div>
+</div>
+
+<div class="page" id="p1" role="tabpanel" aria-labelledby="tab1">
+  <div class="left">
+    <h1>批量生成</h1>
+    <div class="row"><div class="field"><label>题材</label><select id="bTheme"><option>找搭子</option><option>球房测评</option><option>新手避坑</option><option>约球吐槽</option><option>球杆科普</option><option>技术段位</option><option>球友日常</option><option>赛事战报</option></select></div><div class="field"><label>档位</label><select id="bLevel"><option>1档</option><option selected>2档</option><option>3档</option></select></div></div>
+    <div class="row"><div class="field"><label>区域</label><input id="bRegion" value="斗门"></div><div class="field"><label>性格</label><select id="bPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div></div>
+    <div class="row"><div class="field"><label>语气</label><select id="bTone"><option selected>口语化</option><option>略专业</option><option>搞笑自嘲</option></select></div><div class="field"><label>生成数量</label><input id="bCount" type="number" value="10" min="1" max="100"></div></div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bUseEmoji" style="width:auto;cursor:pointer"> 文案含表情</label>
+    <div class="row"><div class="field"><label>渲染模板</label><select id="bTpl"></select></div><div class="field"><label>配色</label><select id="bColor"><option value="-1">随机轮换</option><option value="0">暖橙</option><option value="1">薄荷</option><option value="2">天蓝</option><option value="3">紫粉</option><option value="4">深蓝</option></select></div></div>
+    <div class="field"><label>保存到子文件夹（可选）</label><input id="bSubfolder" placeholder="如：斗门约球0815"></div>
+    <button id="batchGeneratePromptButton" type="button" class="sec" style="margin-top:10px" title="根据人设配置生成提示词">生成提示词</button>
+    <div class="field" style="margin-top:8px"><label>提示词（可编辑）</label><textarea id="bPrompt" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:90px"></textarea></div>
+    <button id="batchGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="一次生成N条差异化文案避免雷同">AI生成N条文案</button>
+    <div id="batchAiStatus" class="action-status" aria-live="polite"></div>
+    <button id="batchRenderButton" type="button" style="margin-top:8px">批量渲染出图</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:24px"><div id="bList"></div><div class="batch-grid" id="batchGrid" style="padding:0;margin-top:20px"></div></div>
+</div>
+
+<div class="page" id="p2" role="tabpanel" aria-labelledby="tab2">
+  <div class="left">
+    <h1>系统设置</h1>
+    <div style="font-size:11px;color:var(--accent);margin-bottom:10px;font-weight:600">API配置（支持OpenAI兼容接口）</div>
+    <div class="field"><label>API地址</label><input id="apiUrl" placeholder="https://api.deepseek.com/v1/chat/completions" style="font-family:monospace"></div>
+    <div class="field"><label>API Key</label><input id="apiKey" type="password" placeholder="sk-..." style="font-family:monospace"></div>
+    <div class="field"><label>模型名</label><input id="apiModel" placeholder="deepseek-chat" style="font-family:monospace"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button type="button" class="sec api-preset-button" data-api-preset="deepseek" style="flex:1;margin:0;font-size:11px">DeepSeek</button>
+      <button type="button" class="sec api-preset-button" data-api-preset="qwen" style="flex:1;margin:0;font-size:11px">通义千问</button>
+      <button type="button" class="sec api-preset-button" data-api-preset="kimi" style="flex:1;margin:0;font-size:11px">Kimi</button>
+    </div>
+    <button id="saveApiButton" type="button">保存API配置</button>
+    <button id="checkApiKeyButton" type="button" class="sec" style="margin-top:8px">检查钥匙串状态</button>
+    <div id="keyStatus" style="margin-top:14px;font-size:12px;color:var(--t2)"></div>
+    <div style="margin-top:24px"><div class="field"><label>图片存储路径</label><input id="outDir" placeholder="/Users/.../output" style="font-family:monospace"></div>
+    <div style="display:flex;gap:8px"><button id="saveDirectoryButton" type="button" class="sec" style="flex:1;margin:0">保存路径</button><button id="openFolderButton" type="button" class="sec" style="flex:1;margin:0" title="在系统中打开输出文件夹">打开文件夹</button></div></div>
+    <details style="margin-top:24px">
+      <summary class="sect" style="cursor:pointer;list-style:none">账号配置</summary>
+      <table class="acc-tbl"><thead><tr><th>名称</th><th>区域</th><th>档位</th><th></th></tr></thead><tbody id="accountRows"></tbody></table>
+      <div style="display:flex;gap:8px"><button id="addAccountButton" type="button" class="sec" style="flex:1">添加账号</button><button id="saveAccountsButton" type="button" class="sec" style="flex:1">保存账号</button></div>
+    </details>
+  </div>
+  <div class="col-c"><div class="hint">设置存本地<br>仅本机使用</div></div>
+</div>
+
+<div class="statusbar">
+  <div class="item"><span class="dot" id="apiDot"></span><span id="apiStat">API未配置</span></div>
+  <div class="item">模板: <span id="statTpl" style="color:var(--t2)">-</span></div>
+  <div class="item">存储: <span id="statDir" style="color:var(--t2)">-</span></div>
+  <div class="item" style="margin-left:auto">已渲染: <span id="statCnt" style="color:var(--accent)">0</span></div>
+</div>
+<div class="lightbox" id="lightbox"><span class="close" id="lightboxClose" role="button" aria-label="关闭预览" tabindex="0">&times;</span><img id="lbImg" alt="放大预览"></div>
+<script>
+const tauriInvoke=window.__TAURI__?.core?.invoke;
+const tauriListen=window.__TAURI__?.event?.listen;
+const nativeReady=typeof tauriInvoke==="function";
+const nativeInvoke=nativeReady?tauriInvoke.bind(window.__TAURI__.core):async()=>{throw new Error("桌面服务不可用")};
+const nativeListen=typeof tauriListen==="function"?tauriListen.bind(window.__TAURI__.event):null;
+const SC=[{n:"暖橙",g1:"#FF8A5C",g2:"#FF5E62",a:"#FF5E62"},{n:"薄荷",g1:"#43E97B",g2:"#38F9D7",a:"#0FB9B1"},{n:"天蓝",g1:"#4FACFE",g2:"#00C6FB",a:"#1E90FF"},{n:"紫粉",g1:"#A18CD1",g2:"#FBC2EB",a:"#8E44AD"},{n:"深蓝",g1:"#2C3E50",g2:"#4CA1AF",a:"#3A6E8F"}];
+let cur=SC[0],presets=[],tpls=[],lastFile="",histArr=[],renderTimer=null,renderCnt=0,renderBusy=false,renderQueued=false,hasApiKey=false;
+function showTab(i){document.querySelectorAll('.tab').forEach((tab,index)=>{const active=index===i;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});document.querySelectorAll('.page').forEach((page,index)=>page.classList.toggle('active',index===i))}
+function openLightbox(src){document.getElementById("lbImg").src=src;document.getElementById("lightbox").classList.add("show")}
+function closeLightbox(){document.getElementById("lightbox").classList.remove("show")}
+
+// 配色
+function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
+if(nativeReady){
+  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})})}).catch(e=>alert("模板读取失败："+e));
+  nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
+}
+function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}scheduleRender()}
+
+// 实时预览
+function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
+async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
+async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
+async function clearHist(){if(!nativeReady||!confirm("清空历史记录？已保存的图片文件不会删除。"))return;try{await nativeInvoke("clear_render_history");histArr=[];await loadHistory()}catch(e){alert("清空历史失败："+e)}}
+async function saveRender(btn){const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent="保存到文件夹"},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent="保存到文件夹"}}
+
+// AI生成
+const PERSONA_GUIDES={
+  "热情约球型":"外向主动、真诚招呼同城球友。开头用具体组局场景或直接邀约，正文强调好相处和一起玩的氛围，结尾主动发起约球；不要装高手。",
+  "技术宅":"关注杆法、走位、发力或器材等可验证细节。围绕一个具体技术点表达观察和判断，可用少量专业词但要说清楚；结尾邀请交流打法，不要泛泛喊约球。",
+  "吐槽役":"用第一人称吐槽真实球局里的尴尬和反差，短句有节奏，略犀利但不攻击球友或球房；结尾用自嘲或反问邀人一起玩。",
+  "新手求带":"明确是仍在学习的萌新，从困惑、翻车或小进步切入，提出一个具体问题并真诚求带；不冒充高手，不输出权威教学。",
+  "老炮带人":"表现有经验、稳当且愿意带新人，用实战经验给一条具体判断或建议，语气平等不说教；结尾表达可以带局或带练。"
+};
+const LEVEL_GUIDES={
+  "1档":"球技处于入门阶段，可以写失误、困惑和求教，不要使用高手口吻。",
+  "2档":"已有基本功和实战体验，可以表达个人判断，但不要吹嘘水平。",
+  "3档":"经验较丰富，可以谈策略和技术细节，但保持克制，不端着教育别人。"
+};
+const TONE_GUIDES={
+  "口语化":"像发给本地球友的消息，多用自然短句，不写宣传稿。",
+  "略专业":"表达清楚、术语准确，每次只讲一个重点，普通球友也能看懂。",
+  "搞笑自嘲":"用具体反差制造笑点，主要调侃自己，不刻薄别人。"
+};
+function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",tone=document.getElementById(prefix+"Tone").value,theme=document.getElementById(prefix+"Theme").value;return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${TONE_GUIDES[tone]}\n\n【题材】\n${theme}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 文案50-150字，像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带3-5个相关话题标签。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
+function setPromptValue(output,prompt){output.value=prompt;output.dispatchEvent(new Event("input",{bubbles:true}));output.classList.add("prompt-generated");window.setTimeout(()=>output.classList.remove("prompt-generated"),1200)}
+function writeGeneratedPrompt(outputId,prompt,button){const output=document.getElementById(outputId);setPromptValue(output,prompt);output.scrollIntoView({block:"nearest"});button.textContent="已生成";window.setTimeout(()=>button.textContent="生成提示词",1200)}
+function updPrompt(button=document.getElementById("generatePromptButton")){writeGeneratedPrompt("promptView",buildCopyPrompt("g"),button)}
+function refreshPromptFromConfig(prefix,outputId){const output=document.getElementById(outputId);if(output.value.trim())setPromptValue(output,buildCopyPrompt(prefix))}
+function setActionStatus(id,message,state=""){const status=document.getElementById(id);status.textContent=message;status.className="action-status"+(state?" "+state:"")}
+async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim();if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，内容已填入标题和正文","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error")}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
+
+// 批量
+const TAGMAP={"找搭子":"BILLIARDS","球房测评":"REVIEW","新手避坑":"GUIDE","约球吐槽":"RANT","球杆科普":"PRO TIP","技术段位":"RANK","球友日常":"DAILY","赛事战报":"MATCH"};
+function tplOpts(sel){return tpls.map(t=>`<option value="${t.id}"${sel==t.id?' selected':''}>${t.name}</option>`).join("")}
+function bGenPrompt(button=document.getElementById("batchGeneratePromptButton")){writeGeneratedPrompt("bPrompt",buildCopyPrompt("b"),button)}
+async function bGen(btn=document.getElementById("batchGenerateCopyButton")){const promptField=document.getElementById("bPrompt"),prompt=promptField.value.trim();if(!prompt){setActionStatus("batchAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("batchAiStatus","请在桌面应用中使用 AI 生成","error");return}const count=Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10));btn.textContent="生成中...";btn.disabled=true;setActionStatus("batchAiStatus","AI 正在生成 "+count+" 条文案，请稍候");const list=document.getElementById("bList");list.innerHTML="<div class='hint'>AI生成"+count+"条中...</div>";try{const items=await nativeInvoke("generate_batch_copy",{prompt,count});list.innerHTML="<div style='color:var(--accent);font-size:12px;margin-bottom:10px'>生成"+items.length+"条，可编辑后批量渲染</div>";items.forEach((it,i)=>{const d=document.createElement("div");d.className="bi-item";d.style.cssText="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:10px";const h=document.createElement("div");h.style.cssText="font-size:11px;color:var(--accent);margin-bottom:6px";h.textContent="第"+(i+1)+"条";const t=document.createElement("input");t.className="bi-title";t.value=it.title;t.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;margin-bottom:6px";const b=document.createElement("textarea");b.className="bi-body";b.value=it.body;b.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;min-height:60px;margin-bottom:6px;resize:vertical";const g=document.createElement("input");g.className="bi-tags";g.value=it.tags;g.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px";d.appendChild(h);d.appendChild(t);d.appendChild(b);d.appendChild(g);list.appendChild(d)});setActionStatus("batchAiStatus","已生成 "+items.length+" 条文案","success")}catch(e){list.innerHTML="";setActionStatus("batchAiStatus","批量生成失败："+String(e),"error")}finally{btn.textContent="AI生成N条文案";btn.disabled=false}}
+async function bRender(){const items=[...document.querySelectorAll("#bList .bi-item")];if(!items.length){alert("请先生成文案");return}if(!nativeReady){alert("批量渲染仅在桌面应用中可用");return}const tpl=document.getElementById("bTpl").value,ci=parseInt(document.getElementById("bColor").value),theme=document.getElementById("bTheme").value;const reqs=items.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:tpl,num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim()}}).filter(x=>x.title).slice(0,100);const g=document.getElementById("batchGrid");g.innerHTML="";const bar=document.createElement("div");bar.style.cssText="width:100%;background:var(--bg3);border-radius:4px;height:28px;margin-bottom:16px;overflow:hidden;position:relative;position:sticky;top:0;z-index:9";const fill=document.createElement("div");fill.style.cssText="height:100%;background:var(--accent);width:0%;transition:width .3s";const txt=document.createElement("div");txt.style.cssText="position:absolute;top:0;left:0;right:0;text-align:center;line-height:28px;font-size:11px;color:#fff;font-weight:600";txt.textContent=`渲染中 0/${reqs.length}`;bar.appendChild(fill);bar.appendChild(txt);g.appendChild(bar);const removers=[];let failures=[];try{if(nativeListen){removers.push(await nativeListen("job-progress",e=>{const p=e.payload;fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`渲染中 ${p.completed}/${p.total}`}),await nativeListen("job-failed",e=>{const p=e.payload;failures.push(`第${p.completed}张：${p.error}`);fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`已处理 ${p.completed}/${p.total}，失败 ${failures.length}`}),await nativeListen("job-complete",e=>{const p=e.payload;txt.textContent=`完成 ${p.succeeded}/${p.total}`}))}const results=await nativeInvoke("render_batch",{requests:reqs,outputDir:null}),recent=await nativeInvoke("get_render_history");for(const item of recent.slice(0,Math.min(results.length,24))){try{const data=await nativeInvoke("read_history_image",{historyId:item.id});const card=document.createElement("div"),img=document.createElement("img"),open=document.createElement("a");card.className="batch-item";img.src="data:image/png;base64,"+data;img.addEventListener("click",()=>openLightbox(img.src));open.className="dl";open.textContent="目录";open.addEventListener("click",event=>{event.preventDefault();openFolder()});card.appendChild(img);card.appendChild(open);g.appendChild(card)}catch(_){}}fill.style.width="100%";txt.textContent=`完成 ${results.length}/${reqs.length}`;if(failures.length)alert("部分图片渲染失败：\n"+failures.slice(0,5).join("\n"));await loadHistory()}catch(e){txt.textContent="批量渲染失败";alert("批量渲染失败："+e)}finally{removers.forEach(remove=>remove())}}
+
+// 设置
+async function addLib(title,body,tags){try{await nativeInvoke("save_copy_library",{item:{title,body,tags}});await renderLib()}catch(e){alert("文案保存失败："+e)}}
+async function renderLib(){let arr=[];try{arr=await nativeInvoke("get_copy_library")}catch(e){document.getElementById("libList").innerHTML="<div class='hist-empty'>文案库读取失败</div>";return}const el=document.getElementById("libList");if(!arr.length){el.innerHTML="<div class='hist-empty'>AI生成的文案<br>存这里可复用</div>";return}el.innerHTML="";arr.forEach(it=>{const d=document.createElement("div"),title=document.createElement("div"),body=document.createElement("div");d.style.cssText="padding:8px;border:1px solid var(--border);border-radius:4px;margin-bottom:5px;cursor:pointer;font-size:11px;transition:all .15s";title.style.cssText="color:var(--t1);margin-bottom:3px;font-weight:500";body.style.cssText="color:var(--t3);font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis";title.textContent=it.title;body.textContent=it.body;d.appendChild(title);d.appendChild(body);d.addEventListener("mouseenter",()=>d.style.borderColor="var(--accent)");d.addEventListener("mouseleave",()=>d.style.borderColor="var(--border)");d.addEventListener("click",()=>{document.getElementById("title").value=it.title;document.getElementById("bodytxt").value=it.body;document.getElementById("tags").value=it.tags;scheduleRender()});el.appendChild(d)})}
+const API_PRESETS={deepseek:{url:"https://api.deepseek.com/v1/chat/completions",model:"deepseek-chat"},qwen:{url:"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",model:"qwen-plus"},kimi:{url:"https://api.moonshot.cn/v1/chat/completions",model:"moonshot-v1-8k"}};
+function presetAPI(k){const p=API_PRESETS[k];document.getElementById("apiUrl").value=p.url;document.getElementById("apiModel").value=p.model}
+async function saveAPI(){const apiUrl=document.getElementById("apiUrl"),apiKey=document.getElementById("apiKey"),apiModel=document.getElementById("apiModel"),url=apiUrl.value.trim(),key=apiKey.value.trim(),model=apiModel.value.trim();if(!url||!model){alert("请填写API地址和模型");return}try{const settings={api_url:url,api_model:model};if(key)settings.api_key=key;await nativeInvoke("set_settings",{settings});apiKey.value="";await loadSettings();alert(key?"API配置和Key已保存":"API地址和模型已保存")}catch(e){alert("API配置保存失败："+e)}}
+async function saveDir(){const outputDir=document.getElementById("outDir").value.trim();if(!outputDir){alert("请输入路径");return}try{await nativeInvoke("set_settings",{settings:{output_dir:outputDir}});await loadSettings();alert("路径已保存")}catch(e){alert("目录不可用："+e)}}
+async function openFolder(){try{await nativeInvoke("open_output_folder",{path:null})}catch(e){alert("打开目录失败："+e)}}
+function showApiKeyStatus(status,model=""){const dot=document.getElementById("apiDot"),stat=document.getElementById("apiStat"),message=document.getElementById("keyStatus");hasApiKey=status===true;dot.classList.toggle("on",hasApiKey);stat.textContent=hasApiKey?"API: "+model:"API未配置";message.textContent=status===true?"API Key 已安全保存在系统钥匙串":status===false?"尚未配置 API Key":"API Key 状态尚未检查"}
+async function checkApiKeyStatus(btn){btn.disabled=true;btn.textContent="检查中...";try{const configured=await nativeInvoke("get_api_key_status");showApiKeyStatus(configured,document.getElementById("apiModel").value.trim())}catch(e){document.getElementById("keyStatus").textContent="钥匙串检查失败："+e}finally{btn.disabled=false;btn.textContent="检查钥匙串状态"}}
+async function loadSettings(){try{const s=await nativeInvoke("get_settings");let keyStatus=s.api_key_configured;if(typeof keyStatus!=="boolean")try{keyStatus=await nativeInvoke("get_api_key_status")}catch(_){}showApiKeyStatus(keyStatus,s.api_model||"");document.getElementById("statDir").textContent=(s.output_dir||"output").split("/").pop();if(s.api_url)document.getElementById("apiUrl").value=s.api_url;if(s.api_model)document.getElementById("apiModel").value=s.api_model;if(s.output_dir)document.getElementById("outDir").value=s.output_dir}catch(e){document.getElementById("keyStatus").textContent="设置读取失败："+e}}
+function accountRow(account={name:"",region:"斗门",level:"2档",persona:"热情约球型",tone:"口语化",status:"养号中"}){const tr=document.createElement("tr");for(const key of ["name","region","level"]){const td=document.createElement("td"),input=document.createElement("input");input.dataset.key=key;input.value=account[key]||"";td.appendChild(input);tr.appendChild(td)}const td=document.createElement("td"),del=document.createElement("span");del.className="del";del.textContent="×";del.title="删除账号";del.addEventListener("click",()=>tr.remove());td.appendChild(del);tr.appendChild(td);tr.dataset.persona=account.persona||"";tr.dataset.tone=account.tone||"";tr.dataset.status=account.status||"";return tr}
+function addAccount(){document.getElementById("accountRows").appendChild(accountRow())}
+async function loadAccounts(){try{const accounts=await nativeInvoke("get_accounts"),rows=document.getElementById("accountRows");rows.innerHTML="";accounts.forEach(account=>rows.appendChild(accountRow(account)))}catch(e){document.getElementById("accountRows").innerHTML="";document.getElementById("keyStatus").textContent="账号配置读取失败："+e}}
+async function saveAccounts(){const accounts=[...document.querySelectorAll("#accountRows tr")].map(row=>{const data={persona:row.dataset.persona||"热情约球型",tone:row.dataset.tone||"口语化",status:row.dataset.status||"养号中"};row.querySelectorAll("input").forEach(input=>data[input.dataset.key]=input.value.trim());return data}).filter(account=>account.name);try{await nativeInvoke("set_accounts",{accounts});alert("账号配置已保存")}catch(e){alert("账号配置保存失败："+e)}}
+async function migrateLegacy(){try{await nativeInvoke("migrate_legacy");const parsed=JSON.parse(localStorage.getItem("lib")||"[]"),items=Array.isArray(parsed)?parsed:[];await nativeInvoke("migrate_copy_library",{items});localStorage.removeItem("lib")}catch(e){document.getElementById("keyStatus").textContent="旧版数据迁移失败："+String(e)}}
+function bindStaticEvents(){
+  document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",()=>showTab(Number(tab.dataset.tabIndex)));tab.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();tab.click()}})});
+  document.getElementById("tpl").addEventListener("change",scheduleRender);
+  document.getElementById("preset").addEventListener("change",loadPreset);
+  ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));
+  document.getElementById("color1").addEventListener("change",event=>{cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
+  document.getElementById("color2").addEventListener("change",event=>{cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
+  document.getElementById("preview0").addEventListener("click",event=>openLightbox(event.currentTarget.src));
+  document.getElementById("clearHistoryButton").addEventListener("click",clearHist);
+  document.getElementById("saveRenderButton").addEventListener("click",event=>saveRender(event.currentTarget));
+  document.getElementById("generatePromptButton").addEventListener("click",event=>updPrompt(event.currentTarget));
+  document.getElementById("singleGenerateCopyButton").addEventListener("click",event=>aiGen(event.currentTarget));
+  document.getElementById("batchGeneratePromptButton").addEventListener("click",event=>bGenPrompt(event.currentTarget));
+  document.getElementById("batchGenerateCopyButton").addEventListener("click",event=>bGen(event.currentTarget));
+  ["gTheme","gLevel","gPersona","gTone","useEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("g","promptView")));
+  document.getElementById("gRegion").addEventListener("input",()=>refreshPromptFromConfig("g","promptView"));
+  ["bTheme","bLevel","bPersona","bTone","bUseEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("b","bPrompt")));
+  document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
+  document.getElementById("batchRenderButton").addEventListener("click",bRender);
+  document.querySelectorAll(".api-preset-button").forEach(button=>button.addEventListener("click",()=>presetAPI(button.dataset.apiPreset)));
+  document.getElementById("saveApiButton").addEventListener("click",saveAPI);
+  document.getElementById("checkApiKeyButton").addEventListener("click",event=>checkApiKeyStatus(event.currentTarget));
+  document.getElementById("saveDirectoryButton").addEventListener("click",saveDir);
+  document.getElementById("openFolderButton").addEventListener("click",openFolder);
+  document.getElementById("addAccountButton").addEventListener("click",addAccount);
+  document.getElementById("saveAccountsButton").addEventListener("click",saveAccounts);
+  const lightbox=document.getElementById("lightbox"),close=document.getElementById("lightboxClose");
+  lightbox.addEventListener("click",event=>{if(event.target===lightbox||event.target===close)closeLightbox()});
+  close.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();closeLightbox()}});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
+}
+bindStaticEvents();
+if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadAccounts(),loadHistory(),renderLib()]))}else{document.getElementById("keyStatus").textContent="桌面服务不可用";loadHistory()}
+</script></body></html>

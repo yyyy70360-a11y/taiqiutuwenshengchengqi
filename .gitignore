@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Node and frontend dependencies
+node_modules/
+
+# Rust and Tauri build artifacts
+src-tauri/target/
+target/
+
+# Runtime data and local exports
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+output/
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+
+# Bundled artifacts
+*.dmg
+*.app/
+*.pkg

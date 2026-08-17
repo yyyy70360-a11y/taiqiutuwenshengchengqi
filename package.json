@@ -1,0 +1,8 @@
+{
+  "name": "billiards-matrix-tauri",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "tauri": "cargo tauri"
+  }
+}
