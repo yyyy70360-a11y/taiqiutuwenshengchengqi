@@ -1,6 +1,6 @@
 [package]
 name = "billiards_matrix"
-version = "0.1.0"
+version = "0.1.1"
 description = "台球图文生成器"
 authors = ["Billiards Matrix"]
 edition = "2021"
