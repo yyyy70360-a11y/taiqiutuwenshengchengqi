@@ -247,16 +247,65 @@ struct TemplateCapacity {
     tag: usize,
 }
 
+const STANDARD_CAPACITY_TEMPLATES: &[&str] = &[
+    "magazine_pro",
+    "fresh",
+    "journal",
+    "neon",
+    "blueprint",
+    "polaroid",
+    "scoreboard",
+    "classic",
+    "club",
+    "street",
+    "aurora",
+    "espresso",
+    "sunset",
+    "ocean",
+    "rainforest",
+    "chalkboard",
+    "luxury",
+    "arcade",
+    "comic",
+    "paper_cut",
+    "gradient_card",
+    "ink_brush",
+    "tech_hud",
+    "warm_note",
+    "ice",
+    "candy",
+    "carbon",
+    "ceramic",
+    "matchday",
+    "lounge",
+    "diagonal",
+    "retro_tv",
+    "terrazzo",
+    "silk",
+    "desert",
+    "mint",
+    "royal_blue",
+    "darkroom",
+    "data_panel",
+    "sticker_bomb",
+    "prism",
+    "stadium",
+    "typewriter",
+    "zen",
+];
+
 fn template_capacity(template: Option<&str>) -> TemplateCapacity {
-    match template.unwrap_or("magazine").trim() {
-        "magazine_pro" | "fresh" | "journal" | "neon" | "blueprint" | "polaroid" | "scoreboard"
-        | "classic" | "club" | "street" => TemplateCapacity {
+    let template = template.unwrap_or("magazine").trim();
+    if STANDARD_CAPACITY_TEMPLATES.contains(&template) {
+        return TemplateCapacity {
             title: 30,
             body: 112,
             body_lines: 7,
             tags: 3,
             tag: 12,
-        },
+        };
+    }
+    match template {
         "minimal" | "newspaper" | "vaporwave" | "mono" => TemplateCapacity {
             title: 30,
             body: 136,
@@ -468,16 +517,8 @@ mod tests {
 
     #[test]
     fn new_template_capacities_are_recognized() {
-        for template in [
-            "neon",
-            "blueprint",
-            "polaroid",
-            "scoreboard",
-            "classic",
-            "club",
-            "street",
-        ] {
-            let capacity = template_capacity(Some(template));
+        for template in STANDARD_CAPACITY_TEMPLATES {
+            let capacity = template_capacity(Some(*template));
             assert_eq!(capacity.body, 112);
             assert_eq!(capacity.body_lines, 7);
         }

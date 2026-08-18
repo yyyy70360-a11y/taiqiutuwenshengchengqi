@@ -37,7 +37,53 @@ fn font_database() -> Arc<fontdb::Database> {
         .clone()
 }
 
+const GENERATED_TEMPLATE_IDS: &[&str] = &[
+    "aurora",
+    "espresso",
+    "sunset",
+    "ocean",
+    "rainforest",
+    "chalkboard",
+    "luxury",
+    "arcade",
+    "comic",
+    "paper_cut",
+    "gradient_card",
+    "ink_brush",
+    "tech_hud",
+    "warm_note",
+    "ice",
+    "candy",
+    "carbon",
+    "ceramic",
+    "matchday",
+    "lounge",
+    "diagonal",
+    "retro_tv",
+    "terrazzo",
+    "silk",
+    "desert",
+    "mint",
+    "royal_blue",
+    "darkroom",
+    "data_panel",
+    "sticker_bomb",
+    "prism",
+    "stadium",
+    "typewriter",
+    "zen",
+];
+
+fn generated_template_seed(template: &str) -> Option<usize> {
+    GENERATED_TEMPLATE_IDS
+        .iter()
+        .position(|candidate| *candidate == template)
+}
+
 pub fn svg_for(request: &RenderRequest) -> String {
+    if let Some(seed) = generated_template_seed(request.template.as_str()) {
+        return designed_template(request, seed);
+    }
     match request.template.as_str() {
         "fresh" => fresh(request),
         "minimal" => minimal(request),
@@ -717,6 +763,525 @@ fn street(request: &RenderRequest) -> String {
     )
 }
 
+#[derive(Clone, Copy)]
+struct DesignerPalette {
+    bg1: &'static str,
+    bg2: &'static str,
+    surface: &'static str,
+    text: &'static str,
+    body: &'static str,
+    muted: &'static str,
+    accent: &'static str,
+    title_family: &'static str,
+    body_family: &'static str,
+}
+
+const GENERATED_PALETTES: &[DesignerPalette] = &[
+    DesignerPalette {
+        bg1: "#071629",
+        bg2: "#2945A8",
+        surface: "#101E3A",
+        text: "#F8FEFF",
+        body: "#DBF8FF",
+        muted: "#9ADFFF",
+        accent: "#76FFD8",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#2A1710",
+        bg2: "#8B5E34",
+        surface: "#FFF2DD",
+        text: "#2C1B12",
+        body: "#4C3425",
+        muted: "#9A6B45",
+        accent: "#C98D4E",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#FF7A59",
+        bg2: "#5A2A62",
+        surface: "#FFF4E8",
+        text: "#301B2F",
+        body: "#59314C",
+        muted: "#95616D",
+        accent: "#FF4E7A",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#06283D",
+        bg2: "#47B5FF",
+        surface: "#EAF8FF",
+        text: "#06283D",
+        body: "#17455E",
+        muted: "#5E91A8",
+        accent: "#00A8E8",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#083B25",
+        bg2: "#7FB069",
+        surface: "#F1F8E9",
+        text: "#14351F",
+        body: "#29492F",
+        muted: "#6B8A61",
+        accent: "#E7B10A",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#111C17",
+        bg2: "#2E7D50",
+        surface: "#16251D",
+        text: "#F3FFE8",
+        body: "#DCEFCF",
+        muted: "#A5C59A",
+        accent: "#E5C07B",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#080808",
+        bg2: "#4A3212",
+        surface: "#121212",
+        text: "#F8E8B6",
+        body: "#E7D39A",
+        muted: "#AA8848",
+        accent: "#D6AF52",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#17112E",
+        bg2: "#FF006E",
+        surface: "#111026",
+        text: "#FFFFFF",
+        body: "#D8D2FF",
+        muted: "#99F7FF",
+        accent: "#FFBE0B",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#FCE761",
+        bg2: "#FF595E",
+        surface: "#FFF9D8",
+        text: "#1D1D1B",
+        body: "#333333",
+        muted: "#6F4A00",
+        accent: "#1982C4",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#F6E7D8",
+        bg2: "#E36F5A",
+        surface: "#FFFDF7",
+        text: "#3A2E2A",
+        body: "#5E4840",
+        muted: "#A5796B",
+        accent: "#2F9C95",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#4E54C8",
+        bg2: "#8F94FB",
+        surface: "#FFFFFF",
+        text: "#171A3A",
+        body: "#36395C",
+        muted: "#7C80BA",
+        accent: "#FF7A59",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#F6F3EA",
+        bg2: "#DAD3C1",
+        surface: "#FFFDF6",
+        text: "#181815",
+        body: "#33322C",
+        muted: "#8B826D",
+        accent: "#111111",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#031B2D",
+        bg2: "#005F73",
+        surface: "#062437",
+        text: "#EAFBFF",
+        body: "#BDEAF5",
+        muted: "#75C7D8",
+        accent: "#94D2BD",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#F4B860",
+        bg2: "#FFF6D6",
+        surface: "#FFF9E8",
+        text: "#3B2B1B",
+        body: "#604322",
+        muted: "#9C7B45",
+        accent: "#E76F51",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#DFF7FF",
+        bg2: "#7CC7E8",
+        surface: "#F8FDFF",
+        text: "#073B4C",
+        body: "#21596B",
+        muted: "#6A9BAD",
+        accent: "#118AB2",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#FFB3C1",
+        bg2: "#FFD6A5",
+        surface: "#FFF5F7",
+        text: "#4A2030",
+        body: "#704355",
+        muted: "#B36A82",
+        accent: "#FF477E",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#0B0D10",
+        bg2: "#2B3038",
+        surface: "#15191F",
+        text: "#F5F7FA",
+        body: "#C8D0D8",
+        muted: "#8A94A0",
+        accent: "#E63946",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#F8F4EA",
+        bg2: "#D8C3A5",
+        surface: "#FFFCF5",
+        text: "#2F2A22",
+        body: "#544B3D",
+        muted: "#9A8D78",
+        accent: "#7A5C3A",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#06101F",
+        bg2: "#D7263D",
+        surface: "#0C182A",
+        text: "#FFFFFF",
+        body: "#DEE8F8",
+        muted: "#98A8BF",
+        accent: "#FBB13C",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#32213A",
+        bg2: "#667761",
+        surface: "#F4EFE6",
+        text: "#2D2432",
+        body: "#4F4157",
+        muted: "#89788E",
+        accent: "#A26769",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#0B132B",
+        bg2: "#FF5A5F",
+        surface: "#F7F7FF",
+        text: "#10162F",
+        body: "#333D5B",
+        muted: "#7A86A5",
+        accent: "#FF5A5F",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#2D132C",
+        bg2: "#801336",
+        surface: "#190B1A",
+        text: "#FFEDE8",
+        body: "#F2C7BD",
+        muted: "#C58E84",
+        accent: "#EE4540",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#EFE7DA",
+        bg2: "#C2B8A3",
+        surface: "#FAF7F0",
+        text: "#2B2B2B",
+        body: "#515151",
+        muted: "#8D8372",
+        accent: "#6A994E",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#3A0CA3",
+        bg2: "#F72585",
+        surface: "#F7F1FF",
+        text: "#261447",
+        body: "#513B72",
+        muted: "#8E77AD",
+        accent: "#4CC9F0",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#C97B45",
+        bg2: "#F2D8A7",
+        surface: "#FFF6E4",
+        text: "#3A2416",
+        body: "#5E3E27",
+        muted: "#A87547",
+        accent: "#9C6644",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#B7E4C7",
+        bg2: "#52B788",
+        surface: "#F3FFF8",
+        text: "#123524",
+        body: "#2D533E",
+        muted: "#68A681",
+        accent: "#40916C",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#061A40",
+        bg2: "#0353A4",
+        surface: "#071D49",
+        text: "#F4F8FF",
+        body: "#C9DAF8",
+        muted: "#88A7D6",
+        accent: "#E6B800",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#0C0B0B",
+        bg2: "#3D2C2E",
+        surface: "#161313",
+        text: "#F6F1E8",
+        body: "#D8CBBE",
+        muted: "#9C8A7E",
+        accent: "#C77D3A",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#02111B",
+        bg2: "#064789",
+        surface: "#061A2B",
+        text: "#E7F6FF",
+        body: "#B7DAEE",
+        muted: "#6EA4C4",
+        accent: "#F4D35E",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#FFCFD2",
+        bg2: "#B8E0D2",
+        surface: "#FFFDFB",
+        text: "#2C2C34",
+        body: "#55515E",
+        muted: "#948FA0",
+        accent: "#FF6B6B",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#1B1F3B",
+        bg2: "#533A7B",
+        surface: "#F9F7FF",
+        text: "#17172A",
+        body: "#3C3A54",
+        muted: "#817A9E",
+        accent: "#00B4D8",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#03120E",
+        bg2: "#14532D",
+        surface: "#081C15",
+        text: "#F0FFF4",
+        body: "#CEEED8",
+        muted: "#8BC7A0",
+        accent: "#B7E4C7",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+    DesignerPalette {
+        bg1: "#F2E8CF",
+        bg2: "#BC6C25",
+        surface: "#FFFDF6",
+        text: "#2B2118",
+        body: "#4D3A2C",
+        muted: "#9C7A58",
+        accent: "#5F3DC4",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+    },
+    DesignerPalette {
+        bg1: "#F7F4EA",
+        bg2: "#D7E3C8",
+        surface: "#FCFBF3",
+        text: "#22251F",
+        body: "#4A5141",
+        muted: "#84906E",
+        accent: "#6C8A4D",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+    },
+];
+
+fn designed_template(request: &RenderRequest, seed: usize) -> String {
+    let palette = GENERATED_PALETTES[seed % GENERATED_PALETTES.len()];
+    let g1 = palette.bg1;
+    let g2 = palette.bg2;
+    let accent = palette.accent;
+    let content_x = [92, 108, 124, 140, 82, 118][seed % 6];
+    let content_right = 1080 - content_x;
+    let title_size = [68, 72, 76, 80, 74, 70][seed % 6];
+    let body_size = [42, 44, 46, 48, 43, 45][seed % 6];
+    let title_y = [500, 530, 560, 590, 515, 545][seed % 6];
+    let body_max_y = [1390, 1420, 1450, 1480, 1410, 1465][seed % 6];
+    let title_weight = if seed % 3 == 0 { 900 } else { 800 };
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, title_size),
+        3,
+        title_size,
+        content_x,
+        title_y,
+        palette.text,
+        palette.title_family,
+        title_weight,
+        1.2,
+    );
+    let line_y = title_last_y + [42, 48, 54, 60][seed % 4];
+    let body_y = line_y + [76, 88, 96, 108][seed % 4];
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, body_size),
+        body_size,
+        content_x,
+        body_y,
+        body_max_y,
+        palette.body,
+        palette.body_family,
+        if seed % 5 == 0 { 500 } else { 400 },
+        [1.54, 1.58, 1.62, 1.66][seed % 4],
+    );
+    let tag_y = body_max_y + [112, 126, 140, 154][seed % 4];
+    let tags = if seed % 4 == 0 {
+        tag_pills(&request.tags, accent, content_x, content_right, tag_y)
+    } else {
+        tag_lines(
+            &request.tags,
+            content_x,
+            content_right,
+            tag_y,
+            palette.muted,
+            28,
+        )
+    };
+    let background = designer_background(seed, g1, g2, accent);
+    let card = designer_card(seed, palette, accent);
+    let header = designer_header(seed, request, content_x, content_right, palette, accent);
+    let divider = designer_divider(seed, content_x, content_right, line_y, palette, accent);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>{background}{card}{header}{title}{divider}{body}{tags}</svg>"
+    )
+}
+
+fn designer_background(seed: usize, g1: &str, g2: &str, accent: &str) -> String {
+    let defs = format!(
+        "<defs><linearGradient id='designer-bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><pattern id='designer-dot' width='54' height='54' patternUnits='userSpaceOnUse'><circle cx='8' cy='8' r='3' fill='{accent}' opacity='.28'/></pattern><pattern id='designer-grid' width='72' height='72' patternUnits='userSpaceOnUse'><path d='M72 0H0V72' fill='none' stroke='{accent}' stroke-opacity='.16'/></pattern><filter id='designer-blur'><feGaussianBlur stdDeviation='28'/></filter></defs>"
+    );
+    let motif = match seed % 10 {
+        0 => format!("<circle cx='160' cy='220' r='310' fill='{accent}' opacity='.28' filter='url(#designer-blur)'/><circle cx='940' cy='1660' r='360' fill='{g2}' opacity='.28' filter='url(#designer-blur)'/>"),
+        1 => format!("<rect x='0' y='0' width='1080' height='1920' fill='url(#designer-dot)'/><circle cx='880' cy='300' r='170' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-width='24'/>"),
+        2 => format!("<path d='M-80 500L1160 180L1160 430L-80 760Z' fill='{accent}' opacity='.24'/><path d='M-40 1540L1120 1220L1120 1460L-40 1780Z' fill='{g1}' opacity='.25'/>"),
+        3 => format!("<rect width='1080' height='1920' fill='url(#designer-grid)'/><path d='M70 420H1010M70 760H1010M70 1100H1010M70 1440H1010' stroke='{accent}' stroke-opacity='.12'/>"),
+        4 => format!("<path d='M0 0H1080V380Q780 530 540 390T0 470Z' fill='{accent}' opacity='.22'/><path d='M0 1600Q320 1470 540 1635T1080 1520V1920H0Z' fill='{g2}' opacity='.26'/>"),
+        5 => format!("<path d='M120 220C360 100 560 360 800 210S1120 270 1160 180' fill='none' stroke='{accent}' stroke-opacity='.34' stroke-width='18'/><path d='M-60 1640C240 1450 520 1700 760 1530S1080 1540 1160 1430' fill='none' stroke='{g1}' stroke-opacity='.28' stroke-width='20'/>"),
+        6 => format!("<rect x='0' y='0' width='1080' height='520' fill='{accent}' opacity='.34'/><rect x='0' y='1400' width='1080' height='520' fill='{g2}' opacity='.34'/>"),
+        7 => format!("<circle cx='540' cy='360' r='190' fill='{accent}' opacity='.30'/><path d='M300 330H780M280 395H800M330 460H750' stroke='{g1}' stroke-width='16' opacity='.36'/>"),
+        8 => format!("<path d='M0 280L1080 100V0H0Z' fill='{accent}' opacity='.30'/><path d='M0 1920H1080V1540L0 1740Z' fill='{g2}' opacity='.30'/><rect width='1080' height='1920' fill='url(#designer-dot)' opacity='.35'/>"),
+        _ => format!("<rect width='1080' height='1920' fill='url(#designer-grid)' opacity='.65'/><circle cx='120' cy='1560' r='210' fill='{accent}' opacity='.22'/><circle cx='980' cy='340' r='250' fill='{g1}' opacity='.18'/>"),
+    };
+    format!("{defs}<rect width='100%' height='100%' fill='url(#designer-bg)'/>{motif}")
+}
+
+fn designer_card(seed: usize, palette: DesignerPalette, accent: &str) -> String {
+    match seed % 8 {
+        0 => format!("<rect x='66' y='230' width='948' height='1460' rx='42' fill='{surface}' opacity='.94'/><rect x='86' y='250' width='908' height='1420' rx='34' fill='none' stroke='{accent}' stroke-opacity='.36' stroke-width='3'/>", surface = palette.surface),
+        1 => format!("<rect x='88' y='250' width='904' height='1398' rx='20' fill='{surface}' opacity='.96'/><rect x='116' y='278' width='848' height='1342' rx='12' fill='none' stroke='{accent}' stroke-opacity='.22'/>", surface = palette.surface),
+        2 => format!("<rect x='56' y='216' width='968' height='1500' rx='0' fill='{surface}' opacity='.93'/><line x1='82' y1='242' x2='998' y2='242' stroke='{accent}' stroke-width='4'/><line x1='82' y1='1690' x2='998' y2='1690' stroke='{accent}' stroke-width='4'/>", surface = palette.surface),
+        3 => format!("<rect x='102' y='276' width='876' height='1330' rx='34' fill='{surface}' opacity='.95'/><rect x='74' y='248' width='876' height='1330' rx='34' fill='none' stroke='{accent}' stroke-width='3' stroke-opacity='.28'/>", surface = palette.surface),
+        4 => format!("<rect x='0' y='0' width='1080' height='1920' fill='{surface}' opacity='.90'/><rect x='70' y='230' width='940' height='1460' rx='26' fill='none' stroke='{accent}' stroke-opacity='.30' stroke-width='3'/>", surface = palette.surface),
+        5 => format!("<g transform='rotate(-2 540 960)'><rect x='92' y='262' width='896' height='1370' rx='28' fill='{surface}' opacity='.94'/></g><rect x='118' y='288' width='844' height='1318' rx='18' fill='none' stroke='{accent}' stroke-opacity='.26'/>", surface = palette.surface),
+        6 => format!("<rect x='60' y='220' width='960' height='1480' rx='44' fill='{surface}' opacity='.92'/><rect x='60' y='220' width='190' height='1480' rx='44' fill='{accent}' opacity='.16'/>", surface = palette.surface),
+        _ => format!("<rect x='76' y='238' width='928' height='1444' rx='18' fill='{surface}' opacity='.95'/><path d='M76 470H1004M76 1450H1004' stroke='{accent}' stroke-opacity='.22' stroke-width='2'/>", surface = palette.surface),
+    }
+}
+
+fn designer_header(
+    seed: usize,
+    request: &RenderRequest,
+    content_x: u32,
+    content_right: u32,
+    palette: DesignerPalette,
+    accent: &str,
+) -> String {
+    let num = xml(&request.num);
+    let tag = xml(&request.tag);
+    match seed % 6 {
+        0 => format!("<text x='{content_x}' y='370' fill='{accent}' font-size='30' font-weight='700' letter-spacing='7' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='382' text-anchor='end' fill='{text}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", text = palette.text),
+        1 => format!("<rect x='{content_x}' y='326' width='260' height='62' rx='31' fill='{accent}' opacity='.92'/><text x='{label_x}' y='367' fill='{surface}' font-size='26' font-weight='700' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='374' text-anchor='end' fill='{accent}' font-size='46' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", label_x = content_x + 28, surface = palette.surface),
+        2 => format!("<text x='540' y='356' text-anchor='middle' fill='{accent}' font-size='28' font-weight='700' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='540' y='430' text-anchor='middle' fill='{text}' font-size='58' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", text = palette.text),
+        3 => format!("<text x='{content_x}' y='360' fill='{muted}' font-size='26' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><circle cx='{circle_x}' cy='354' r='42' fill='none' stroke='{accent}' stroke-width='4'/><text x='{circle_x}' y='372' text-anchor='middle' fill='{accent}' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", circle_x = content_right - 42, muted = palette.muted),
+        4 => format!("<line x1='{content_x}' y1='350' x2='{line_end}' y2='350' stroke='{accent}' stroke-width='4'/><text x='{content_x}' y='400' fill='{muted}' font-size='24' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='400' text-anchor='end' fill='{accent}' font-size='48' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", line_end = content_x + 260, muted = palette.muted),
+        _ => format!("<text x='{content_x}' y='365' fill='{accent}' font-size='24' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><rect x='{rect_x}' y='320' width='112' height='76' rx='16' fill='{accent}' opacity='.18'/><text x='{content_right}' y='374' text-anchor='end' fill='{text}' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", rect_x = content_right - 112, text = palette.text),
+    }
+}
+
+fn designer_divider(
+    seed: usize,
+    content_x: u32,
+    content_right: u32,
+    line_y: u32,
+    palette: DesignerPalette,
+    accent: &str,
+) -> String {
+    match seed % 5 {
+        0 => format!("<rect x='{content_x}' y='{line_y}' width='150' height='7' rx='3' fill='{accent}'/>"),
+        1 => format!("<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{accent}' stroke-opacity='.42' stroke-width='2' stroke-dasharray='16 12'/>"),
+        2 => format!("<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{muted}' stroke-opacity='.42'/><circle cx='{content_x}' cy='{line_y}' r='6' fill='{accent}'/><circle cx='{content_right}' cy='{line_y}' r='6' fill='{accent}'/>", muted = palette.muted),
+        3 => format!("<path d='M{content_x} {line_y}H{mid}L{mid2} {line_y}H{content_right}' stroke='{accent}' stroke-width='4' fill='none'/>", mid = content_x + 180, mid2 = content_x + 240),
+        _ => format!("<rect x='{content_x}' y='{line_y}' width='{width}' height='2' fill='{muted}' opacity='.42'/><rect x='{content_x}' y='{bar_y}' width='90' height='8' rx='4' fill='{accent}'/>", width = content_right - content_x, bar_y = line_y - 3, muted = palette.muted),
+    }
+}
+
 struct Colors {
     g1: String,
     g2: String,
@@ -1044,6 +1609,40 @@ mod tests {
         "mono",
         "club",
         "street",
+        "aurora",
+        "espresso",
+        "sunset",
+        "ocean",
+        "rainforest",
+        "chalkboard",
+        "luxury",
+        "arcade",
+        "comic",
+        "paper_cut",
+        "gradient_card",
+        "ink_brush",
+        "tech_hud",
+        "warm_note",
+        "ice",
+        "candy",
+        "carbon",
+        "ceramic",
+        "matchday",
+        "lounge",
+        "diagonal",
+        "retro_tv",
+        "terrazzo",
+        "silk",
+        "desert",
+        "mint",
+        "royal_blue",
+        "darkroom",
+        "data_panel",
+        "sticker_bomb",
+        "prism",
+        "stadium",
+        "typewriter",
+        "zen",
     ];
 
     fn fnv1a(bytes: &[u8]) -> u64 {
@@ -1173,6 +1772,40 @@ mod tests {
             405_228_027_209_619_123,
             13_636_155_439_905_564_751,
             10_651_597_118_353_426_562,
+            13_047_415_745_521_056_090,
+            425_179_590_397_066_224,
+            18_253_373_370_898_788_892,
+            11_216_347_276_862_073_211,
+            13_730_218_183_808_770_834,
+            6_430_787_066_683_608_935,
+            3_234_824_405_208_935_073,
+            18_187_517_618_597_569_123,
+            1_805_943_929_175_856_004,
+            12_996_206_187_188_395_826,
+            5_569_554_980_941_469_596,
+            13_162_614_678_469_734_302,
+            15_852_542_926_123_123_017,
+            18_339_905_956_085_081_110,
+            8_775_783_983_319_563_219,
+            11_199_509_825_177_981_171,
+            4_356_646_044_146_357_423,
+            16_321_755_061_417_390_432,
+            18_372_474_689_725_090_887,
+            6_741_746_859_477_128_882,
+            14_859_183_518_072_843_950,
+            10_117_094_781_850_269_608,
+            4_824_968_417_762_490_383,
+            12_074_108_589_338_291_216,
+            14_523_749_511_889_669_713,
+            4_440_718_292_068_059_524,
+            16_069_936_373_001_067_402,
+            2_272_785_499_300_880_258,
+            4_293_071_393_310_320_814,
+            849_866_747_646_345_396,
+            5_244_810_571_438_347_945,
+            11_113_663_352_077_584_739,
+            15_611_396_146_798_677_209,
+            9_296_320_271_288_400_569,
         ];
         let actual = ALL_TEMPLATES
             .iter()
