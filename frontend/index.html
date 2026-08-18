@@ -380,6 +380,7 @@ async function loadAccounts(){try{const accounts=await nativeInvoke("get_account
 async function saveAccounts(){try{await nativeInvoke("set_accounts",{accounts:collectAccounts()});alert("账号配置已保存")}catch(e){alert("账号配置保存失败："+e)}}
 async function migrateLegacy(){try{await nativeInvoke("migrate_legacy");const parsed=JSON.parse(localStorage.getItem("lib")||"[]"),items=Array.isArray(parsed)?parsed:[];await nativeInvoke("migrate_copy_library",{items});localStorage.removeItem("lib")}catch(e){setActionStatus("cloudStatus","旧版数据迁移失败："+String(e),"error")}}
 function bindStaticEvents(){
+  populateToneSelects();
   document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",()=>showTab(Number(tab.dataset.tabIndex)));tab.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();tab.click()}})});
   document.getElementById("tpl").addEventListener("change",()=>{scheduleRender();refreshPromptFromConfig("g","promptView")});
   document.getElementById("preset").addEventListener("change",loadPreset);
