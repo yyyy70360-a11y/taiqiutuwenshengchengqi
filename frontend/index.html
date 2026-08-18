@@ -66,9 +66,11 @@ button.sec:disabled:hover{background:var(--bg3);border-color:var(--border)}
 .hint{color:var(--t3);font-size:12px;text-align:center;line-height:1.7}
 .sect{font-size:10px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
 .render-badge{position:absolute;top:16px;left:16px;background:rgba(38,128,235,.92);color:#fff;font-size:10px;padding:4px 10px;border-radius:3px;display:none;z-index:5;font-weight:500}
-.hist-h{font-size:10px;color:var(--t2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
-.hist-clear{float:right;width:auto;padding:0;background:none;border:0;color:var(--t3);font-size:10px;font-weight:500}
-.hist-clear:hover{background:none;border:0;color:var(--t1)}
+.hist-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--t2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.hist-clear{flex:0 0 auto;width:auto;min-width:44px;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;color:var(--t2);font-size:10px;font-weight:600;line-height:1.2;position:relative;z-index:2}
+.hist-clear:hover{background:var(--bg4);border-color:var(--border2);color:var(--t1)}
+.hist-status{min-height:14px;margin:-4px 0 8px;font-size:10px;color:var(--t3);line-height:1.4}
+.hist-status.success{color:#4ADE80}.hist-status.error{color:#FF8855}
 .hist-item{width:100%;margin-bottom:8px;border-radius:4px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .15s}
 .hist-item:hover{border-color:var(--accent)}
 .hist-item img{width:100%;display:block}
@@ -161,7 +163,8 @@ td textarea{min-height:48px;resize:vertical}
     <img class="preview" id="preview0" style="display:none" alt="当前图文预览">
   </div>
   <div class="col-r">
-    <div class="hist-h">渲染历史 <button id="clearHistoryButton" type="button" class="hist-clear">清空</button></div>
+    <div class="hist-h"><span>渲染历史</span><button id="clearHistoryButton" type="button" class="hist-clear">清空</button></div>
+    <div id="historyStatus" class="hist-status" aria-live="polite"></div>
     <div id="histList"><div class="hist-empty">暂无历史<br>改参数自动预览</div></div>
     <div class="hist-h" style="margin-top:18px">文案库</div>
     <div id="libList"><div class="hist-empty">AI生成的文案<br>存这里可复用</div></div>
@@ -255,7 +258,7 @@ function loadPreset(){const p=presets[document.getElementById("preset").value];i
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
 async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
 async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
-async function clearHist(){if(!nativeReady||!confirm("清空历史记录？已保存的图片文件不会删除。"))return;try{await nativeInvoke("clear_render_history");histArr=[];await loadHistory()}catch(e){alert("清空历史失败："+e)}}
+async function clearHist(){const status=document.getElementById("historyStatus");if(!nativeReady){if(status){status.textContent="请在桌面应用中清空历史";status.className="hist-status error"}return}if(!confirm("清空历史记录？已保存的图片文件不会删除。"))return;try{await nativeInvoke("clear_render_history");histArr=[];await loadHistory();if(status){status.textContent="历史已清空，图片文件不会删除";status.className="hist-status success"}}catch(e){if(status){status.textContent="清空历史失败："+String(e);status.className="hist-status error"}else alert("清空历史失败："+e)}}
 async function saveRender(btn){const readyText=btn.dataset.readyText||btn.textContent||"保存到文件夹",b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title.trim()){alert("请先生成或填写标题");return}btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent=readyText},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent=readyText}}
 
 // AI生成
