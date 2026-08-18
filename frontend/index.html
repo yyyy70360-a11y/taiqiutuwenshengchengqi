@@ -285,7 +285,17 @@ const TEMPLATE_CAPACITY={
   fresh:{title:30,body:112,bodyLines:7,tags:3,tag:12},
   minimal:{title:30,body:136,bodyLines:8,tags:3,tag:12},
   poster:{title:30,body:144,bodyLines:8,tags:3,tag:12},
-  journal:{title:30,body:112,bodyLines:7,tags:3,tag:12}
+  journal:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  neon:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  newspaper:{title:30,body:136,bodyLines:8,tags:3,tag:12},
+  blueprint:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  polaroid:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  scoreboard:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  vaporwave:{title:30,body:136,bodyLines:8,tags:3,tag:12},
+  classic:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  mono:{title:30,body:136,bodyLines:8,tags:3,tag:12},
+  club:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  street:{title:30,body:112,bodyLines:7,tags:3,tag:12}
 };
 function templateCapacity(id){return TEMPLATE_CAPACITY[id]||TEMPLATE_CAPACITY.magazine}
 function templateName(id){return tpls.find(t=>t.id===id)?.name||id||"默认模板"}

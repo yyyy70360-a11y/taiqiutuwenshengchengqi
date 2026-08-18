@@ -249,14 +249,15 @@ struct TemplateCapacity {
 
 fn template_capacity(template: Option<&str>) -> TemplateCapacity {
     match template.unwrap_or("magazine").trim() {
-        "magazine_pro" | "fresh" | "journal" => TemplateCapacity {
+        "magazine_pro" | "fresh" | "journal" | "neon" | "blueprint" | "polaroid" | "scoreboard"
+        | "classic" | "club" | "street" => TemplateCapacity {
             title: 30,
             body: 112,
             body_lines: 7,
             tags: 3,
             tag: 12,
         },
-        "minimal" => TemplateCapacity {
+        "minimal" | "newspaper" | "vaporwave" | "mono" => TemplateCapacity {
             title: 30,
             body: 136,
             body_lines: 8,
@@ -463,6 +464,28 @@ mod tests {
         let poster_capacity = template_capacity(Some("poster"));
         assert!(poster_capacity.body > magazine_capacity.body);
         assert!(poster_capacity.body_lines > magazine_capacity.body_lines);
+    }
+
+    #[test]
+    fn new_template_capacities_are_recognized() {
+        for template in [
+            "neon",
+            "blueprint",
+            "polaroid",
+            "scoreboard",
+            "classic",
+            "club",
+            "street",
+        ] {
+            let capacity = template_capacity(Some(template));
+            assert_eq!(capacity.body, 112);
+            assert_eq!(capacity.body_lines, 7);
+        }
+        for template in ["newspaper", "vaporwave", "mono"] {
+            let capacity = template_capacity(Some(template));
+            assert_eq!(capacity.body, 136);
+            assert_eq!(capacity.body_lines, 8);
+        }
     }
 
     #[test]

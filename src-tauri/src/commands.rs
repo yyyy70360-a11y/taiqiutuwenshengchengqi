@@ -23,6 +23,16 @@ const TEMPLATES: &[(&str, &str)] = &[
     ("minimal", "极简留白风"),
     ("poster", "深色海报风"),
     ("journal", "手账贴纸风"),
+    ("neon", "霓虹赛博风"),
+    ("newspaper", "报纸专栏风"),
+    ("blueprint", "蓝图技术风"),
+    ("polaroid", "拍立得照片风"),
+    ("scoreboard", "记分牌竞技风"),
+    ("vaporwave", "蒸汽波渐变风"),
+    ("classic", "经典牌匾风"),
+    ("mono", "黑白极简风"),
+    ("club", "球房夜场风"),
+    ("street", "街头涂鸦风"),
 ];
 
 static LAST_FILE_STAMP: AtomicU64 = AtomicU64::new(0);

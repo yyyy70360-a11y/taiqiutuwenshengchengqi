@@ -43,6 +43,16 @@ pub fn svg_for(request: &RenderRequest) -> String {
         "minimal" => minimal(request),
         "poster" => poster(request),
         "journal" => journal(request),
+        "neon" => neon(request),
+        "newspaper" => newspaper(request),
+        "blueprint" => blueprint(request),
+        "polaroid" => polaroid(request),
+        "scoreboard" => scoreboard(request),
+        "vaporwave" => vaporwave(request),
+        "classic" => classic(request),
+        "mono" => mono(request),
+        "club" => club(request),
+        "street" => street(request),
         "magazine_pro" => magazine_pro(request),
         _ => magazine(request),
     }
@@ -288,6 +298,422 @@ fn journal(request: &RenderRequest) -> String {
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#F5EFE0'/><path d='M0 500H1080M0 580H1080M0 660H1080M0 740H1080M0 820H1080M0 900H1080M0 980H1080M0 1060H1080M0 1140H1080M0 1220H1080M0 1300H1080M0 1380H1080' stroke='#8A6A3A' stroke-opacity='.08'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='28' fill='#FFFBF0'/><rect x='61' y='221' width='958' height='1478' rx='27' fill='none' stroke='{accent}' stroke-opacity='.2' stroke-width='2'/><rect x='460' y='200' width='160' height='44' rx='4' fill='{accent}' opacity='.35'/><text x='{content_x}' y='390' fill='{accent}' font-size='32' font-weight='600' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><line x1='{content_x}' y1='415' x2='360' y2='415' stroke='{accent}' stroke-width='3'/>{title}{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='{accent}' stroke-opacity='.18'/>{tags}</svg>",
         accent = colors.accent, tag = xml(&request.tag)
+    )
+}
+
+fn neon(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 108;
+    let content_right = 972;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 76),
+        3,
+        76,
+        content_x,
+        520,
+        "#F7FBFF",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.2,
+    );
+    let body_y = title_last_y + 118;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1400,
+        "#D7F7FF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.62,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1535, "#FFEB7A", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
+        <defs><linearGradient id='neon-bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#090A1A'/><stop offset='.52' stop-color='#171139'/><stop offset='1' stop-color='#061C2C'/></linearGradient><filter id='neon-glow'><feGaussianBlur stdDeviation='10'/></filter></defs>
+        <rect width='100%' height='100%' fill='url(#neon-bg)'/>
+        <path d='M0 320H1080M0 520H1080M0 720H1080M0 920H1080M0 1120H1080M0 1320H1080M0 1520H1080' stroke='{g1}' stroke-opacity='.12'/><path d='M120 0V1920M320 0V1920M520 0V1920M720 0V1920M920 0V1920' stroke='{g2}' stroke-opacity='.10'/>
+        <rect x='70' y='230' width='940' height='1450' rx='34' fill='#0C1026' stroke='{g1}' stroke-width='3'/><rect x='72' y='232' width='936' height='1446' rx='32' fill='none' stroke='{g2}' stroke-width='2' opacity='.7' filter='url(#neon-glow)'/>
+        <text x='{content_x}' y='392' fill='{g2}' font-size='36' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='{g1}' font-size='70' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
+        {title}<line x1='{content_x}' y='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{g2}' stroke-width='2' opacity='.55'/>{body}{tags}
+        </svg>",
+        g1 = colors.g1,
+        g2 = colors.g2,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 52
+    )
+}
+
+fn newspaper(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 92;
+    let content_right = 988;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 72),
+        3,
+        72,
+        content_x,
+        500,
+        "#1B1B18",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.18,
+    );
+    let body_y = title_last_y + 104;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 42),
+        42,
+        content_x,
+        body_y,
+        1450,
+        "#2D2A24",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        400,
+        1.58,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1585, "#686050", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
+        <rect width='100%' height='100%' fill='#E7DDC8'/><path d='M0 0H1080V1920H0Z' fill='#F5EEDC'/><path d='M80 210H1000V1710H80Z' fill='none' stroke='#1B1B18' stroke-width='3'/><path d='M90 220H990V1700H90Z' fill='none' stroke='#1B1B18' stroke-width='1' opacity='.45'/>
+        <text x='92' y='345' fill='#1B1B18' font-size='30' font-weight='700' letter-spacing='5' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>BILLIARDS DAILY</text><text x='988' y='345' text-anchor='end' fill='{accent}' font-size='30' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{num}</text><line x1='92' y1='378' x2='988' y2='378' stroke='#1B1B18' stroke-width='4'/><line x1='92' y1='392' x2='988' y2='392' stroke='#1B1B18'/>
+        <text x='{content_x}' y='438' fill='{accent}' font-size='24' letter-spacing='4' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#1B1B18' stroke-width='2'/>{body}{tags}
+        </svg>",
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 42
+    )
+}
+
+fn blueprint(request: &RenderRequest) -> String {
+    let content_x = 104;
+    let content_right = 976;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 68),
+        3,
+        68,
+        content_x,
+        520,
+        "#F3FEFF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        800,
+        1.22,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 42),
+        42,
+        content_x,
+        body_y,
+        1410,
+        "#CDEEFF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.6,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#97D5FF", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
+        <defs><pattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'><path d='M40 0H0V40' fill='none' stroke='#7CCFFF' stroke-opacity='.18' stroke-width='1'/></pattern><pattern id='grid-big' width='200' height='200' patternUnits='userSpaceOnUse'><path d='M200 0H0V200' fill='none' stroke='#7CCFFF' stroke-opacity='.35' stroke-width='2'/></pattern></defs>
+        <rect width='100%' height='100%' fill='#06304B'/><rect width='100%' height='100%' fill='url(#grid)'/><rect width='100%' height='100%' fill='url(#grid-big)'/>
+        <rect x='72' y='230' width='936' height='1450' fill='none' stroke='#BDEEFF' stroke-width='3'/><circle cx='900' cy='392' r='60' fill='none' stroke='#BDEEFF' stroke-opacity='.45'/><path d='M104 390H720M104 420H580' stroke='#BDEEFF' stroke-opacity='.7'/>
+        <text x='{content_x}' y='360' fill='#BDEEFF' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='390' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='800' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{num}</text>
+        {title}<path d='M{content_x} {line_y}H{content_right}' stroke='#BDEEFF' stroke-dasharray='18 12'/>{body}{tags}</svg>",
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 48
+    )
+}
+
+fn polaroid(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 132;
+    let content_right = 948;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 70),
+        3,
+        70,
+        content_x,
+        580,
+        "#222222",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        800,
+        1.22,
+    );
+    let body_y = title_last_y + 106;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1390,
+        "#3D3D3D",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.64,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#777777", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
+        <defs><linearGradient id='photo-bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><filter id='paper-shadow'><feDropShadow dx='0' dy='20' stdDeviation='20' flood-opacity='.28'/></filter></defs>
+        <rect width='100%' height='100%' fill='#201C22'/><circle cx='120' cy='180' r='330' fill='{g1}' opacity='.22'/><circle cx='980' cy='1740' r='380' fill='{g2}' opacity='.22'/>
+        <g filter='url(#paper-shadow)'><rect x='82' y='260' width='916' height='1380' rx='18' fill='#FFFDF8'/><rect x='122' y='310' width='836' height='260' rx='14' fill='url(#photo-bg)'/><circle cx='810' cy='400' r='70' fill='#FFFFFF' opacity='.35'/><path d='M122 570L340 410L520 530L682 440L958 570Z' fill='#FFFFFF' opacity='.24'/></g>
+        <text x='{content_x}' y='438' fill='#FFFFFF' font-size='34' font-weight='700' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='1540' text-anchor='end' fill='{accent}' font-size='60' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
+        {title}<rect x='{content_x}' y='{line_y}' width='120' height='5' rx='2' fill='{accent}'/>{body}{tags}</svg>",
+        g1 = colors.g1,
+        g2 = colors.g2,
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 46
+    )
+}
+
+fn scoreboard(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 96;
+    let content_right = 984;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 72),
+        3,
+        72,
+        content_x,
+        545,
+        "#F7FFF2",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        900,
+        1.2,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1415,
+        "#DFFFE0",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.62,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#A8F5A1", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#07120A'/><rect x='62' y='220' width='956' height='1480' rx='30' fill='#0B2512' stroke='#71FF64' stroke-opacity='.45' stroke-width='3'/><rect x='92' y='300' width='896' height='150' rx='14' fill='#102F18' stroke='#71FF64' stroke-opacity='.35'/>
+        <text x='118' y='394' fill='#71FF64' font-size='40' font-weight='900' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>SCORE</text><text x='920' y='408' text-anchor='end' fill='{accent}' font-size='86' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
+        <text x='{content_x}' y='492' fill='#71FF64' font-size='26' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#71FF64' stroke-opacity='.55'/>{body}{tags}</svg>",
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 52
+    )
+}
+
+fn vaporwave(request: &RenderRequest) -> String {
+    let content_x = 112;
+    let content_right = 968;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 72),
+        3,
+        72,
+        content_x,
+        565,
+        "#FFFFFF",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.18,
+    );
+    let body_y = title_last_y + 110;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1410,
+        "#FFF2FF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.62,
+    );
+    let tags = tag_pills(&request.tags, "#FF4FD8", content_x, content_right, 1510);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='vap' x1='0' y1='0' x2='0' y2='1'><stop stop-color='#3A1C71'/><stop offset='.52' stop-color='#D76D77'/><stop offset='1' stop-color='#FFAF7B'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#vap)'/><circle cx='540' cy='410' r='190' fill='#FFD45E'/><path d='M350 365H730M330 420H750M360 475H720M410 530H670' stroke='#3A1C71' stroke-width='18' opacity='.48'/><path d='M0 1520L260 1180L420 1390L590 1120L1080 1520V1920H0Z' fill='#25104E' opacity='.68'/><path d='M0 1520H1080M0 1600H1080M0 1680H1080M0 1760H1080' stroke='#FFFFFF' stroke-opacity='.22'/>
+        <text x='{content_x}' y='392' fill='#FFFFFF' font-size='28' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='140' height='6' rx='3' fill='#00F5FF'/>{body}{tags}</svg>",
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 44
+    )
+}
+
+fn classic(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 120;
+    let content_right = 960;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 76),
+        3,
+        76,
+        content_x,
+        535,
+        "#FFEBC0",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.2,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1405,
+        "#F8E2B4",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        400,
+        1.62,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1540, "#D8B46A", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#301014'/><rect x='72' y='228' width='936' height='1464' rx='28' fill='#4A151C' stroke='#D8B46A' stroke-width='4'/><rect x='96' y='252' width='888' height='1416' rx='20' fill='none' stroke='#D8B46A' stroke-opacity='.45' stroke-width='2'/><path d='M120 392H420M660 392H960' stroke='#D8B46A' stroke-width='3'/><circle cx='540' cy='392' r='56' fill='none' stroke='{accent}' stroke-width='4'/>
+        <text x='540' y='412' text-anchor='middle' fill='#FFEBC0' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text><text x='{content_x}' y='465' fill='#D8B46A' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#D8B46A' stroke-opacity='.55'/>{body}{tags}</svg>",
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 48
+    )
+}
+
+fn mono(request: &RenderRequest) -> String {
+    let content_x = 88;
+    let content_right = 992;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 82),
+        3,
+        82,
+        content_x,
+        500,
+        "#111111",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.18,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 46),
+        46,
+        content_x,
+        body_y,
+        1485,
+        "#222222",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.6,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1605, "#555555", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#F8F8F5'/><rect x='54' y='214' width='972' height='1492' fill='none' stroke='#111111' stroke-width='4'/><rect x='78' y='238' width='924' height='1444' fill='none' stroke='#111111' stroke-width='1'/><text x='{content_x}' y='350' fill='#111111' font-size='26' letter-spacing='10' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='350' text-anchor='end' fill='#111111' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#111111' stroke-width='3'/>{body}{tags}</svg>",
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 48
+    )
+}
+
+fn club(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 118;
+    let content_right = 962;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 74),
+        3,
+        74,
+        content_x,
+        545,
+        "#F8F6E8",
+        "Noto Serif CJK SC, Noto Serif SC, serif",
+        900,
+        1.2,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1410,
+        "#D6E8CF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        400,
+        1.62,
+    );
+    let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#BFD9A6", 28);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><radialGradient id='felt'><stop stop-color='#1B6F3A'/><stop offset='1' stop-color='#053B20'/></radialGradient></defs><rect width='100%' height='100%' fill='#06160D'/><rect x='62' y='220' width='956' height='1480' rx='42' fill='url(#felt)' stroke='#C9A457' stroke-width='8'/><circle cx='132' cy='292' r='28' fill='#050505' opacity='.7'/><circle cx='948' cy='292' r='28' fill='#050505' opacity='.7'/><circle cx='132' cy='1628' r='28' fill='#050505' opacity='.7'/><circle cx='948' cy='1628' r='28' fill='#050505' opacity='.7'/><path d='M118 424H962' stroke='#F8F6E8' stroke-opacity='.35'/>
+        <text x='{content_x}' y='390' fill='#F8F6E8' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='395' text-anchor='end' fill='{accent}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#C9A457' stroke-width='3'/>{body}{tags}</svg>",
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 48
+    )
+}
+
+fn street(request: &RenderRequest) -> String {
+    let colors = colors(request);
+    let content_x = 100;
+    let content_right = 980;
+    let (title, title_last_y) = text_lines(
+        &request.title,
+        chars_for_width(content_x, content_right, 74),
+        3,
+        74,
+        content_x,
+        535,
+        "#FFFFFF",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        900,
+        1.18,
+    );
+    let body_y = title_last_y + 112;
+    let body = body_lines(
+        &request.body,
+        chars_for_width(content_x, content_right, 44),
+        44,
+        content_x,
+        body_y,
+        1400,
+        "#F5F5F5",
+        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        500,
+        1.62,
+    );
+    let tags = tag_pills(&request.tags, &colors.g2, content_x, content_right, 1510);
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#161616'/><rect x='0' y='0' width='1080' height='420' fill='{g1}' opacity='.85'/><rect x='0' y='1500' width='1080' height='420' fill='{g2}' opacity='.85'/><path d='M40 340L260 240L430 340L690 210L1040 360' fill='none' stroke='#FFFFFF' stroke-width='12' stroke-linecap='round' stroke-linejoin='round' opacity='.25'/><rect x='72' y='250' width='936' height='1410' rx='24' fill='#1F1F1F' stroke='#FFFFFF' stroke-opacity='.28' stroke-width='3'/><rect x='92' y='270' width='896' height='1370' rx='18' fill='none' stroke='{accent}' stroke-width='3' stroke-dasharray='18 12'/>
+        <text x='{content_x}' y='390' fill='#FFFFFF' font-size='32' font-weight='900' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='405' text-anchor='end' fill='#FFFFFF' font-size='72' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='180' height='8' rx='4' fill='{accent}'/>{body}{tags}</svg>",
+        g1 = colors.g1,
+        g2 = colors.g2,
+        accent = colors.accent,
+        num = xml(&request.num),
+        tag = xml(&request.tag),
+        line_y = title_last_y + 46
     )
 }
 
@@ -601,6 +1027,25 @@ mod tests {
     use super::*;
     use std::{fs, path::PathBuf};
 
+    const ALL_TEMPLATES: &[&str] = &[
+        "magazine",
+        "magazine_pro",
+        "fresh",
+        "minimal",
+        "poster",
+        "journal",
+        "neon",
+        "newspaper",
+        "blueprint",
+        "polaroid",
+        "scoreboard",
+        "vaporwave",
+        "classic",
+        "mono",
+        "club",
+        "street",
+    ];
+
     fn fnv1a(bytes: &[u8]) -> u64 {
         bytes.iter().fold(0xcbf29ce484222325_u64, |hash, byte| {
             (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
@@ -648,16 +1093,9 @@ mod tests {
             body: "正文".into(),
             ..Default::default()
         };
-        for template in [
-            "magazine",
-            "magazine_pro",
-            "fresh",
-            "minimal",
-            "poster",
-            "journal",
-        ] {
+        for template in ALL_TEMPLATES {
             let mut request = request.clone();
-            request.template = template.into();
+            request.template = (*template).into();
             let svg = svg_for(&request);
             assert!(svg.contains("width='1080'") && svg.contains("height='1920'"));
         }
@@ -725,22 +1163,25 @@ mod tests {
             12_331_733_539_329_250_638,
             1_902_716_855_967_025_275,
             12_621_961_104_212_921_327,
+            11_180_669_618_038_991_886,
+            4_903_366_455_419_328_711,
+            2_606_950_486_791_333_417,
+            8_051_477_551_424_268_749,
+            5_231_298_719_142_288_172,
+            10_728_926_279_769_676_032,
+            664_092_054_982_800_083,
+            405_228_027_209_619_123,
+            13_636_155_439_905_564_751,
+            10_651_597_118_353_426_562,
         ];
-        let actual = [
-            "magazine",
-            "magazine_pro",
-            "fresh",
-            "minimal",
-            "poster",
-            "journal",
-        ]
-        .iter()
-        .map(|template| {
-            let mut request = request.clone();
-            request.template = (*template).into();
-            fnv1a(svg_for(&request).as_bytes())
-        })
-        .collect::<Vec<_>>();
+        let actual = ALL_TEMPLATES
+            .iter()
+            .map(|template| {
+                let mut request = request.clone();
+                request.template = (*template).into();
+                fnv1a(svg_for(&request).as_bytes())
+            })
+            .collect::<Vec<_>>();
         assert_eq!(actual, expected, "template snapshot changed");
     }
 
@@ -773,16 +1214,9 @@ mod tests {
         let directory =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/template-alignment-review");
         fs::create_dir_all(&directory).expect("create visual review directory");
-        for template in [
-            "magazine",
-            "magazine_pro",
-            "fresh",
-            "minimal",
-            "poster",
-            "journal",
-        ] {
+        for template in ALL_TEMPLATES {
             let request = RenderRequest {
-                template: template.into(),
+                template: (*template).into(),
                 num: "08".into(),
                 tag: "BILLIARDS".into(),
                 title: "周末约球实战记录：新手也能稳稳上手".into(),
@@ -803,15 +1237,7 @@ mod tests {
     fn renders_hundred_images_without_external_dependencies() {
         for index in 0..100 {
             let request = RenderRequest {
-                template: [
-                    "magazine",
-                    "magazine_pro",
-                    "fresh",
-                    "minimal",
-                    "poster",
-                    "journal",
-                ][index % 6]
-                    .into(),
+                template: ALL_TEMPLATES[index % ALL_TEMPLATES.len()].into(),
                 num: format!("{:02}", index + 1),
                 title: format!("第{}张离线稳定性测试", index + 1),
                 body: "内置字体与 Rust 原生渲染，不依赖 Python、Chrome 或网络。".into(),
