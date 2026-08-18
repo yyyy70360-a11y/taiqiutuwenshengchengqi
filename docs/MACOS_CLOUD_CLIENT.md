@@ -6,8 +6,35 @@
 - 登录会话保存在 macOS Keychain：`cloud_access_token` 和 `cloud_refresh_token`。
 - 服务器地址、云账号邮箱和同步时间保存在本地 SQLite；密码不会保存。
 - `generate_copy` 和 `generate_batch_copy` 通过 Rust 云客户端调用服务器 AI 网关。
+- AI 请求会携带当前模板 ID；批量混合模板会使用最保守模板 ID，避免生成文案超过任一模板容量。
 - 客户端不再读取或发送供应商 API Key。供应商 Key 只配置在服务器环境变量中。
+- 前端会显示标题、正文、行数和话题容量状态；服务端也会按模板容量做二次兜底。
 - 上传和下载是手动操作。下载会在界面确认后替换本机账号和文案库，不会删除图片历史和输出目录。
+
+## 模板容量
+
+| 模板 ID | 标题上限 | 正文上限 | 正文行数 | 话题数量 | 单个话题 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `magazine` | 30 | 96 | 6 | 3 | 12 |
+| `magazine_pro` | 30 | 112 | 7 | 3 | 12 |
+| `fresh` | 30 | 112 | 7 | 3 | 12 |
+| `minimal` | 30 | 136 | 8 | 3 | 12 |
+| `poster` | 30 | 144 | 8 | 3 | 12 |
+| `journal` | 30 | 112 | 7 | 3 | 12 |
+
+单条请求格式：
+
+```json
+{ "prompt": "...", "template": "magazine" }
+```
+
+批量请求格式：
+
+```json
+{ "prompt": "...", "count": 10, "template": "magazine" }
+```
+
+`template` 是可选字段；旧客户端不传时，服务端按 `magazine` 处理。
 
 ## 无域名联调
 
@@ -43,4 +70,5 @@ cargo tauri build --debug --bundles app
 - 配置真实域名和 HTTPS 反向代理。
 - 在 `/etc/billiards-api/server.env` 配置服务器 AI Provider Key。
 - 通过客户端完成一次注册、登录、上传、下载和 AI 文案联调。
+- 补 6 套模板的长文案样例图，确认不压住话题、不跑出画布。
 - 增加正式 release 包、升级保留数据和无网络回归记录。

@@ -4,19 +4,28 @@
 
 开发和未签名 release 打包使用 Xcode 16.4，目标架构为 Intel `x86_64`。本应用仅供本机自用，不上架 App Store；Developer ID 签名、Apple 公证和 stapling 不属于自用验收的前置条件。
 
+2026-08-18 已完成的仓库检查：
+
+- macOS 客户端普通测试：`18 passed, 2 ignored`。
+- 服务端测试：`12 passed`。
+- 客户端 / 服务端 `cargo fmt`、`cargo clippy --all-targets -- -D warnings` 通过。
+- 调试版 Tauri 构建和 DMG 校验通过。
+- Git 追踪内容未发现 `.env`、`.pem`、数据库、DMG、`.app`、`target`、`node_modules` 或输出图片等产物。
+- AI 文案链路已加入模板容量字段和服务端二次兜底。
+
 2026-08-15 已完成的本机验收：
 
-- `cargo test`：`16 passed, 2 ignored`；被忽略项包含手动模板视觉检查和已单独完整执行的 100 张离线渲染，压力测试 `100/100` 通过，最终耗时 `226.49s`。
+- 当时 `cargo test`：`16 passed, 2 ignored`；被忽略项包含手动模板视觉检查和已单独完整执行的 100 张离线渲染，压力测试 `100/100` 通过，最终耗时 `226.49s`。
 - `cargo clippy --all-targets -- -D warnings` 通过。
 - release `.app` 与 `.dmg` 生成成功，DMG 完整性校验通过。
 - 主可执行文件是 `x86_64`，动态链接仅指向 macOS 系统框架。
 - release 冷启动窗口为 `1300 x 860`，进程存活且没有 TCP 监听。
 - 预览、保存与批量渲染不占用 Tauri 主线程，批量进度、失败和完成事件可在任务进行中投递。
 - SQLite 升级启动前后原有表数据保留，一次性迁移标记已通过 Tauri IPC 写入。
-- SQLite 与旧 `settings.json` 不包含 API Key，Keychain 条目存在。
+- SQLite 与旧 `settings.json` 不包含 API Key；旧版 API Key 和云登录会话均使用 Keychain。
 - DMG 已在本机隔离目录完成挂载、安装、首次启动、同路径覆盖升级和移除；数据库哈希与表记录数未变。
 - 前端按钮已在缺少可选事件接口的条件下逐项复测，初始化不中断。
-- 冷启动日志不包含 Keychain 读取；钥匙串只在用户检查状态、保存 Key 或调用 AI 时按需访问。
+- 冷启动日志不包含 Keychain 明文值；钥匙串只在读取云登录会话、旧版 Key 兼容或调用相关功能时按需访问。
 - 6 套模板的水平网格和卡片外框已做回归检查，`1080 x 1920` 对齐样图已逐张目检。
 
 ## 可选的对外分发条件
@@ -74,7 +83,7 @@ spctl --assess --type open --context context:primary-signature -vv \
 - 全新用户目录首次启动，确认数据库和默认预设创建成功。
 - 使用旧版数据启动，确认设置、账号、文案库迁移且旧输出未被移动。
 - 升级安装前后比较数据库路径与内容，确认用户数据保留。
-- 检查 SQLite、应用日志和错误提示均不包含 API Key。
+- 检查 SQLite、应用日志和错误提示均不包含 API Key、access token 或 refresh token。
 - 在一台未安装开发工具的受支持 Mac 上安装 DMG、首次启动和卸载。
 - 对外分发时使用 `codesign`、`notarytool`、`stapler` 和 `spctl` 验证签名包。
 
@@ -82,4 +91,4 @@ spctl --assess --type open --context context:primary-signature -vv \
 
 ## 升级与卸载
 
-应用升级不得更改 identifier `com.billiards.matrix`，否则系统会使用新的数据目录和 Keychain 命名空间。拖动应用到废纸篓只删除程序，不会删除 `~/Library/Application Support/com.billiards.matrix` 或 Keychain 中的 API Key；彻底卸载时应由用户明确决定是否移除这些数据。
+应用升级不得更改 identifier `com.billiards.matrix`，否则系统会使用新的数据目录和 Keychain 命名空间。拖动应用到废纸篓只删除程序，不会删除 `~/Library/Application Support/com.billiards.matrix`、Keychain 中的旧版 API Key 或云登录会话；彻底卸载时应由用户明确决定是否移除这些数据。

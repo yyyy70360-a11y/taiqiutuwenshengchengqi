@@ -31,6 +31,8 @@ ADMIN_PASSWORD_HASH=$argon2id$...
 
 后台会设置 `HttpOnly` Cookie，并对后台 POST 操作校验 CSRF。当前建议仅通过 `127.0.0.1` 或 SSH 隧道访问后台。
 
+AI 配置页支持修改 Base URL、模型、API Key、超时秒数和最大并发。API Key 只保存在服务器配置中，不会下发给客户端。
+
 ## 当前接口
 
 - `GET /health`
@@ -47,6 +49,18 @@ ADMIN_PASSWORD_HASH=$argon2id$...
 - `POST /api/v1/ai/generate-batch-copy`
 
 用户数据接口和 AI 接口使用 `Authorization: Bearer <accessToken>`。access token 有效期 15 分钟，refresh token 有效期 30 天且只在数据库保存 SHA-256 哈希。密码使用 Argon2id 哈希。
+
+AI 文案接口支持可选 `template` 字段。旧客户端不传时按 `magazine` 容量处理；新客户端传入模板 ID 后，服务端会按模板容量对标题、正文和话题做最终兜底，避免生成内容超过海报承载范围。
+
+示例：
+
+```json
+{ "prompt": "斗门今晚约球，口语化", "template": "magazine" }
+```
+
+```json
+{ "prompt": "斗门今晚约球，口语化", "count": 10, "template": "minimal" }
+```
 
 ## 服务器部署原则
 
