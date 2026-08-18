@@ -218,7 +218,11 @@ pub async fn logout(app: &AppHandle) -> Result<CloudStatus, String> {
     status(app).await
 }
 
-pub async fn generate_copy(app: &AppHandle, prompt: &str) -> Result<CopyItem, String> {
+pub async fn generate_copy(
+    app: &AppHandle,
+    prompt: &str,
+    template: Option<&str>,
+) -> Result<CopyItem, String> {
     if prompt.trim().is_empty() {
         return Err("提示词为空".into());
     }
@@ -226,7 +230,7 @@ pub async fn generate_copy(app: &AppHandle, prompt: &str) -> Result<CopyItem, St
         app,
         Method::POST,
         "/api/v1/ai/generate-copy",
-        Some(json!({ "prompt": prompt })),
+        Some(ai_payload(prompt, template, None)),
     )
     .await?;
     Ok(remote.into())
@@ -236,6 +240,7 @@ pub async fn generate_batch(
     app: &AppHandle,
     prompt: &str,
     count: usize,
+    template: Option<&str>,
 ) -> Result<Vec<CopyItem>, String> {
     if prompt.trim().is_empty() {
         return Err("提示词为空".into());
@@ -244,7 +249,7 @@ pub async fn generate_batch(
         app,
         Method::POST,
         "/api/v1/ai/generate-batch-copy",
-        Some(json!({ "prompt": prompt, "count": count.clamp(1, 100) })),
+        Some(ai_payload(prompt, template, Some(count.clamp(1, 100)))),
     )
     .await?;
     Ok(remote.into_iter().map(Into::into).collect())
@@ -598,6 +603,19 @@ fn setting_string(value: &Value, key: &str) -> String {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string()
+}
+
+fn ai_payload(prompt: &str, template: Option<&str>, count: Option<usize>) -> Value {
+    let mut payload = json!({ "prompt": prompt });
+    if let Value::Object(map) = &mut payload {
+        if let Some(count) = count {
+            map.insert("count".into(), Value::from(count));
+        }
+        if let Some(template) = template.map(str::trim).filter(|value| !value.is_empty()) {
+            map.insert("template".into(), Value::String(template.to_string()));
+        }
+    }
+    payload
 }
 
 fn nonempty(value: String) -> Option<String> {

@@ -91,6 +91,10 @@ td textarea{min-height:48px;resize:vertical}
 .template-mix-row span{font-size:11px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .template-mix-row input{width:100%;padding:6px 7px!important;text-align:right}
 .template-mix-summary{margin-top:8px;padding-top:7px;border-top:1px solid var(--border);font-size:10px;color:var(--t3)}
+.capacity-status{margin:-5px 0 12px;padding:7px 9px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);font-size:10px;color:var(--t3);line-height:1.45}
+.capacity-status.ok{color:#4ADE80;border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.06)}
+.capacity-status.warn{color:#FFB86C;border-color:rgba(255,184,108,.35);background:rgba(255,184,108,.07)}
+.bi-capacity{margin:0 0 7px;padding:6px 7px;font-size:10px}
 [hidden]{display:none!important}
 .del{color:var(--danger);cursor:pointer;font-size:14px;padding:2px}
 .del:hover{color:#FF8855}
@@ -131,6 +135,7 @@ td textarea{min-height:48px;resize:vertical}
     <div class="field"><label>标题</label><input id="title"></div>
     <div class="field"><label>正文（换行用回车）</label><textarea id="bodytxt"></textarea></div>
     <div class="field"><label>话题标签</label><input id="tags"></div>
+    <div id="singleCapacity" class="capacity-status">等待模板容量</div>
     <details open>
     <summary class="sect" style="cursor:pointer;list-style:none">AI生成文案</summary>
     <div class="row" style="margin-bottom:8px">
@@ -240,10 +245,10 @@ function closeLightbox(){document.getElementById("lightbox").classList.remove("s
 // 配色
 function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
 if(nativeReady){
-  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
+  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();updateSingleCapacity();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
   nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
 }
-function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}scheduleRender()}
+function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}updateSingleCapacity();scheduleRender()}
 
 // 实时预览
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
@@ -270,13 +275,32 @@ const TONE_GUIDES={
   "略专业":"表达清楚、术语准确，每次只讲一个重点，普通球友也能看懂。",
   "搞笑自嘲":"用具体反差制造笑点，主要调侃自己，不刻薄别人。"
 };
-function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",tone=document.getElementById(prefix+"Tone").value,theme=document.getElementById(prefix+"Theme").value;return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${TONE_GUIDES[tone]}\n\n【题材】\n${theme}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 文案50-150字，像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带3-5个相关话题标签。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
+const TEMPLATE_CAPACITY={
+  magazine:{title:30,body:96,bodyLines:6,tags:3,tag:12},
+  magazine_pro:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  fresh:{title:30,body:112,bodyLines:7,tags:3,tag:12},
+  minimal:{title:30,body:136,bodyLines:8,tags:3,tag:12},
+  poster:{title:30,body:144,bodyLines:8,tags:3,tag:12},
+  journal:{title:30,body:112,bodyLines:7,tags:3,tag:12}
+};
+function templateCapacity(id){return TEMPLATE_CAPACITY[id]||TEMPLATE_CAPACITY.magazine}
+function templateName(id){return tpls.find(t=>t.id===id)?.name||id||"默认模板"}
+function countChars(value){return Array.from((value||"").replace(/\s/g,"")).length}
+function tagParts(value){return (value||"").split(/\s+/).map(v=>v.trim()).filter(Boolean)}
+function bodyLineCount(value,cap){if(!(value||"").trim())return 0;const perLine=Math.max(1,Math.ceil(cap.body/cap.bodyLines));return (value||"").split(/\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(Array.from(line.replace(/\s/g,"")).length/perLine)),0)}
+function capacitySummary(title,body,tags,templateId){const cap=templateCapacity(templateId),titleLen=countChars(title),bodyLen=countChars(body),lines=bodyLineCount(body,cap),parts=tagParts(tags),longTag=parts.some(tag=>countChars(tag)>cap.tag),ok=titleLen<=cap.title&&bodyLen<=cap.body&&lines<=cap.bodyLines&&parts.length<=cap.tags&&!longTag;let text=`${templateName(templateId)} · 标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${lines}/${cap.bodyLines} 行，话题 ${parts.length}/${cap.tags}`;if(longTag)text+=`，单个话题≤${cap.tag}字`;return{ok,text}}
+function setCapacityStatus(el,title,body,tags,templateId){if(!el)return;const state=capacitySummary(title,body,tags,templateId);el.textContent=state.text;el.className="capacity-status "+(state.ok?"ok":"warn")+(el.classList.contains("bi-capacity")?" bi-capacity":"")}
+function updateSingleCapacity(){setCapacityStatus(document.getElementById("singleCapacity"),document.getElementById("title").value,document.getElementById("bodytxt").value,document.getElementById("tags").value,document.getElementById("tpl").value||"magazine")}
+function conservativeTemplateId(){const ids=(tpls.length?tpls.map(t=>t.id):Object.keys(TEMPLATE_CAPACITY)).filter(id=>TEMPLATE_CAPACITY[id]);return ids.sort((a,b)=>TEMPLATE_CAPACITY[a].body-TEMPLATE_CAPACITY[b].body||TEMPLATE_CAPACITY[a].bodyLines-TEMPLATE_CAPACITY[b].bodyLines)[0]||"magazine"}
+function selectedBatchAiTemplate(){return document.getElementById("bTplMode").value==="mix"?conservativeTemplateId():(document.getElementById("bTpl").value||"magazine")}
+function templateCapacityPrompt(templateId){const cap=templateCapacity(templateId);return `当前模板：${templateName(templateId)}\n标题≤${cap.title}字；正文≤${cap.body}字且最多${cap.bodyLines}行；话题最多${cap.tags}个，每个≤${cap.tag}字。\n宁可短一点，不要撑满或超出模板。`}
+function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",tone=document.getElementById(prefix+"Tone").value,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${TONE_GUIDES[tone]}\n\n【题材】\n${theme}\n\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
 function setPromptValue(output,prompt){output.value=prompt;output.dispatchEvent(new Event("input",{bubbles:true}));output.classList.add("prompt-generated");window.setTimeout(()=>output.classList.remove("prompt-generated"),1200)}
 function writeGeneratedPrompt(outputId,prompt,button){const output=document.getElementById(outputId);setPromptValue(output,prompt);output.scrollIntoView({block:"nearest"});button.textContent="已生成";window.setTimeout(()=>button.textContent="生成提示词",1200)}
 function updPrompt(button=document.getElementById("generatePromptButton")){writeGeneratedPrompt("promptView",buildCopyPrompt("g"),button)}
 function refreshPromptFromConfig(prefix,outputId){const output=document.getElementById(outputId);if(output.value.trim())setPromptValue(output,buildCopyPrompt(prefix))}
 function setActionStatus(id,message,state=""){const status=document.getElementById(id);status.textContent=message;status.className="action-status"+(state?" "+state:"")}
-async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim();if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("singleAiStatus","请先在设置页登录云服务","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，内容已填入标题和正文","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
+async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim(),template=document.getElementById("tpl").value||"magazine";if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("singleAiStatus","请先在设置页登录云服务","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt,template});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";updateSingleCapacity();await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，内容已填入标题和正文","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
 
 // 批量
 const TAGMAP={"找搭子":"BILLIARDS","球房测评":"REVIEW","新手避坑":"GUIDE","约球吐槽":"RANT","球杆科普":"PRO TIP","技术段位":"RANK","球友日常":"DAILY","赛事战报":"MATCH"};
@@ -284,11 +308,38 @@ function tplOpts(sel){return tpls.map(t=>`<option value="${t.id}"${sel==t.id?' s
 function templateMixTotal(){return tpls.reduce((sum,t)=>sum+(Number(templateMixCounts[t.id])||0),0)}
 function batchExpectedCount(){const generated=document.querySelectorAll("#bList .bi-item").length;return generated||Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10))}
 function updateTemplateMixSummary(){const summary=document.getElementById("bTplMixSummary");if(!summary)return;const total=templateMixTotal(),expected=batchExpectedCount();summary.textContent=`总计 ${total} 张（当前文案数 ${expected} 张）`;summary.style.color=total===expected?"var(--accent)":"var(--danger)"}
-function renderTemplateMix(){const list=document.getElementById("bTplMix");if(!list||!tpls.length)return;const expected=batchExpectedCount();const hasCounts=Object.values(templateMixCounts).some(value=>Number(value)>0);if(!hasCounts)templateMixCounts[tpls[0].id]=expected;list.innerHTML="";tpls.forEach(t=>{const row=document.createElement("div"),label=document.createElement("span"),input=document.createElement("input");row.className="template-mix-row";label.textContent=t.name;label.title=t.name;input.type="number";input.min="0";input.max="100";input.step="1";input.value=String(Number(templateMixCounts[t.id])||0);input.setAttribute("aria-label",t.name+"数量");input.addEventListener("input",()=>{const value=Math.min(100,Math.max(0,parseInt(input.value)||0));input.value=String(value);templateMixCounts[t.id]=value;updateTemplateMixSummary()});row.appendChild(label);row.appendChild(input);list.appendChild(row)});updateTemplateMixSummary()}
-function setBatchTemplateMode(){const mix=document.getElementById("bTplMode").value==="mix";document.getElementById("bTplUniformWrap").hidden=mix;document.getElementById("bTplMixWrap").hidden=!mix;if(mix)renderTemplateMix()}
+function renderTemplateMix(){const list=document.getElementById("bTplMix");if(!list||!tpls.length)return;const expected=batchExpectedCount();const hasCounts=Object.values(templateMixCounts).some(value=>Number(value)>0);if(!hasCounts)templateMixCounts[tpls[0].id]=expected;list.innerHTML="";tpls.forEach(t=>{const row=document.createElement("div"),label=document.createElement("span"),input=document.createElement("input");row.className="template-mix-row";label.textContent=t.name;label.title=t.name;input.type="number";input.min="0";input.max="100";input.step="1";input.value=String(Number(templateMixCounts[t.id])||0);input.setAttribute("aria-label",t.name+"数量");input.addEventListener("input",()=>{const value=Math.min(100,Math.max(0,parseInt(input.value)||0));input.value=String(value);templateMixCounts[t.id]=value;updateTemplateMixSummary();updateBatchCapacityStatuses()});row.appendChild(label);row.appendChild(input);list.appendChild(row)});updateTemplateMixSummary();updateBatchCapacityStatuses()}
+function setBatchTemplateMode(){const mix=document.getElementById("bTplMode").value==="mix";document.getElementById("bTplUniformWrap").hidden=mix;document.getElementById("bTplMixWrap").hidden=!mix;if(mix)renderTemplateMix();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")}
 function batchTemplatePlan(itemCount){if(document.getElementById("bTplMode").value!=="mix")return{templates:Array.from({length:itemCount},()=>document.getElementById("bTpl").value)};const total=templateMixTotal();if(total!==itemCount)return{error:`自定义模板分配共 ${total} 张，但当前有 ${itemCount} 条文案，请调整数量后再渲染。`};const templates=[];tpls.forEach(t=>{for(let i=0;i<(Number(templateMixCounts[t.id])||0);i++)templates.push(t.id)});return{templates}}
+function batchCapacityTemplateFor(index,count){const plan=batchTemplatePlan(count);return plan.templates?plan.templates[index]:selectedBatchAiTemplate()}
+function updateBatchCapacityStatuses(){const items=[...document.querySelectorAll("#bList .bi-item")],count=items.length;if(!count)return;items.forEach((item,index)=>setCapacityStatus(item.querySelector(".bi-capacity"),item.querySelector(".bi-title")?.value||"",item.querySelector(".bi-body")?.value||"",item.querySelector(".bi-tags")?.value||"",batchCapacityTemplateFor(index,count)))}
 function bGenPrompt(button=document.getElementById("batchGeneratePromptButton")){writeGeneratedPrompt("bPrompt",buildCopyPrompt("b"),button)}
-async function bGen(btn=document.getElementById("batchGenerateCopyButton")){const promptField=document.getElementById("bPrompt"),prompt=promptField.value.trim();if(!prompt){setActionStatus("batchAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("batchAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("batchAiStatus","请先在设置页登录云服务","error");return}const count=Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10));btn.textContent="生成中...";btn.disabled=true;setActionStatus("batchAiStatus","AI 正在生成 "+count+" 条文案，请稍候");const list=document.getElementById("bList");list.innerHTML="<div class='hint'>AI生成"+count+"条中...</div>";try{const items=await nativeInvoke("generate_batch_copy",{prompt,count});list.innerHTML="<div style='color:var(--accent);font-size:12px;margin-bottom:10px'>生成"+items.length+"条，可编辑后批量渲染</div>";items.forEach((it,i)=>{const d=document.createElement("div");d.className="bi-item";d.style.cssText="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:10px";const h=document.createElement("div");h.style.cssText="font-size:11px;color:var(--accent);margin-bottom:6px";h.textContent="第"+(i+1)+"条";const t=document.createElement("input");t.className="bi-title";t.value=it.title;t.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;margin-bottom:6px";const b=document.createElement("textarea");b.className="bi-body";b.value=it.body;b.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;min-height:60px;margin-bottom:6px;resize:vertical";const g=document.createElement("input");g.className="bi-tags";g.value=it.tags;g.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px";d.appendChild(h);d.appendChild(t);d.appendChild(b);d.appendChild(g);list.appendChild(d)});updateTemplateMixSummary();setActionStatus("batchAiStatus","已生成 "+items.length+" 条文案","success")}catch(e){list.innerHTML="";setActionStatus("batchAiStatus","批量生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="AI生成N条文案";btn.disabled=false}}
+async function bGen(btn=document.getElementById("batchGenerateCopyButton")){
+  const promptField=document.getElementById("bPrompt"),prompt=promptField.value.trim(),template=selectedBatchAiTemplate();
+  if(!prompt){setActionStatus("batchAiStatus","请先生成提示词","error");promptField.focus();return}
+  if(!nativeReady){setActionStatus("batchAiStatus","请在桌面应用中使用 AI 生成","error");return}
+  if(!cloudLoggedIn){setActionStatus("batchAiStatus","请先在设置页登录云服务","error");return}
+  const count=Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10));
+  btn.textContent="生成中...";btn.disabled=true;setActionStatus("batchAiStatus","AI 正在生成 "+count+" 条文案，请稍候");
+  const list=document.getElementById("bList");list.innerHTML="<div class='hint'>AI生成"+count+"条中...</div>";
+  try{
+    const items=await nativeInvoke("generate_batch_copy",{prompt,count,template});
+    list.innerHTML="<div style='color:var(--accent);font-size:12px;margin-bottom:10px'>生成"+items.length+"条，可编辑后批量渲染</div>";
+    items.forEach((it,i)=>{
+      const d=document.createElement("div"),h=document.createElement("div"),cap=document.createElement("div"),t=document.createElement("input"),b=document.createElement("textarea"),g=document.createElement("input");
+      d.className="bi-item";d.style.cssText="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:10px";
+      h.style.cssText="font-size:11px;color:var(--accent);margin-bottom:6px";h.textContent="第"+(i+1)+"条";
+      cap.className="capacity-status bi-capacity";
+      t.className="bi-title";t.value=it.title;t.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;margin-bottom:6px";
+      b.className="bi-body";b.value=it.body;b.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;min-height:60px;margin-bottom:6px;resize:vertical";
+      g.className="bi-tags";g.value=it.tags;g.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px";
+      [t,b,g].forEach(input=>input.addEventListener("input",updateBatchCapacityStatuses));
+      d.appendChild(h);d.appendChild(cap);d.appendChild(t);d.appendChild(b);d.appendChild(g);list.appendChild(d)
+    });
+    updateTemplateMixSummary();updateBatchCapacityStatuses();setActionStatus("batchAiStatus","已生成 "+items.length+" 条文案","success")
+  }catch(e){list.innerHTML="";setActionStatus("batchAiStatus","批量生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}
+  finally{btn.textContent="AI生成N条文案";btn.disabled=false}
+}
 async function bRender(){
   const items=[...document.querySelectorAll("#bList .bi-item")];
   if(!items.length){alert("请先生成文案");return}
@@ -329,9 +380,9 @@ async function saveAccounts(){try{await nativeInvoke("set_accounts",{accounts:co
 async function migrateLegacy(){try{await nativeInvoke("migrate_legacy");const parsed=JSON.parse(localStorage.getItem("lib")||"[]"),items=Array.isArray(parsed)?parsed:[];await nativeInvoke("migrate_copy_library",{items});localStorage.removeItem("lib")}catch(e){setActionStatus("cloudStatus","旧版数据迁移失败："+String(e),"error")}}
 function bindStaticEvents(){
   document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",()=>showTab(Number(tab.dataset.tabIndex)));tab.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();tab.click()}})});
-  document.getElementById("tpl").addEventListener("change",scheduleRender);
+  document.getElementById("tpl").addEventListener("change",()=>{updateSingleCapacity();refreshPromptFromConfig("g","promptView");scheduleRender()});
   document.getElementById("preset").addEventListener("change",loadPreset);
-  ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));
+  ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{updateSingleCapacity();scheduleRender()}));
   document.getElementById("color1").addEventListener("change",event=>{cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
   document.getElementById("color2").addEventListener("change",event=>{cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
   document.getElementById("preview0").addEventListener("click",event=>openLightbox(event.currentTarget.src));
@@ -346,8 +397,8 @@ function bindStaticEvents(){
   ["bTheme","bLevel","bPersona","bTone","bUseEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("b","bPrompt")));
   document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);
-  document.getElementById("bTpl").addEventListener("change",updateTemplateMixSummary);
-  document.getElementById("bCount").addEventListener("input",updateTemplateMixSummary);
+  document.getElementById("bTpl").addEventListener("change",()=>{updateTemplateMixSummary();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")});
+  document.getElementById("bCount").addEventListener("input",()=>{updateTemplateMixSummary();updateBatchCapacityStatuses()});
   document.getElementById("batchRenderButton").addEventListener("click",bRender);
   document.getElementById("saveCloudServerButton").addEventListener("click",()=>saveCloudServer());
   document.getElementById("testCloudButton").addEventListener("click",testCloud);
@@ -371,5 +422,6 @@ function bindStaticEvents(){
 bindStaticEvents();
 if($("cloudServerUrl")&&!$("cloudServerUrl").value)$("cloudServerUrl").value=LOCAL_CLOUD_SERVER;
 setCloudButtonsForState();
+updateSingleCapacity();
 if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{applyNativeUnavailable();loadHistory()}
 </script></body></html>

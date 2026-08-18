@@ -287,8 +287,12 @@ pub fn migrate_copy_library(app: AppHandle, items: Vec<CopyItem>) -> Result<usiz
 }
 
 #[tauri::command]
-pub async fn generate_copy(app: AppHandle, prompt: String) -> Result<CopyItem, String> {
-    cloud::generate_copy(&app, &prompt).await
+pub async fn generate_copy(
+    app: AppHandle,
+    prompt: String,
+    template: Option<String>,
+) -> Result<CopyItem, String> {
+    cloud::generate_copy(&app, &prompt, template.as_deref()).await
 }
 
 #[tauri::command]
@@ -296,8 +300,9 @@ pub async fn generate_batch_copy(
     app: AppHandle,
     prompt: String,
     count: usize,
+    template: Option<String>,
 ) -> Result<Vec<CopyItem>, String> {
-    cloud::generate_batch(&app, &prompt, count).await
+    cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
 }
 
 fn response_for(request: &RenderRequest) -> Result<RenderResponse, String> {

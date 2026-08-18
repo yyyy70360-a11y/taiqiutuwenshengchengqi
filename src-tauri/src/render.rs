@@ -363,13 +363,104 @@ fn body_lines(
     weight: u32,
     line_height: f32,
 ) -> String {
+    let layout = body_layout(text, max_chars, size, y, max_baseline, line_height);
+    let lines = if layout.truncated {
+        limited_lines(text, layout.max_chars, layout.max_lines)
+    } else {
+        wrap_text(text, layout.max_chars)
+    };
+    let line_step = (layout.size as f32 * layout.line_height) as u32;
+    lines
+        .iter()
+        .enumerate()
+        .map(|(index, line)| {
+            let baseline = y + (index as u32 * line_step);
+            format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line), size = layout.size)
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+struct BodyLayout {
+    max_chars: usize,
+    max_lines: usize,
+    size: u32,
+    line_height: f32,
+    truncated: bool,
+}
+
+fn body_layout(
+    text: &str,
+    base_max_chars: usize,
+    base_size: u32,
+    y: u32,
+    max_baseline: u32,
+    base_line_height: f32,
+) -> BodyLayout {
+    let min_size = base_size.saturating_sub(8).max(36);
+    let sizes = (min_size..=base_size)
+        .rev()
+        .filter(|size| (base_size - size) % 2 == 0);
+    for size in sizes {
+        let layout = candidate_body_layout(
+            base_max_chars,
+            base_size,
+            size,
+            y,
+            max_baseline,
+            base_line_height,
+            false,
+        );
+        if wrap_text(text, layout.max_chars).len() <= layout.max_lines {
+            return layout;
+        }
+    }
+    for reduction in [0.06_f32, 0.12, 0.18] {
+        let line_height = (base_line_height - reduction).max(1.35);
+        let layout = candidate_body_layout(
+            base_max_chars,
+            base_size,
+            min_size,
+            y,
+            max_baseline,
+            line_height,
+            false,
+        );
+        if wrap_text(text, layout.max_chars).len() <= layout.max_lines {
+            return layout;
+        }
+    }
+    candidate_body_layout(
+        base_max_chars,
+        base_size,
+        min_size,
+        y,
+        max_baseline,
+        (base_line_height - 0.18).max(1.35),
+        true,
+    )
+}
+
+fn candidate_body_layout(
+    base_max_chars: usize,
+    base_size: u32,
+    size: u32,
+    y: u32,
+    max_baseline: u32,
+    line_height: f32,
+    truncated: bool,
+) -> BodyLayout {
     let line_step = (size as f32 * line_height) as u32;
     let max_lines = (max_baseline.saturating_sub(y) / line_step + 1).max(1) as usize;
-    let lines = limited_lines(text, max_chars, max_lines);
-    lines.iter().enumerate().map(|(index, line)| {
-        let baseline = y + (index as u32 * (size as f32 * line_height) as u32);
-        format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line))
-    }).collect::<Vec<_>>().join("")
+    let max_chars =
+        ((base_max_chars as f32 * base_size as f32 / size as f32).floor() as usize).max(1);
+    BodyLayout {
+        max_chars,
+        max_lines,
+        size,
+        line_height,
+        truncated,
+    }
 }
 
 fn chars_for_width(left: u32, right: u32, font_size: u32) -> usize {
@@ -532,6 +623,22 @@ mod tests {
         assert_eq!(lines.len(), 4);
         assert!(lines[3].ends_with('…'));
         assert!(lines[3].chars().count() <= 10);
+    }
+
+    #[test]
+    fn adapts_body_text_before_truncating() {
+        let text = "一".repeat(48);
+        let layout = body_layout(&text, 10, 48, 100, 337, 1.65);
+        assert!(layout.size < 48);
+        assert!(!layout.truncated);
+    }
+
+    #[test]
+    fn truncates_only_after_adaptive_limits() {
+        let text = "一".repeat(300);
+        let layout = body_layout(&text, 10, 48, 100, 337, 1.65);
+        assert_eq!(layout.size, 40);
+        assert!(layout.truncated);
     }
 
     #[test]
