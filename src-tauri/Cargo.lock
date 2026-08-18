@@ -136,6 +136,7 @@ dependencies = [
  "tiny-skia",
  "tokio",
  "usvg",
+ "uuid",
 ]
 
 [[package]]
