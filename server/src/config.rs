@@ -5,6 +5,8 @@ pub struct Config {
     pub bind: SocketAddr,
     pub environment: String,
     pub database_url: String,
+    pub admin_email: String,
+    pub admin_password_hash: String,
     pub ai_base_url: String,
     pub ai_model: String,
     pub ai_api_key: String,
@@ -17,12 +19,17 @@ impl Config {
         let bind = env::var("BILLIARDS_BIND")
             .unwrap_or_else(|_| "127.0.0.1:38123".into())
             .parse()?;
-        let database_url = env::var("DATABASE_URL")
-            .map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?;
+        let database_url =
+            env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?;
         Ok(Self {
             bind,
             environment: env::var("BILLIARDS_ENV").unwrap_or_else(|_| "development".into()),
             database_url,
+            admin_email: env::var("ADMIN_EMAIL")
+                .unwrap_or_else(|_| "admin@local.invalid".into())
+                .trim()
+                .to_lowercase(),
+            admin_password_hash: env::var("ADMIN_PASSWORD_HASH").unwrap_or_default(),
             ai_base_url: env::var("AI_BASE_URL")
                 .unwrap_or_else(|_| "https://api.deepseek.com/v1".into()),
             ai_model: env::var("AI_MODEL").unwrap_or_else(|_| "deepseek-chat".into()),

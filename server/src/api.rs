@@ -12,11 +12,12 @@ pub async fn get_settings(
     headers: HeaderMap,
 ) -> ApiResult<Settings> {
     let user_id = auth::authenticate(&state.db, &headers).await?;
-    let row = sqlx::query("SELECT api_url, api_model, output_dir FROM user_settings WHERE user_id = $1")
-        .bind(user_id)
-        .fetch_optional(&state.db)
-        .await
-        .map_err(internal_db("读取设置失败"))?;
+    let row =
+        sqlx::query("SELECT api_url, api_model, output_dir FROM user_settings WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(internal_db("读取设置失败"))?;
     let settings = row
         .map(|row| Settings {
             api_url: row.get("api_url"),
@@ -83,10 +84,16 @@ pub async fn put_accounts(
     }
     for account in &input {
         if account.name.trim().is_empty() || account.name.chars().count() > 100 {
-            return Err(ApiError::bad_request("账号名称不能为空且不能超过 100 个字符"));
+            return Err(ApiError::bad_request(
+                "账号名称不能为空且不能超过 100 个字符",
+            ));
         }
     }
-    let mut tx = state.db.begin().await.map_err(internal_db("保存账号失败"))?;
+    let mut tx = state
+        .db
+        .begin()
+        .await
+        .map_err(internal_db("保存账号失败"))?;
     sqlx::query("DELETE FROM accounts WHERE user_id = $1")
         .bind(&user_id)
         .execute(&mut *tx)
@@ -94,7 +101,10 @@ pub async fn put_accounts(
         .map_err(internal_db("保存账号失败"))?;
     let mut saved = Vec::with_capacity(input.len());
     for account in input {
-        let id = account.id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+        let id = account
+            .id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
         sqlx::query("INSERT INTO accounts (id, user_id, name, region, level, persona, tone, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)")
             .bind(&id)
             .bind(&user_id)
@@ -107,7 +117,10 @@ pub async fn put_accounts(
             .execute(&mut *tx)
             .await
             .map_err(internal_db("保存账号失败"))?;
-        saved.push(Account { id: Some(id), ..account });
+        saved.push(Account {
+            id: Some(id),
+            ..account
+        });
     }
     tx.commit().await.map_err(internal_db("保存账号失败"))?;
     Ok(Json(saved))
@@ -123,12 +136,16 @@ pub async fn get_copy_library(
         .fetch_all(&state.db)
         .await
         .map_err(internal_db("读取文案库失败"))?;
-    Ok(Json(rows.into_iter().map(|row| CopyItem {
-        id: Some(row.get("id")),
-        title: row.get("title"),
-        body: row.get("body"),
-        tags: row.get("tags"),
-    }).collect()))
+    Ok(Json(
+        rows.into_iter()
+            .map(|row| CopyItem {
+                id: Some(row.get("id")),
+                title: row.get("title"),
+                body: row.get("body"),
+                tags: row.get("tags"),
+            })
+            .collect(),
+    ))
 }
 
 pub async fn save_copy_library(
@@ -140,10 +157,16 @@ pub async fn save_copy_library(
     if input.title.trim().is_empty() || input.body.trim().is_empty() {
         return Err(ApiError::bad_request("标题和正文不能为空"));
     }
-    if input.title.chars().count() > 300 || input.body.chars().count() > 10000 || input.tags.chars().count() > 1000 {
+    if input.title.chars().count() > 300
+        || input.body.chars().count() > 10000
+        || input.tags.chars().count() > 1000
+    {
         return Err(ApiError::bad_request("文案长度超出限制"));
     }
-    let id = input.id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+    let id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     sqlx::query("INSERT INTO copy_library (id, user_id, title, body, tags) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body, tags = EXCLUDED.tags, updated_at = NOW() WHERE copy_library.user_id = $2")
         .bind(&id)
         .bind(&user_id)

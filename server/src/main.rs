@@ -1,3 +1,4 @@
+mod admin;
 mod ai;
 mod api;
 mod auth;
@@ -42,6 +43,15 @@ struct HealthResponse {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
+    if env::args().nth(1).as_deref() == Some("hash-password") {
+        let password = env::var("BILLIARDS_PASSWORD_TO_HASH")
+            .map_err(|_| anyhow::anyhow!("BILLIARDS_PASSWORD_TO_HASH is required"))?;
+        let hash =
+            auth::hash_password(&password).map_err(|error| anyhow::anyhow!(error.message))?;
+        println!("{hash}");
+        return Ok(());
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             env::var("RUST_LOG").unwrap_or_else(|_| "billiards_api=info,tower_http=info".into()),
@@ -55,21 +65,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ai_client = Client::builder().timeout(config.ai_timeout).build()?;
     let address = config.bind;
     let ai_semaphore = Arc::new(Semaphore::new(config.ai_max_concurrency));
-    let state = AppState { config, db, ai_client, ai_semaphore };
+    let state = AppState {
+        config,
+        db,
+        ai_client,
+        ai_semaphore,
+    };
 
     let app = Router::new()
         .route("/", get(health))
         .route("/health", get(health))
+        .route("/admin", get(admin::dashboard))
+        .route("/admin/login", get(admin::login_page).post(admin::login))
+        .route("/admin/logout", post(admin::logout))
+        .route("/admin/users", get(admin::users))
+        .route("/admin/users/{user_id}/disable", post(admin::disable_user))
+        .route("/admin/users/{user_id}/enable", post(admin::enable_user))
+        .route("/admin/ai-usage", get(admin::ai_usage))
         .route("/api/v1/version", get(version))
         .route("/api/v1/auth/register", post(auth::register))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/refresh", post(auth::refresh))
         .route("/api/v1/auth/logout", post(auth::logout))
-        .route("/api/v1/me/settings", get(api::get_settings).put(api::put_settings))
-        .route("/api/v1/me/accounts", get(api::get_accounts).put(api::put_accounts))
-        .route("/api/v1/me/copy-library", get(api::get_copy_library).post(api::save_copy_library))
+        .route(
+            "/api/v1/me/settings",
+            get(api::get_settings).put(api::put_settings),
+        )
+        .route(
+            "/api/v1/me/accounts",
+            get(api::get_accounts).put(api::put_accounts),
+        )
+        .route(
+            "/api/v1/me/copy-library",
+            get(api::get_copy_library).post(api::save_copy_library),
+        )
         .route("/api/v1/ai/generate-copy", post(ai::generate_copy))
-        .route("/api/v1/ai/generate-batch-copy", post(ai::generate_batch_copy))
+        .route(
+            "/api/v1/ai/generate-batch-copy",
+            post(ai::generate_batch_copy),
+        )
         .fallback(not_found)
         .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024))
         .layer(TraceLayer::new_for_http())

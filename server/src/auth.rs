@@ -1,15 +1,25 @@
-use crate::{errors::{ApiError, ApiResult}, models::{AuthResponse, LoginRequest, RefreshRequest, RegisterRequest}};
+use crate::{
+    errors::{ApiError, ApiResult},
+    models::{AuthResponse, LoginRequest, RefreshRequest, RegisterRequest},
+};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use axum::{extract::State, http::{header::AUTHORIZATION, HeaderMap}, Json};
+use axum::{
+    extract::State,
+    http::{header::AUTHORIZATION, HeaderMap},
+    Json,
+};
 use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub async fn register(State(state): State<crate::AppState>, Json(input): Json<RegisterRequest>) -> ApiResult<AuthResponse> {
+pub async fn register(
+    State(state): State<crate::AppState>,
+    Json(input): Json<RegisterRequest>,
+) -> ApiResult<AuthResponse> {
     let email = normalize_email(&input.email)?;
     validate_password(&input.password)?;
     let password_hash = hash_password(&input.password)?;
@@ -32,7 +42,10 @@ pub async fn register(State(state): State<crate::AppState>, Json(input): Json<Re
     }
 }
 
-pub async fn login(State(state): State<crate::AppState>, Json(input): Json<LoginRequest>) -> ApiResult<AuthResponse> {
+pub async fn login(
+    State(state): State<crate::AppState>,
+    Json(input): Json<LoginRequest>,
+) -> ApiResult<AuthResponse> {
     let email = normalize_email(&input.email)?;
     let row = sqlx::query_as::<_, (String, String, bool)>(
         "SELECT id, password_hash, disabled FROM users WHERE email = $1",
@@ -48,10 +61,21 @@ pub async fn login(State(state): State<crate::AppState>, Json(input): Json<Login
     if row.2 || !verify_password(&input.password, &row.1) {
         return Err(ApiError::unauthorized("邮箱或密码错误"));
     }
+    sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
+        .bind(&row.0)
+        .execute(&state.db)
+        .await
+        .map_err(|error| {
+            tracing::warn!(error = %error, "last login update failed");
+            ApiError::internal("登录失败，请稍后重试")
+        })?;
     issue_tokens(&state.db, &row.0).await.map(Json)
 }
 
-pub async fn refresh(State(state): State<crate::AppState>, Json(input): Json<RefreshRequest>) -> ApiResult<AuthResponse> {
+pub async fn refresh(
+    State(state): State<crate::AppState>,
+    Json(input): Json<RefreshRequest>,
+) -> ApiResult<AuthResponse> {
     if input.refresh_token.trim().is_empty() {
         return Err(ApiError::unauthorized("刷新令牌为空"));
     }
@@ -81,7 +105,10 @@ pub async fn refresh(State(state): State<crate::AppState>, Json(input): Json<Ref
     issue_tokens(&state.db, &row.0).await.map(Json)
 }
 
-pub async fn logout(State(state): State<crate::AppState>, Json(input): Json<RefreshRequest>) -> ApiResult<serde_json::Value> {
+pub async fn logout(
+    State(state): State<crate::AppState>,
+    Json(input): Json<RefreshRequest>,
+) -> ApiResult<serde_json::Value> {
     if !input.refresh_token.trim().is_empty() {
         sqlx::query("UPDATE sessions SET revoked_at = NOW() WHERE refresh_token_hash = $1")
             .bind(hash_token(&input.refresh_token))
@@ -157,7 +184,7 @@ fn validate_password(password: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn hash_password(password: &str) -> Result<String, ApiError> {
+pub(crate) fn hash_password(password: &str) -> Result<String, ApiError> {
     let salt = SaltString::generate(&mut OsRng);
     Argon2::default()
         .hash_password(password.as_bytes(), &salt)
@@ -165,14 +192,18 @@ fn hash_password(password: &str) -> Result<String, ApiError> {
         .map_err(|_| ApiError::internal("密码处理失败"))
 }
 
-fn verify_password(password: &str, encoded: &str) -> bool {
+pub(crate) fn verify_password(password: &str, encoded: &str) -> bool {
     PasswordHash::new(encoded)
         .ok()
-        .map(|hash| Argon2::default().verify_password(password.as_bytes(), &hash).is_ok())
+        .map(|hash| {
+            Argon2::default()
+                .verify_password(password.as_bytes(), &hash)
+                .is_ok()
+        })
         .unwrap_or(false)
 }
 
-fn hash_token(token: &str) -> String {
+pub(crate) fn hash_token(token: &str) -> String {
     let mut digest = Sha256::new();
     digest.update(token.as_bytes());
     hex::encode(digest.finalize())
@@ -184,7 +215,10 @@ mod tests {
 
     #[test]
     fn normalizes_email_and_validates_password() {
-        assert_eq!(normalize_email(" User@Example.COM ").unwrap(), "user@example.com");
+        assert_eq!(
+            normalize_email(" User@Example.COM ").unwrap(),
+            "user@example.com"
+        );
         assert!(normalize_email("invalid").is_err());
         assert!(validate_password("12345678").is_ok());
         assert!(validate_password("short").is_err());
