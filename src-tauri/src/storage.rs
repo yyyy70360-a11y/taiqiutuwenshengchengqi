@@ -8,6 +8,7 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
+#[cfg(not(target_os = "android"))]
 const CREDENTIAL_SERVICE: &str = "com.billiards.matrix";
 const CREDENTIAL_USER: &str = "api_key";
 const DEFAULT_CLOUD_SERVER_URL: &str = "http://127.0.0.1:38123";
@@ -179,7 +180,7 @@ pub fn get_settings(app: &AppHandle) -> Result<Value, String> {
 }
 
 pub fn get_api_key_status(app: &AppHandle) -> Result<bool, String> {
-    let configured = read_api_key()?.is_some();
+    let configured = read_api_key(app)?.is_some();
     let conn = connection(app)?;
     write_setting(
         &conn,
@@ -216,9 +217,7 @@ pub fn set_settings(app: &AppHandle, settings: SettingsInput) -> Result<(), Stri
         write_setting(&conn, "output_dir", &value)?;
     }
     if let Some(value) = settings.api_key.filter(|value| !value.trim().is_empty()) {
-        credential_entry()?
-            .set_password(&value)
-            .map_err(|error| format!("保存 API Key 到系统凭据失败: {error}"))?;
+        write_api_key(app, &value)?;
         write_setting(&conn, "api_key_configured", "true")?;
     }
     Ok(())
@@ -519,7 +518,7 @@ pub fn migrate_legacy(app: &AppHandle) -> Result<Value, String> {
                     .map_err(|error| format!("读取旧设置失败: {error}"))?,
             )
             .map_err(|error| format!("解析旧设置失败: {error}"))?;
-            import_settings_if_missing(&conn, &value)?;
+            import_settings_if_missing(app, &conn, &value)?;
             imported.push("settings");
         }
         let accounts_path = root.join("accounts.json");
@@ -651,7 +650,11 @@ fn legacy_roots(app: &AppHandle) -> Vec<PathBuf> {
     roots
 }
 
-fn import_settings_if_missing(conn: &Connection, value: &Value) -> Result<(), String> {
+fn import_settings_if_missing(
+    app: &AppHandle,
+    conn: &Connection,
+    value: &Value,
+) -> Result<(), String> {
     for (key, legacy_key) in [
         ("api_url", "api_url"),
         ("api_model", "api_model"),
@@ -674,29 +677,74 @@ fn import_settings_if_missing(conn: &Connection, value: &Value) -> Result<(), St
         .and_then(Value::as_str)
         .filter(|key| !key.trim().is_empty())
     {
-        let entry = credential_entry()?;
-        if read_api_key()?.is_none() {
-            entry
-                .set_password(key)
-                .map_err(|error| format!("迁移 API Key 到系统凭据失败: {error}"))?;
+        if read_api_key(app)?.is_none() {
+            write_api_key(app, key)?;
         }
         write_setting(conn, "api_key_configured", "true")?;
     }
     Ok(())
 }
 
+#[cfg(not(target_os = "android"))]
 fn credential_entry() -> Result<keyring::Entry, String> {
     keyring::Entry::new(CREDENTIAL_SERVICE, CREDENTIAL_USER)
         .map_err(|error| format!("访问系统凭据存储失败: {error}"))
 }
 
-fn read_api_key() -> Result<Option<String>, String> {
+#[cfg(not(target_os = "android"))]
+fn write_api_key(_app: &AppHandle, value: &str) -> Result<(), String> {
+    credential_entry()?
+        .set_password(value)
+        .map_err(|error| format!("保存 API Key 到系统凭据失败: {error}"))
+}
+
+#[cfg(target_os = "android")]
+fn write_api_key(app: &AppHandle, value: &str) -> Result<(), String> {
+    write_local_secret(app, CREDENTIAL_USER, value)
+        .map_err(|error| format!("保存 API Key 到本机存储失败: {error}"))
+}
+
+#[cfg(not(target_os = "android"))]
+fn read_api_key(_app: &AppHandle) -> Result<Option<String>, String> {
     match credential_entry()?.get_password() {
         Ok(value) if value.trim().is_empty() => Ok(None),
         Ok(value) => Ok(Some(value)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(error) => Err(format!("读取系统凭据存储失败: {error}")),
     }
+}
+
+#[cfg(target_os = "android")]
+fn read_api_key(app: &AppHandle) -> Result<Option<String>, String> {
+    read_local_secret(app, CREDENTIAL_USER)
+}
+
+#[cfg(target_os = "android")]
+pub fn write_local_secret(app: &AppHandle, account: &str, value: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    write_setting(&conn, &local_secret_key(account), value)
+}
+
+#[cfg(target_os = "android")]
+pub fn read_local_secret(app: &AppHandle, account: &str) -> Result<Option<String>, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, &local_secret_key(account))?.filter(|value| !value.trim().is_empty()))
+}
+
+#[cfg(target_os = "android")]
+pub fn delete_local_secret(app: &AppHandle, account: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    conn.execute(
+        "DELETE FROM settings WHERE key = ?1",
+        [local_secret_key(account)],
+    )
+    .map_err(|error| format!("清理本机登录状态失败: {error}"))?;
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+fn local_secret_key(account: &str) -> String {
+    format!("mobile_secret_{account}")
 }
 
 fn stored_api_key_status(value: &str) -> Option<bool> {

@@ -1,0 +1,8 @@
+src-tauri/gen/android/gradlew text eol=lf
+src-tauri/gen/android/**/*.kts text eol=lf
+src-tauri/gen/android/**/*.kt text eol=lf
+src-tauri/gen/android/**/*.xml text eol=lf
+src-tauri/gen/android/**/*.properties text eol=lf
+src-tauri/gen/android/**/*.pro text eol=lf
+src-tauri/gen/android/**/*.jar binary
+src-tauri/gen/android/**/*.png binary

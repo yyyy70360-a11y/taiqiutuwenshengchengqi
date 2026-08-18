@@ -14,6 +14,7 @@ use tauri::AppHandle;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+#[cfg(not(target_os = "android"))]
 const CREDENTIAL_SERVICE: &str = "com.billiards.matrix";
 const ACCESS_TOKEN_ACCOUNT: &str = "cloud_access_token";
 const REFRESH_TOKEN_ACCOUNT: &str = "cloud_refresh_token";
@@ -90,7 +91,7 @@ pub async fn set_server_url(app: &AppHandle, server_url: &str) -> Result<CloudSt
             .await
             .map_err(|error| format!("读取云服务配置任务失败: {error}"))??;
     if !old.is_empty() && old != normalized {
-        clear_tokens().await?;
+        clear_tokens(app).await?;
         let app_for_settings = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
             storage::set_cloud_email(&app_for_settings, "")?;
@@ -110,17 +111,17 @@ pub async fn set_server_url(app: &AppHandle, server_url: &str) -> Result<CloudSt
 }
 
 pub async fn status(app: &AppHandle) -> Result<CloudStatus, String> {
-    let app = app.clone();
+    let app_for_read = app.clone();
     let (server_url, email, last_sync_at) = tauri::async_runtime::spawn_blocking(move || {
         Ok::<_, String>((
-            storage::cloud_server_url(&app)?,
-            storage::cloud_email(&app)?,
-            storage::last_cloud_sync_at(&app)?,
+            storage::cloud_server_url(&app_for_read)?,
+            storage::cloud_email(&app_for_read)?,
+            storage::last_cloud_sync_at(&app_for_read)?,
         ))
     })
     .await
     .map_err(|error| format!("读取云服务状态任务失败: {error}"))??;
-    let logged_in = read_secret(REFRESH_TOKEN_ACCOUNT).await?.is_some();
+    let logged_in = read_secret(app, REFRESH_TOKEN_ACCOUNT).await?.is_some();
     Ok(CloudStatus {
         server_configured: !server_url.is_empty(),
         server_url,
@@ -176,7 +177,7 @@ async fn authenticate(
         .await
         .map_err(network_error)?;
     let session: AuthResponse = parse_response(response).await?;
-    store_tokens(&session).await?;
+    store_tokens(app, &session).await?;
     let app_for_identity = app.clone();
     let identity_email = email.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -194,7 +195,7 @@ async fn authenticate(
 
 pub async fn logout(app: &AppHandle) -> Result<CloudStatus, String> {
     let base = configured_base_url(app).await.ok();
-    let refresh = read_secret(REFRESH_TOKEN_ACCOUNT).await?;
+    let refresh = read_secret(app, REFRESH_TOKEN_ACCOUNT).await?;
     let remote_response = if let (Some(base), Some(refresh)) = (base, refresh) {
         Some(
             client()
@@ -209,7 +210,7 @@ pub async fn logout(app: &AppHandle) -> Result<CloudStatus, String> {
     } else {
         None
     };
-    clear_tokens().await?;
+    clear_tokens(app).await?;
     let app_for_email = app.clone();
     tauri::async_runtime::spawn_blocking(move || storage::set_cloud_email(&app_for_email, ""))
         .await
@@ -256,7 +257,7 @@ pub async fn generate_batch(
 }
 
 pub async fn sync_upload(app: &AppHandle) -> Result<CloudSyncResult, String> {
-    ensure_logged_in().await?;
+    ensure_logged_in(app).await?;
     let app_for_read = app.clone();
     let (settings, accounts, library) = tauri::async_runtime::spawn_blocking(move || {
         Ok::<_, String>((
@@ -341,7 +342,7 @@ pub async fn sync_upload(app: &AppHandle) -> Result<CloudSyncResult, String> {
 }
 
 pub async fn sync_download(app: &AppHandle) -> Result<CloudSyncResult, String> {
-    ensure_logged_in().await?;
+    ensure_logged_in(app).await?;
     let remote_settings: RemoteSettings =
         authenticated_json(app, Method::GET, "/api/v1/me/settings", None).await?;
     let remote_accounts: Vec<RemoteAccount> =
@@ -399,7 +400,7 @@ async fn authenticated_json<T: DeserializeOwned>(
     body: Option<Value>,
 ) -> Result<T, String> {
     let base = configured_base_url(app).await?;
-    let original_token = read_secret(ACCESS_TOKEN_ACCOUNT)
+    let original_token = read_secret(app, ACCESS_TOKEN_ACCOUNT)
         .await?
         .ok_or_else(|| "请先登录云服务".to_string())?;
     let first =
@@ -409,30 +410,30 @@ async fn authenticated_json<T: DeserializeOwned>(
     }
 
     let _refresh_guard = REFRESH_LOCK.get_or_init(|| Mutex::new(())).lock().await;
-    let latest_token = read_secret(ACCESS_TOKEN_ACCOUNT)
+    let latest_token = read_secret(app, ACCESS_TOKEN_ACCOUNT)
         .await?
         .ok_or_else(|| "登录状态已失效，请重新登录".to_string())?;
     let token = if latest_token != original_token {
         latest_token
     } else {
-        match refresh_session(&base).await {
+        match refresh_session(app, &base).await {
             Ok(token) => token,
             Err(error) => {
-                clear_tokens().await?;
+                clear_tokens(app).await?;
                 return Err(error);
             }
         }
     };
     let retry = send_authenticated(&base, &token, method, path, body).await?;
     if retry.status() == StatusCode::UNAUTHORIZED {
-        clear_tokens().await?;
+        clear_tokens(app).await?;
         return Err("登录状态已失效，请重新登录".into());
     }
     parse_response(retry).await
 }
 
-async fn refresh_session(base: &str) -> Result<String, String> {
-    let refresh_token = read_secret(REFRESH_TOKEN_ACCOUNT)
+async fn refresh_session(app: &AppHandle, base: &str) -> Result<String, String> {
+    let refresh_token = read_secret(app, REFRESH_TOKEN_ACCOUNT)
         .await?
         .ok_or_else(|| "登录状态已失效，请重新登录".to_string())?;
     let response = client()
@@ -445,7 +446,7 @@ async fn refresh_session(base: &str) -> Result<String, String> {
         .map_err(network_error)?;
     let session: AuthResponse = parse_response(response).await?;
     let access_token = session.access_token.clone();
-    store_tokens(&session).await?;
+    store_tokens(app, &session).await?;
     Ok(access_token)
 }
 
@@ -541,25 +542,22 @@ fn endpoint(base: &str, path: &str) -> String {
     format!("{}{}", base.trim_end_matches('/'), path)
 }
 
-async fn ensure_logged_in() -> Result<(), String> {
-    if read_secret(REFRESH_TOKEN_ACCOUNT).await?.is_none() {
+async fn ensure_logged_in(app: &AppHandle) -> Result<(), String> {
+    if read_secret(app, REFRESH_TOKEN_ACCOUNT).await?.is_none() {
         return Err("请先登录云服务".into());
     }
     Ok(())
 }
 
-async fn store_tokens(session: &AuthResponse) -> Result<(), String> {
+async fn store_tokens(app: &AppHandle, session: &AuthResponse) -> Result<(), String> {
+    let app = app.clone();
     let access = session.access_token.clone();
     let refresh = session.refresh_token.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let access_entry = secret_entry(ACCESS_TOKEN_ACCOUNT)?;
-        access_entry
-            .set_password(&access)
-            .map_err(|error| format!("保存登录状态失败: {error}"))?;
-        let refresh_entry = secret_entry(REFRESH_TOKEN_ACCOUNT)?;
-        if let Err(error) = refresh_entry.set_password(&refresh) {
-            let _ = access_entry.delete_credential();
-            return Err(format!("保存登录状态失败: {error}"));
+        write_secret_sync(&app, ACCESS_TOKEN_ACCOUNT, &access)?;
+        if let Err(error) = write_secret_sync(&app, REFRESH_TOKEN_ACCOUNT, &refresh) {
+            let _ = delete_secret_sync(&app, ACCESS_TOKEN_ACCOUNT);
+            return Err(error);
         }
         Ok(())
     })
@@ -567,24 +565,18 @@ async fn store_tokens(session: &AuthResponse) -> Result<(), String> {
     .map_err(|error| format!("保存登录状态任务失败: {error}"))?
 }
 
-async fn read_secret(account: &'static str) -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || match secret_entry(account)?.get_password() {
-        Ok(value) if value.trim().is_empty() => Ok(None),
-        Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(format!("读取登录状态失败: {error}")),
-    })
-    .await
-    .map_err(|error| format!("读取登录状态任务失败: {error}"))?
+async fn read_secret(app: &AppHandle, account: &'static str) -> Result<Option<String>, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || read_secret_sync(&app, account))
+        .await
+        .map_err(|error| format!("读取登录状态任务失败: {error}"))?
 }
 
-async fn clear_tokens() -> Result<(), String> {
+async fn clear_tokens(app: &AppHandle) -> Result<(), String> {
+    let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         for account in [ACCESS_TOKEN_ACCOUNT, REFRESH_TOKEN_ACCOUNT] {
-            match secret_entry(account)?.delete_credential() {
-                Ok(()) | Err(keyring::Error::NoEntry) => {}
-                Err(error) => return Err(format!("清理登录状态失败: {error}")),
-            }
+            delete_secret_sync(&app, account)?;
         }
         Ok(())
     })
@@ -592,6 +584,48 @@ async fn clear_tokens() -> Result<(), String> {
     .map_err(|error| format!("清理登录状态任务失败: {error}"))?
 }
 
+#[cfg(target_os = "android")]
+fn write_secret_sync(app: &AppHandle, account: &str, value: &str) -> Result<(), String> {
+    storage::write_local_secret(app, account, value)
+        .map_err(|error| format!("保存登录状态失败: {error}"))
+}
+
+#[cfg(target_os = "android")]
+fn read_secret_sync(app: &AppHandle, account: &str) -> Result<Option<String>, String> {
+    storage::read_local_secret(app, account).map_err(|error| format!("读取登录状态失败: {error}"))
+}
+
+#[cfg(target_os = "android")]
+fn delete_secret_sync(app: &AppHandle, account: &str) -> Result<(), String> {
+    storage::delete_local_secret(app, account)
+}
+
+#[cfg(not(target_os = "android"))]
+fn write_secret_sync(_app: &AppHandle, account: &str, value: &str) -> Result<(), String> {
+    secret_entry(account)?
+        .set_password(value)
+        .map_err(|error| format!("保存登录状态失败: {error}"))
+}
+
+#[cfg(not(target_os = "android"))]
+fn read_secret_sync(_app: &AppHandle, account: &str) -> Result<Option<String>, String> {
+    match secret_entry(account)?.get_password() {
+        Ok(value) if value.trim().is_empty() => Ok(None),
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(format!("读取登录状态失败: {error}")),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn delete_secret_sync(_app: &AppHandle, account: &str) -> Result<(), String> {
+    match secret_entry(account)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(format!("清理登录状态失败: {error}")),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
 fn secret_entry(account: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(CREDENTIAL_SERVICE, account)
         .map_err(|error| format!("访问系统凭据存储失败: {error}"))
