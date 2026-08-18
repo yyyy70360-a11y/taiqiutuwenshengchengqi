@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 
 const KEYCHAIN_SERVICE: &str = "com.billiards.matrix";
 const KEYCHAIN_USER: &str = "api_key";
-const DEFAULT_CLOUD_SERVER_URL: &str = "";
+const DEFAULT_CLOUD_SERVER_URL: &str = "http://127.0.0.1:38123";
 
 pub fn connection(app: &AppHandle) -> Result<Connection, String> {
     let directory = app
