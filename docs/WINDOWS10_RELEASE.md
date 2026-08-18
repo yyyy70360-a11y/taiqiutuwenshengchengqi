@@ -17,6 +17,8 @@ cargo check --manifest-path server\Cargo.toml
 cargo test --manifest-path server\Cargo.toml
 cargo clippy --manifest-path server\Cargo.toml --all-targets -- -D warnings
 cargo tauri build --bundles nsis,msi
+# 或使用 npm 脚本：
+npm run build:windows
 ```
 
 产物：
@@ -36,6 +38,7 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_zh-CN.msi
 - 云服务 access/refresh token 保存在 Windows Credential Manager；SQLite、普通配置文件和应用日志均不包含明文 token 或服务端 AI Key。
 - 从旧版 `settings.json`、`accounts.json` 和 JSON 文案库启动，数据迁移完成且旧输出图片未移动或删除。
 - 在没有开发工具的干净 Windows 10 机器上安装 NSIS 或 MSI，首次启动、同路径升级、卸载均成功。
+- 安装后桌面、开始菜单和任务栏图标均显示 `src-tauri\icons\icon.ico` 对应的台球图标；如系统缓存旧图标，运行 `.\scripts\windows\fix-shortcut-icons.ps1` 后重新验收。
 - 卸载应用后用户数据库、输出图片和系统凭据仍保留，除非用户明确要求清理数据。
 
 ## 发布

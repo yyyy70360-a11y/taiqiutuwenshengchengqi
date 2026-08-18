@@ -55,6 +55,8 @@ cargo test --manifest-path server\Cargo.toml
 cargo clippy --manifest-path server\Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri\Cargo.toml renders_hundred_images_without_external_dependencies -- --ignored
 cargo tauri build --bundles nsis,msi
+# 或使用 npm 脚本：
+npm run build:windows
 ```
 
 Windows 构建产物位于：
@@ -79,6 +81,14 @@ Windows 10 默认数据库路径：
 ## 发布注意事项
 
 Windows 安装包默认使用当前用户安装模式，不要求管理员权限；NSIS 安装器会按配置下载 WebView2 Bootstrapper。目标机器没有 WebView2 时需要联网完成运行时安装，企业离线环境应预装 WebView2 Runtime。
+
+Windows 有时会缓存旧版快捷方式/任务栏图标。安装新版后如果桌面、开始菜单或任务栏仍显示默认 Python 图标，先运行：
+
+```powershell
+.\scripts\windows\fix-shortcut-icons.ps1
+```
+
+如果任务栏固定项仍未刷新，请取消固定旧图标，再从开始菜单重新固定 `台球图文生成器`。
 
 未签名的 Windows 安装包适合本机测试。对外分发前应使用组织代码签名证书签名，并在一台干净的 Windows 10 机器上验证安装、首次启动、升级、卸载和数据保留。
 

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "tauri": "cargo tauri"
+    "tauri": "cargo tauri",
+    "build:windows": "cargo tauri build --bundles nsis,msi"
   }
 }

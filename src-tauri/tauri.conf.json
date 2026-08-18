@@ -25,8 +25,8 @@
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/icon.png", "icons/icon.icns"],
-    "resources": ["fonts/OFL.txt", "fonts/NOTICE.md"],
+    "icon": ["icons/icon.ico", "icons/icon.png", "icons/icon.icns"],
+    "resources": ["fonts/OFL.txt", "fonts/NOTICE.md", "icons/icon.ico"],
     "targets": ["app", "dmg"],
     "createUpdaterArtifacts": false
   }
