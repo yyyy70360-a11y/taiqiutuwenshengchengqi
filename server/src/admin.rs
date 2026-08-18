@@ -529,11 +529,12 @@ fn ai_config_html(config: &AiRuntimeConfig, csrf: &str, message: &str, success: 
         format!("<p class=\"error\">{}</p>", escape_html(message))
     };
     format!(
-        "<section><h2>AI 配置</h2>{}<form method=\"post\" action=\"/admin/ai-config\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><label>Base URL<input name=\"base_url\" value=\"{}\" required></label><label>模型<input name=\"model\" value=\"{}\" required></label><label>API Key<input name=\"api_key\" type=\"password\" value=\"\" placeholder=\"留空则保持当前 Key\"></label><p class=\"muted\">当前 Key：{}。页面不会显示完整 Key。</p><label class=\"check\"><input name=\"clear_api_key\" type=\"checkbox\" value=\"1\">清空后台保存的 Key，恢复使用服务器环境变量</label><label>超时秒数<input name=\"timeout_seconds\" type=\"number\" min=\"5\" max=\"300\" value=\"{}\" required></label><label>最大并发<input name=\"max_concurrency\" type=\"number\" min=\"1\" max=\"32\" value=\"{}\" required></label><button type=\"submit\">保存 AI 配置</button></form></section>",
+        "<section><h2>AI 配置</h2>{}<form method=\"post\" action=\"/admin/ai-config\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><label>Base URL<input name=\"base_url\" value=\"{}\" required></label><label>模型<input name=\"model\" value=\"{}\" required></label><label>API Key<input name=\"api_key\" type=\"text\" value=\"{}\" autocomplete=\"off\"></label><p class=\"muted\">当前 Key：{}，已按管理员要求明文显示。</p><label class=\"check\"><input name=\"clear_api_key\" type=\"checkbox\" value=\"1\">清空后台保存的 Key，恢复使用服务器环境变量</label><label>超时秒数<input name=\"timeout_seconds\" type=\"number\" min=\"5\" max=\"300\" value=\"{}\" required></label><label>最大并发<input name=\"max_concurrency\" type=\"number\" min=\"1\" max=\"32\" value=\"{}\" required></label><button type=\"submit\">保存 AI 配置</button></form></section>",
         message_html,
         escape_html(csrf),
         escape_html(&config.base_url),
         escape_html(&config.model),
+        escape_html(&config.api_key),
         key_status,
         config.timeout_seconds,
         config.max_concurrency
