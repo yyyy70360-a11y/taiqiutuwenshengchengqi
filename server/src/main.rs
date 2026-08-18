@@ -58,6 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState { config, db, ai_client, ai_semaphore };
 
     let app = Router::new()
+        .route("/", get(health))
         .route("/health", get(health))
         .route("/api/v1/version", get(version))
         .route("/api/v1/auth/register", post(auth::register))
