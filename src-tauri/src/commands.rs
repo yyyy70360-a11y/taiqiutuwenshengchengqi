@@ -35,7 +35,7 @@ pub fn get_templates() -> Vec<TemplateInfo> {
         .map(|(id, name)| TemplateInfo {
             id: (*id).into(),
             name: (*name).into(),
-            copy_limits: render::copy_limits_for_template(*id),
+            copy_limits: render::copy_limits_for_template(id),
         })
         .collect()
 }
