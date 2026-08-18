@@ -5,7 +5,8 @@ use crate::{
 use axum::{extract::State, http::HeaderMap, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use tokio::sync::OwnedSemaphorePermit;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
@@ -43,11 +44,7 @@ pub async fn generate_copy(
     Json(input): Json<AiRequest>,
 ) -> ApiResult<CopyItem> {
     let user_id = crate::auth::authenticate(&state.db, &headers).await?;
-    let _permit = state
-        .ai_semaphore
-        .clone()
-        .try_acquire_owned()
-        .map_err(|_| ApiError::too_many_requests("AI 任务繁忙，请稍后重试"))?;
+    let _permit = acquire_ai_permit(&state).await?;
     if input.prompt.trim().is_empty() || input.prompt.chars().count() > 20000 {
         return Err(ApiError::bad_request(
             "提示词不能为空且不能超过 20000 个字符",
@@ -95,11 +92,7 @@ pub async fn generate_batch_copy(
     Json(input): Json<BatchAiRequest>,
 ) -> ApiResult<Vec<CopyItem>> {
     let user_id = crate::auth::authenticate(&state.db, &headers).await?;
-    let _permit = state
-        .ai_semaphore
-        .clone()
-        .try_acquire_owned()
-        .map_err(|_| ApiError::too_many_requests("AI 任务繁忙，请稍后重试"))?;
+    let _permit = acquire_ai_permit(&state).await?;
     if input.prompt.trim().is_empty() || input.prompt.chars().count() > 20000 {
         return Err(ApiError::bad_request(
             "提示词不能为空且不能超过 20000 个字符",
@@ -152,23 +145,30 @@ async fn call_provider(
     prompt: &str,
     max_tokens: u32,
 ) -> Result<String, ApiError> {
-    if state.config.ai_api_key.trim().is_empty() {
+    let ai_config = crate::ai_config::load(&state.db, &state.config)
+        .await
+        .map_err(|error| {
+            tracing::error!(error = %error, "failed to load AI runtime config");
+            ApiError::internal("读取 AI 配置失败")
+        })?;
+    if ai_config.api_key.trim().is_empty() {
         return Err(ApiError::unavailable("服务器尚未配置 AI Provider"));
     }
-    let endpoint = if state.config.ai_base_url.ends_with("/chat/completions") {
-        state.config.ai_base_url.clone()
+    let endpoint = if ai_config.base_url.ends_with("/chat/completions") {
+        ai_config.base_url.clone()
     } else {
         format!(
             "{}/chat/completions",
-            state.config.ai_base_url.trim_end_matches('/')
+            ai_config.base_url.trim_end_matches('/')
         )
     };
     let response = state
         .ai_client
         .post(endpoint)
-        .bearer_auth(&state.config.ai_api_key)
+        .bearer_auth(&ai_config.api_key)
+        .timeout(Duration::from_secs(ai_config.timeout_seconds))
         .json(&ChatRequest {
-            model: &state.config.ai_model,
+            model: &ai_config.model,
             messages: vec![Message {
                 role: "user",
                 content: prompt,
@@ -198,6 +198,13 @@ async fn call_provider(
         .next()
         .map(|choice| choice.message.content)
         .ok_or_else(|| ApiError::unavailable("AI 返回为空"))
+}
+
+async fn acquire_ai_permit(state: &crate::AppState) -> Result<OwnedSemaphorePermit, ApiError> {
+    let semaphore = state.ai_semaphore.read().await.clone();
+    semaphore
+        .try_acquire_owned()
+        .map_err(|_| ApiError::too_many_requests("AI 任务繁忙，请稍后重试"))
 }
 
 async fn record_usage(

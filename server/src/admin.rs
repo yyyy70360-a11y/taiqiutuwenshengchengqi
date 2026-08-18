@@ -1,4 +1,7 @@
-use crate::{auth, AppState};
+use crate::{
+    ai_config::{AiConfigUpdate, AiRuntimeConfig},
+    auth, AppState,
+};
 use axum::{
     extract::{Form, Path, State},
     http::{
@@ -10,6 +13,8 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use sqlx::Row;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 const SESSION_COOKIE: &str = "billiards_admin_session";
@@ -30,6 +35,17 @@ pub struct LoginForm {
 #[derive(Debug, Deserialize)]
 pub struct CsrfForm {
     csrf: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AiConfigForm {
+    csrf: String,
+    base_url: String,
+    model: String,
+    api_key: String,
+    clear_api_key: Option<String>,
+    timeout_seconds: u64,
+    max_concurrency: usize,
 }
 
 #[derive(Debug)]
@@ -126,11 +142,15 @@ pub async fn dashboard(State(state): State<AppState>, headers: HeaderMap) -> Res
         Ok(value) => value,
         Err(response) => return response,
     };
+    let ai_config = match crate::ai_config::load(&state.db, &state.config).await {
+        Ok(value) => value,
+        Err(error) => return internal_page(&state, error, "读取 AI 配置失败"),
+    };
     html_response(layout(
         "管理首页",
         &state.config.admin_email,
         "dashboard",
-        &dashboard_html(&state, &stats, &recent_errors, &csrf),
+        &dashboard_html(&ai_config, &stats, &recent_errors, &csrf),
     ))
 }
 
@@ -185,6 +205,85 @@ pub async fn ai_usage(State(state): State<AppState>, headers: HeaderMap) -> Resp
         &state.config.admin_email,
         "ai",
         &ai_usage_html(&rows),
+    ))
+}
+
+pub async fn ai_config(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let config = match crate::ai_config::load(&state.db, &state.config).await {
+        Ok(value) => value,
+        Err(error) => return internal_page(&state, error, "读取 AI 配置失败"),
+    };
+    html_response(layout(
+        "AI 配置",
+        &state.config.admin_email,
+        "ai-config",
+        &ai_config_html(&config, &csrf, "", false),
+    ))
+}
+
+pub async fn save_ai_config(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(input): Form<AiConfigForm>,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    if !verify_csrf(&session, &input.csrf) {
+        return html_response(layout(
+            "请求已过期",
+            &state.config.admin_email,
+            "ai-config",
+            "<p class=\"error\">页面已过期，请返回 AI 配置页重试。</p>",
+        ));
+    }
+    let update = AiConfigUpdate {
+        base_url: input.base_url,
+        model: input.model,
+        timeout_seconds: input.timeout_seconds,
+        max_concurrency: input.max_concurrency,
+        api_key: Some(input.api_key),
+        clear_database_api_key: input.clear_api_key.is_some(),
+    };
+    let saved = match crate::ai_config::save(&state.db, &state.config, update).await {
+        Ok(value) => value,
+        Err(message) => {
+            let current = crate::ai_config::load(&state.db, &state.config)
+                .await
+                .unwrap_or_else(|_| state_ai_config_fallback(&state));
+            return html_response(layout(
+                "AI 配置",
+                &state.config.admin_email,
+                "ai-config",
+                &ai_config_html(&current, &input.csrf, &message, false),
+            ));
+        }
+    };
+    {
+        let mut semaphore = state.ai_semaphore.write().await;
+        *semaphore = Arc::new(Semaphore::new(saved.max_concurrency));
+    }
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    html_response(layout(
+        "AI 配置",
+        &state.config.admin_email,
+        "ai-config",
+        &ai_config_html(
+            &saved,
+            &csrf,
+            "AI 配置已保存，新的生成任务会立即使用。",
+            true,
+        ),
     ))
 }
 
@@ -381,15 +480,17 @@ async fn ai_usage_rows(state: &AppState) -> Result<Vec<String>, Response> {
 }
 
 fn dashboard_html(
-    state: &AppState,
+    ai_config: &AiRuntimeConfig,
     stats: &DashboardStats,
     recent_errors: &[String],
     csrf: &str,
 ) -> String {
-    let ai_key_status = if state.config.ai_api_key.trim().is_empty() {
+    let ai_key_status = if ai_config.api_key.trim().is_empty() {
         "<span class=\"badge bad\">未配置</span>"
+    } else if ai_config.api_key_from_database {
+        "<span class=\"badge ok\">已配置（后台保存）</span>"
     } else {
-        "<span class=\"badge ok\">已配置</span>"
+        "<span class=\"badge ok\">已配置（环境变量）</span>"
     };
     let errors = if recent_errors.is_empty() {
         "<tr><td colspan=\"4\" class=\"muted\">暂无失败记录</td></tr>".into()
@@ -403,12 +504,39 @@ fn dashboard_html(
         stats.today_items,
         stats.today_failures,
         ai_key_status,
-        escape_html(&state.config.ai_base_url),
-        escape_html(&state.config.ai_model),
-        state.config.ai_timeout.as_secs(),
-        state.config.ai_max_concurrency,
+        escape_html(&ai_config.base_url),
+        escape_html(&ai_config.model),
+        ai_config.timeout_seconds,
+        ai_config.max_concurrency,
         errors,
         escape_html(csrf)
+    )
+}
+
+fn ai_config_html(config: &AiRuntimeConfig, csrf: &str, message: &str, success: bool) -> String {
+    let key_status = if config.api_key.trim().is_empty() {
+        "<span class=\"badge bad\">未配置</span>"
+    } else if config.api_key_from_database {
+        "<span class=\"badge ok\">已由后台保存</span>"
+    } else {
+        "<span class=\"badge ok\">使用服务器环境变量</span>"
+    };
+    let message_html = if message.is_empty() {
+        String::new()
+    } else if success {
+        format!("<p class=\"notice\">{}</p>", escape_html(message))
+    } else {
+        format!("<p class=\"error\">{}</p>", escape_html(message))
+    };
+    format!(
+        "<section><h2>AI 配置</h2>{}<form method=\"post\" action=\"/admin/ai-config\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><label>Base URL<input name=\"base_url\" value=\"{}\" required></label><label>模型<input name=\"model\" value=\"{}\" required></label><label>API Key<input name=\"api_key\" type=\"password\" value=\"\" placeholder=\"留空则保持当前 Key\"></label><p class=\"muted\">当前 Key：{}。页面不会显示完整 Key。</p><label class=\"check\"><input name=\"clear_api_key\" type=\"checkbox\" value=\"1\">清空后台保存的 Key，恢复使用服务器环境变量</label><label>超时秒数<input name=\"timeout_seconds\" type=\"number\" min=\"5\" max=\"300\" value=\"{}\" required></label><label>最大并发<input name=\"max_concurrency\" type=\"number\" min=\"1\" max=\"32\" value=\"{}\" required></label><button type=\"submit\">保存 AI 配置</button></form></section>",
+        message_html,
+        escape_html(csrf),
+        escape_html(&config.base_url),
+        escape_html(&config.model),
+        key_status,
+        config.timeout_seconds,
+        config.max_concurrency
     )
 }
 
@@ -452,12 +580,13 @@ fn login_html(error: &str, default_email: &str) -> String {
 
 fn layout(title: &str, admin_email: &str, active: &str, content: &str) -> String {
     format!(
-        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main></body></html>",
+        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/ai-config\">AI 配置</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main></body></html>",
         escape_html(title),
         css(),
         escape_html(admin_email),
         active_class(active, "dashboard"),
         active_class(active, "users"),
+        active_class(active, "ai-config"),
         active_class(active, "ai"),
         content
     )
@@ -478,6 +607,17 @@ fn active_class(active: &str, current: &str) -> &'static str {
 fn admin_configured(state: &AppState) -> bool {
     !state.config.admin_email.trim().is_empty()
         && !state.config.admin_password_hash.trim().is_empty()
+}
+
+fn state_ai_config_fallback(state: &AppState) -> AiRuntimeConfig {
+    AiRuntimeConfig {
+        base_url: state.config.ai_base_url.clone(),
+        model: state.config.ai_model.clone(),
+        api_key: state.config.ai_api_key.clone(),
+        timeout_seconds: state.config.ai_timeout.as_secs(),
+        max_concurrency: state.config.ai_max_concurrency,
+        api_key_from_database: false,
+    }
 }
 
 fn internal_page(state: &AppState, error: sqlx::Error, message: &'static str) -> Response {
@@ -548,7 +688,7 @@ fn escape_html(value: &str) -> String {
 }
 
 fn css() -> &'static str {
-    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}input{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}</style>"
+    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.notice{color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}.check{display:flex;gap:8px;align-items:center;font-weight:600}.check input{width:auto;margin:0}input{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}</style>"
 }
 
 #[cfg(test)]

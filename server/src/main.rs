@@ -1,5 +1,6 @@
 mod admin;
 mod ai;
+mod ai_config;
 mod api;
 mod auth;
 mod config;
@@ -19,7 +20,10 @@ use reqwest::Client;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::{env, sync::Arc};
-use tokio::{net::TcpListener, sync::Semaphore};
+use tokio::{
+    net::TcpListener,
+    sync::{RwLock, Semaphore},
+};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
@@ -28,7 +32,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub db: PgPool,
     pub ai_client: Client,
-    pub ai_semaphore: Arc<Semaphore>,
+    pub ai_semaphore: Arc<RwLock<Arc<Semaphore>>>,
 }
 
 #[derive(Serialize)]
@@ -62,9 +66,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = Arc::new(Config::from_env()?);
     let db = db::connect(&config.database_url).await?;
-    let ai_client = Client::builder().timeout(config.ai_timeout).build()?;
+    let initial_ai_config = ai_config::load(&db, &config).await?;
+    let ai_client = Client::builder()
+        .timeout(std::time::Duration::from_secs(
+            initial_ai_config.timeout_seconds,
+        ))
+        .build()?;
     let address = config.bind;
-    let ai_semaphore = Arc::new(Semaphore::new(config.ai_max_concurrency));
+    let ai_semaphore = Arc::new(RwLock::new(Arc::new(Semaphore::new(
+        initial_ai_config.max_concurrency,
+    ))));
     let state = AppState {
         config,
         db,
@@ -81,6 +92,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin/users", get(admin::users))
         .route("/admin/users/{user_id}/disable", post(admin::disable_user))
         .route("/admin/users/{user_id}/enable", post(admin::enable_user))
+        .route(
+            "/admin/ai-config",
+            get(admin::ai_config).post(admin::save_ai_config),
+        )
         .route("/admin/ai-usage", get(admin::ai_usage))
         .route("/api/v1/version", get(version))
         .route("/api/v1/auth/register", post(auth::register))
