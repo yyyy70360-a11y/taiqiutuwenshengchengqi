@@ -64,7 +64,14 @@ fn limits_for_template(template: Option<&str>) -> CopyLimits {
         },
         "magazine_pro" | "fresh" | "journal" | "neon_club" | "chalkboard" | "retro_ticket"
         | "cyber_grid" | "cream_note" | "arena_score" | "sunset_gradient" | "ink_stamp"
-        | "glass_card" | "tactical_blue" => CopyLimits {
+        | "glass_card" | "tactical_blue" | "midnight_lux" | "candy_pop" | "forest_match"
+        | "steel_gray" | "royal_gold" | "ocean_wave" | "lava_motion" | "pearl_lite"
+        | "street_snap" | "comic_burst" | "vaporwave" | "newspaper" | "coffee_receipt"
+        | "scoreboard_green" | "purple_stage" | "ice_blue" | "red_warning" | "kraft_label"
+        | "mint_mono" | "black_gold" | "gradient_ring" | "billiard_felt" | "tournament_bracket"
+        | "soft_shadow" | "bold_blocks" | "pink_soda" | "desert_sand" | "matrix_code"
+        | "club_vip" | "clean_blue" | "orange_zine" | "silver_card" | "green_laser"
+        | "classic_serif" => CopyLimits {
             title_chars: 30,
             body_chars: 112,
             body_lines: 7,

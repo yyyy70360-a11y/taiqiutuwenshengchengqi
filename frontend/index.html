@@ -37,6 +37,7 @@ input[type=color]{width:50px;height:50px;border:2px solid var(--border2);border-
 input[type=color]:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--bg2),0 0 0 3px var(--accent),0 0 14px rgba(38,128,235,.4);transform:scale(1.05)}
 input[type=color]::-webkit-color-swatch{border:none;border-radius:50%}
 input[type=color]::-webkit-color-swatch-wrapper{padding:0;border-radius:50%}
+.type-panel{margin-bottom:12px}.type-panel .sect{cursor:pointer;list-style:none}.type-colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.type-color{font-size:10px;color:var(--t2)}.type-color input[type=color]{display:block;width:38px;height:38px;margin-top:6px}.type-color input:disabled{opacity:.35;cursor:not-allowed}.inline-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin:-2px 0 8px}.inline-check input{width:auto}
 button{padding:10px;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;width:100%;transition:all .15s}
 button:hover{background:var(--accent-h);border-color:var(--accent-h)}
 button.sec{background:var(--bg3);color:var(--t1);border:1px solid var(--border);margin-top:8px}
@@ -73,7 +74,7 @@ td textarea{min-height:48px;resize:vertical}
 .batch-item:hover{border-color:var(--border2)}
 .batch-item img{height:320px;display:block;cursor:zoom-in}
 .batch-item .dl{position:absolute;bottom:6px;right:6px;background:rgba(30,30,30,.85);color:#fff;padding:4px 8px;border-radius:3px;font-size:10px;text-decoration:none;border:1px solid var(--border)}
-.template-mix{margin:-2px 0 14px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px}
+.template-mix{margin:-2px 0 14px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;max-height:310px;overflow:auto}
 .template-mix>label{display:block;font-size:11px;color:var(--t2);margin-bottom:7px;font-weight:500}
 .template-mix-row{display:grid;grid-template-columns:minmax(0,1fr) 76px;align-items:center;gap:8px;margin-bottom:6px}
 .template-mix-row span{font-size:11px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -111,6 +112,13 @@ td textarea{min-height:48px;resize:vertical}
       <div style="flex:1;height:44px;border-radius:22px;background:linear-gradient(90deg,#FF8A5C,#FF5E62);border:1px solid var(--border);transition:all .15s" id="gradPreview" title="渐变预览：实时显示主辅色渐变效果"></div>
       <input type="color" id="color2" value="#FF5E62" title="辅色：点击拾色器选择渐变结束色">
     </div></div>
+    <details class="type-panel">
+      <summary class="sect">字体样式</summary>
+      <div class="field"><label>字体</label><select id="fontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="titleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <label class="inline-check"><input type="checkbox" id="customTextColors"> 启用文字颜色覆盖</label>
+      <div class="type-colors"><label class="type-color">标题<input type="color" id="titleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="tagColor" value="#2680EB" disabled></label></div>
+    </details>
     <div class="sect">内容</div>
     <div class="row">
       <div class="field"><label>序号</label><input id="num" value="01"></div>
@@ -162,6 +170,13 @@ td textarea{min-height:48px;resize:vertical}
     <div class="row"><div class="field"><label>模板模式</label><select id="bTplMode"><option value="single" selected>统一模板</option><option value="random">随机模板</option><option value="mix">自定义分配</option></select></div><div class="field" id="bTplUniformWrap"><label>渲染模板</label><select id="bTpl"></select></div></div>
     <div id="bTplMixWrap" class="template-mix" hidden><label>模板数量分配</label><div id="bTplMix"></div><div id="bTplMixSummary" class="template-mix-summary">总计 0 张</div></div>
     <div id="batchFitHint" class="copy-fit-hint" aria-live="polite"></div>
+    <details class="type-panel">
+      <summary class="sect">字体样式</summary>
+      <div class="field"><label>字体</label><select id="bFontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="bTitleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bBodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <label class="inline-check"><input type="checkbox" id="bCustomTextColors"> 启用文字颜色覆盖</label>
+      <div class="type-colors"><label class="type-color">标题<input type="color" id="bTitleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bBodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="bTagColor" value="#2680EB" disabled></label></div>
+    </details>
     <div class="field"><label>配色</label><select id="bColor"><option value="-1">随机轮换</option><option value="0">暖橙</option><option value="1">薄荷</option><option value="2">天蓝</option><option value="3">紫粉</option><option value="4">深蓝</option></select></div>
     <div class="field"><label>保存到子文件夹（可选）</label><input id="bSubfolder" placeholder="如：斗门约球0815"></div>
     <button id="batchGeneratePromptButton" type="button" class="sec" style="margin-top:10px" title="根据人设配置生成提示词">生成提示词</button>
@@ -220,6 +235,9 @@ function closeLightbox(){document.getElementById("lightbox").classList.remove("s
 
 // 配色
 function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
+function typeId(prefix,name){return prefix?prefix+name.charAt(0).toUpperCase()+name.slice(1):name}
+function syncTextColorInputs(prefix=""){const enabled=document.getElementById(typeId(prefix,"customTextColors"))?.checked===true;["titleColor","bodyColor","tagColor"].forEach(name=>{const input=document.getElementById(typeId(prefix,name));if(input)input.disabled=!enabled})}
+function typographyPayload(prefix=""){const custom=document.getElementById(typeId(prefix,"customTextColors"))?.checked===true;return{fontFamily:document.getElementById(typeId(prefix,"fontFamily"))?.value||"theme",titleWeight:parseInt(document.getElementById(typeId(prefix,"titleWeight"))?.value)||0,bodyWeight:parseInt(document.getElementById(typeId(prefix,"bodyWeight"))?.value)||0,titleColor:custom?document.getElementById(typeId(prefix,"titleColor"))?.value||"":"",bodyColor:custom?document.getElementById(typeId(prefix,"bodyColor"))?.value||"":"",tagColor:custom?document.getElementById(typeId(prefix,"tagColor"))?.value||"":""}}
 if(nativeReady){
   nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();updateSingleFitHint();updateBatchFitHint()}).catch(e=>alert("模板读取失败："+e));
   nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
@@ -228,10 +246,10 @@ function loadPreset(){const p=presets[document.getElementById("preset").value];i
 
 // 实时预览
 function scheduleRender(){updateSingleFitHint();clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
-async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
+async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload()};if(!b.title)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
 async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
 async function clearHist(){if(!nativeReady||!confirm("清空历史记录？已保存的图片文件不会删除。"))return;try{await nativeInvoke("clear_render_history");histArr=[];await loadHistory()}catch(e){alert("清空历史失败："+e)}}
-async function saveRender(btn){const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent="保存到文件夹"},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent="保存到文件夹"}}
+async function saveRender(btn){const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload()};btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent="保存到文件夹"},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent="保存到文件夹"}}
 
 // AI生成
 const PERSONA_GUIDES={
@@ -301,7 +319,7 @@ async function bRender(){
   const sourceItems=items.filter(item=>item.querySelector(".bi-title").value.trim()).slice(0,100),plan=batchTemplatePlan(sourceItems.length),overItems=sourceItems.filter(item=>item.dataset.fitOver==="1");
   if(plan.error){setActionStatus("batchAiStatus",plan.error,"error");alert(plan.error);return}if(overItems.length&&!confirm(`有 ${overItems.length} 条文案超过当前模板容量，渲染时可能自动缩小或省略。仍继续渲染？`)){setActionStatus("batchAiStatus",`已暂停：${overItems.length} 条文案建议先缩短`,"error");return}
   const ci=parseInt(document.getElementById("bColor").value),theme=document.getElementById("bTheme").value;
-  const reqs=sourceItems.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:plan.templates[i],num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim()}});
+  const reqs=sourceItems.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:plan.templates[i],num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim(),...typographyPayload("b")}});
   if(!reqs.length){alert("请至少保留一条有标题的文案");return}
   const g=document.getElementById("batchGrid");g.innerHTML="";const bar=document.createElement("div");bar.style.cssText="width:100%;background:var(--bg3);border-radius:4px;height:28px;margin-bottom:16px;overflow:hidden;position:relative;position:sticky;top:0;z-index:9";const fill=document.createElement("div");fill.style.cssText="height:100%;background:var(--accent);width:0%;transition:width .3s";const txt=document.createElement("div");txt.style.cssText="position:absolute;top:0;left:0;right:0;text-align:center;line-height:28px;font-size:11px;color:#fff;font-weight:600";txt.textContent=`渲染中 0/${reqs.length}`;bar.appendChild(fill);bar.appendChild(txt);g.appendChild(bar);const removers=[];let failures=[];try{if(nativeListen){removers.push(await nativeListen("job-progress",e=>{const p=e.payload;fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`渲染中 ${p.completed}/${p.total}`}),await nativeListen("job-failed",e=>{const p=e.payload;failures.push(`第${p.completed}张：${p.error}`);fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`已处理 ${p.completed}/${p.total}，失败 ${failures.length}`}),await nativeListen("job-complete",e=>{const p=e.payload;txt.textContent=`完成 ${p.succeeded}/${p.total}`}))}const results=await nativeInvoke("render_batch",{requests:reqs,outputDir:null}),recent=await nativeInvoke("get_render_history");for(const item of recent.slice(0,Math.min(results.length,24))){try{const data=await nativeInvoke("read_history_image",{historyId:item.id});const card=document.createElement("div"),img=document.createElement("img"),open=document.createElement("a");card.className="batch-item";img.src="data:image/png;base64,"+data;img.addEventListener("click",()=>openLightbox(img.src));open.className="dl";open.textContent="目录";open.addEventListener("click",event=>{event.preventDefault();openFolder()});card.appendChild(img);card.appendChild(open);g.appendChild(card)}catch(_){}}fill.style.width="100%";txt.textContent=`完成 ${results.length}/${reqs.length}`;if(failures.length)alert("部分图片渲染失败：\n"+failures.slice(0,5).join("\n"));await loadHistory()}catch(e){txt.textContent="批量渲染失败";alert("批量渲染失败："+e)}finally{removers.forEach(remove=>remove())}}
 
@@ -333,6 +351,8 @@ function bindStaticEvents(){
   ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));updateSingleFitHint();updateBatchFitHint();
   document.getElementById("color1").addEventListener("change",event=>{cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
   document.getElementById("color2").addEventListener("change",event=>{cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
+  ["fontFamily","titleWeight","bodyWeight","customTextColors","titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs();scheduleRender()}));
+  ["titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));
   document.getElementById("preview0").addEventListener("click",event=>openLightbox(event.currentTarget.src));
   document.getElementById("clearHistoryButton").addEventListener("click",clearHist);
   document.getElementById("saveRenderButton").addEventListener("click",event=>saveRender(event.currentTarget));
@@ -346,6 +366,7 @@ function bindStaticEvents(){
   document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);document.getElementById("bTpl").addEventListener("change",()=>{refreshBatchItemFits();refreshPromptFromConfig("b","bPrompt")});
   document.getElementById("bCount").addEventListener("input",()=>{updateTemplateMixSummary();refreshPromptFromConfig("b","bPrompt")});
+  ["bFontFamily","bTitleWeight","bBodyWeight","bCustomTextColors","bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>syncTextColorInputs("b")));
   document.getElementById("batchRenderButton").addEventListener("click",bRender);
   document.getElementById("saveCloudServerButton").addEventListener("click",()=>saveCloudServer());
   document.getElementById("testCloudButton").addEventListener("click",testCloud);
@@ -362,6 +383,7 @@ function bindStaticEvents(){
   lightbox.addEventListener("click",event=>{if(event.target===lightbox||event.target===close)closeLightbox()});
   close.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();closeLightbox()}});
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
+  syncTextColorInputs();syncTextColorInputs("b");
 }
 bindStaticEvents();
 if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{setActionStatus("cloudStatus","桌面服务不可用","error");loadHistory()}
