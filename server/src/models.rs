@@ -81,6 +81,8 @@ pub struct CopyItem {
 #[serde(rename_all = "camelCase")]
 pub struct AiRequest {
     pub prompt: String,
+    #[serde(default)]
+    pub template: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,6 +90,8 @@ pub struct AiRequest {
 pub struct BatchAiRequest {
     pub prompt: String,
     pub count: usize,
+    #[serde(default)]
+    pub template: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -1,4 +1,4 @@
-use crate::models::RenderRequest;
+use crate::models::{CopyFitLimits, RenderRequest};
 use std::sync::{Arc, OnceLock};
 
 pub const WIDTH: u32 = 1080;
@@ -48,6 +48,39 @@ pub fn svg_for(request: &RenderRequest) -> String {
     }
 }
 
+pub fn copy_limits_for_template(template: &str) -> CopyFitLimits {
+    match template {
+        "minimal" => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 136,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "poster" => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 144,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "magazine_pro" | "fresh" | "journal" => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 112,
+            body_lines: 7,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        _ => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 96,
+            body_lines: 6,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+    }
+}
+
 fn magazine(request: &RenderRequest) -> String {
     let colors = colors(request);
     let content_x = 132;
@@ -68,8 +101,10 @@ fn magazine(request: &RenderRequest) -> String {
     let body_y = divider_y + 100;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 48),
+        content_x,
+        content_right,
         48,
+        40,
         content_x,
         body_y,
         1370,
@@ -116,8 +151,10 @@ fn magazine_pro(request: &RenderRequest) -> String {
     let body_y = title_last_y + 120;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 46),
+        content_x,
+        content_right,
         46,
+        38,
         content_x,
         body_y,
         1370,
@@ -164,8 +201,10 @@ fn fresh(request: &RenderRequest) -> String {
     let body_y = divider_y + 100;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 48),
+        content_x,
+        content_right,
         48,
+        40,
         content_x,
         body_y,
         1370,
@@ -201,8 +240,10 @@ fn minimal(request: &RenderRequest) -> String {
     let body_y = divider_y + 105;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 50),
+        content_x,
+        content_right,
         50,
+        42,
         content_x,
         body_y,
         1490,
@@ -238,8 +279,10 @@ fn poster(request: &RenderRequest) -> String {
     let body_y = divider_y + 105;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 48),
+        content_x,
+        content_right,
         48,
+        40,
         content_x,
         body_y,
         1490,
@@ -274,8 +317,10 @@ fn journal(request: &RenderRequest) -> String {
     let body_y = title_last_y + 122;
     let body = body_lines(
         &request.body,
-        chars_for_width(content_x, content_right, 48),
+        content_x,
+        content_right,
         48,
+        40,
         content_x,
         body_y,
         1380,
@@ -353,8 +398,10 @@ fn text_lines(
 #[allow(clippy::too_many_arguments)]
 fn body_lines(
     text: &str,
-    max_chars: usize,
+    left: u32,
+    right: u32,
     size: u32,
+    min_size: u32,
     x: u32,
     y: u32,
     max_baseline: u32,
@@ -363,13 +410,99 @@ fn body_lines(
     weight: u32,
     line_height: f32,
 ) -> String {
-    let line_step = (size as f32 * line_height) as u32;
-    let max_lines = (max_baseline.saturating_sub(y) / line_step + 1).max(1) as usize;
-    let lines = limited_lines(text, max_chars, max_lines);
+    let layout = fitting_body_layout(
+        text,
+        left,
+        right,
+        size,
+        min_size,
+        y,
+        max_baseline,
+        line_height,
+    );
+    let line_step = (layout.size as f32 * layout.line_height) as u32;
+    let lines = if layout.truncated {
+        limited_lines(text, layout.max_chars, layout.max_lines)
+    } else {
+        wrap_text(text, layout.max_chars)
+    };
     lines.iter().enumerate().map(|(index, line)| {
-        let baseline = y + (index as u32 * (size as f32 * line_height) as u32);
+        let baseline = y + (index as u32 * line_step);
+        let size = layout.size;
         format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line))
     }).collect::<Vec<_>>().join("")
+}
+
+#[derive(Debug)]
+struct BodyLayout {
+    size: u32,
+    line_height: f32,
+    max_chars: usize,
+    max_lines: usize,
+    truncated: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fitting_body_layout(
+    text: &str,
+    left: u32,
+    right: u32,
+    base_size: u32,
+    min_size: u32,
+    y: u32,
+    max_baseline: u32,
+    base_line_height: f32,
+) -> BodyLayout {
+    let min_size = min_size.min(base_size).max(1);
+    let mut fallback = layout_for_body(
+        left,
+        right,
+        min_size,
+        y,
+        max_baseline,
+        base_line_height,
+        true,
+    );
+    let mut size = base_size;
+    loop {
+        for line_height in [
+            base_line_height,
+            (base_line_height - 0.08).max(1.34),
+            (base_line_height - 0.14).max(1.28),
+        ] {
+            let layout = layout_for_body(left, right, size, y, max_baseline, line_height, false);
+            if wrap_text(text, layout.max_chars).len() <= layout.max_lines {
+                return layout;
+            }
+            if size == min_size {
+                fallback = layout_for_body(left, right, size, y, max_baseline, line_height, true);
+            }
+        }
+        if size == min_size {
+            return fallback;
+        }
+        size = size.saturating_sub(2).max(min_size);
+    }
+}
+
+fn layout_for_body(
+    left: u32,
+    right: u32,
+    size: u32,
+    y: u32,
+    max_baseline: u32,
+    line_height: f32,
+    truncated: bool,
+) -> BodyLayout {
+    let line_step = (size as f32 * line_height) as u32;
+    let max_lines = (max_baseline.saturating_sub(y) / line_step + 1).max(1) as usize;
+    BodyLayout {
+        size,
+        line_height,
+        max_chars: chars_for_width(left, right, size),
+        max_lines,
+        truncated,
+    }
 }
 
 fn chars_for_width(left: u32, right: u32, font_size: u32) -> usize {

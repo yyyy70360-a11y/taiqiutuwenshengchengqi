@@ -71,6 +71,18 @@ pub struct RenderResponse {
 pub struct TemplateInfo {
     pub id: String,
     pub name: String,
+    #[serde(rename = "copyLimits")]
+    pub copy_limits: CopyFitLimits,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyFitLimits {
+    pub title_chars: usize,
+    pub body_chars: usize,
+    pub body_lines: usize,
+    pub tags_count: usize,
+    pub tag_chars: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -37,6 +37,48 @@ struct ChatMessage {
     content: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct CopyLimits {
+    title_chars: usize,
+    body_chars: usize,
+    body_lines: usize,
+    tags_count: usize,
+    tag_chars: usize,
+}
+
+fn limits_for_template(template: Option<&str>) -> CopyLimits {
+    match template.unwrap_or("magazine").trim() {
+        "minimal" => CopyLimits {
+            title_chars: 30,
+            body_chars: 136,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "poster" => CopyLimits {
+            title_chars: 30,
+            body_chars: 144,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "magazine_pro" | "fresh" | "journal" => CopyLimits {
+            title_chars: 30,
+            body_chars: 112,
+            body_lines: 7,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        _ => CopyLimits {
+            title_chars: 30,
+            body_chars: 96,
+            body_lines: 6,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+    }
+}
+
 pub async fn generate_copy(
     State(state): State<crate::AppState>,
     headers: HeaderMap,
@@ -54,9 +96,11 @@ pub async fn generate_copy(
         ));
     }
     let started = Instant::now();
+    let limits = limits_for_template(input.template.as_deref());
     let result = async {
-        let text = call_provider(&state, &single_prompt(&input.prompt), 600).await?;
-        parse_item(&text).ok_or_else(|| ApiError::internal("AI 返回内容无法解析"))
+        let text = call_provider(&state, &single_prompt(&input.prompt, limits), 520).await?;
+        let item = parse_item(&text).ok_or_else(|| ApiError::internal("AI 返回内容无法解析"))?;
+        fit_item_with_retry(&state, &input.prompt, item, limits).await
     }
     .await;
     match result {
@@ -107,10 +151,15 @@ pub async fn generate_batch_copy(
     }
     let count = input.count.clamp(1, 100);
     let started = Instant::now();
-    let prompt = format!("{}\n\n生成{}条差异化内容，每条按【第N条】分隔。每条严格包含：标题：xxx、正文：xxx、话题：#xx #xx", input.prompt, count);
+    let limits = limits_for_template(input.template.as_deref());
+    let prompt = batch_prompt(&input.prompt, count, limits);
     let result = async {
         let text = call_provider(&state, &prompt, (count as u32 * 600).min(12000)).await?;
-        let items = parse_batch(&text);
+        let items = parse_batch(&text)
+            .into_iter()
+            .take(count)
+            .map(|item| compact_item(item, limits))
+            .collect::<Vec<_>>();
         if items.is_empty() {
             return Err(ApiError::internal("AI 批量返回内容无法解析"));
         }
@@ -224,8 +273,168 @@ async fn record_usage(
     }
 }
 
-fn single_prompt(prompt: &str) -> String {
-    format!("{prompt}\n\n严格按以下格式输出，不要添加解释：\n标题：xxx\n正文：xxx\n话题：#xx #xx")
+fn single_prompt(prompt: &str, limits: CopyLimits) -> String {
+    format!(
+        "{prompt}\n\n{limits}\n严格按以下格式输出，不要添加解释：\n标题：xxx\n正文：xxx\n话题：#xx #xx",
+        limits = limit_instruction(limits)
+    )
+}
+
+fn batch_prompt(prompt: &str, count: usize, limits: CopyLimits) -> String {
+    format!(
+        "{prompt}\n\n{limits}\n生成{count}条差异化内容，每条按【第N条】分隔。每条严格包含：标题：xxx、正文：xxx、话题：#xx #xx",
+        limits = limit_instruction(limits)
+    )
+}
+
+fn limit_instruction(limits: CopyLimits) -> String {
+    format!(
+        "【模板容量限制：最高优先级】标题不超过{}字；正文不超过{}字且最多{}行；话题最多{}个，每个不超过{}字。宁可短一点，也不能超过模板承载范围。",
+        limits.title_chars,
+        limits.body_chars,
+        limits.body_lines,
+        limits.tags_count,
+        limits.tag_chars
+    )
+}
+
+async fn fit_item_with_retry(
+    state: &crate::AppState,
+    source_prompt: &str,
+    item: CopyItem,
+    limits: CopyLimits,
+) -> Result<CopyItem, ApiError> {
+    let item = normalize_item(item);
+    if item_fits(&item, limits) {
+        return Ok(item);
+    }
+
+    let prompt = compact_prompt(source_prompt, &item, limits);
+    let compacted = match call_provider(state, &prompt, 420).await {
+        Ok(text) => parse_item(&text).map(normalize_item),
+        Err(error) => {
+            tracing::warn!(error = %error.message, "AI compact retry failed; applying local copy limits");
+            None
+        }
+    };
+    Ok(compacted
+        .filter(|candidate| item_fits(candidate, limits))
+        .unwrap_or_else(|| compact_item(item, limits)))
+}
+
+fn compact_prompt(source_prompt: &str, item: &CopyItem, limits: CopyLimits) -> String {
+    format!(
+        "{source_prompt}\n\n下面这条文案超过模板承载范围，请保留原意并压缩到容量内。\n标题：{title}\n正文：{body}\n话题：{tags}\n\n{limits}\n只输出：\n标题：xxx\n正文：xxx\n话题：#xx #xx",
+        title = item.title,
+        body = item.body,
+        tags = item.tags,
+        limits = limit_instruction(limits)
+    )
+}
+
+fn item_fits(item: &CopyItem, limits: CopyLimits) -> bool {
+    visible_len(&item.title) <= limits.title_chars
+        && visible_len(&item.body) <= limits.body_chars
+        && item
+            .body
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count()
+            <= limits.body_lines
+        && item
+            .tags
+            .split_whitespace()
+            .filter(|tag| !tag.trim().is_empty())
+            .count()
+            <= limits.tags_count
+        && item
+            .tags
+            .split_whitespace()
+            .all(|tag| visible_len(tag) <= limits.tag_chars)
+}
+
+fn compact_item(item: CopyItem, limits: CopyLimits) -> CopyItem {
+    let item = normalize_item(item);
+    CopyItem {
+        id: item.id,
+        title: truncate_visible(&item.title.replace('\n', " "), limits.title_chars),
+        body: compact_body(&item.body, limits),
+        tags: compact_tags(&item.tags, limits),
+    }
+}
+
+fn normalize_item(mut item: CopyItem) -> CopyItem {
+    item.title = collapse_inline_space(&item.title);
+    item.body = item
+        .body
+        .lines()
+        .map(collapse_inline_space)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    item.tags = item
+        .tags
+        .split_whitespace()
+        .map(str::trim)
+        .filter(|tag| !tag.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    item
+}
+
+fn compact_body(body: &str, limits: CopyLimits) -> String {
+    let by_chars = truncate_visible(body, limits.body_chars);
+    let mut lines = by_chars
+        .lines()
+        .map(collapse_inline_space)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if lines.len() > limits.body_lines {
+        lines.truncate(limits.body_lines);
+        if let Some(last) = lines.last_mut() {
+            if !last.ends_with('…') {
+                last.push('…');
+            }
+        }
+    }
+    lines.join("\n")
+}
+
+fn compact_tags(tags: &str, limits: CopyLimits) -> String {
+    tags.split_whitespace()
+        .take(limits.tags_count)
+        .map(|tag| truncate_visible(tag, limits.tag_chars))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn collapse_inline_space(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn visible_len(value: &str) -> usize {
+    value.chars().filter(|ch| !ch.is_whitespace()).count()
+}
+
+fn truncate_visible(value: &str, limit: usize) -> String {
+    if visible_len(value) <= limit {
+        return value.trim().to_string();
+    }
+    if limit == 0 {
+        return String::new();
+    }
+    let mut output = String::new();
+    let mut count = 0;
+    for ch in value.trim().chars() {
+        if !ch.is_whitespace() {
+            if count + 1 >= limit {
+                break;
+            }
+            count += 1;
+        }
+        output.push(ch);
+    }
+    output.trim_end().to_string() + "…"
 }
 
 fn parse_item(text: &str) -> Option<CopyItem> {
@@ -318,5 +527,25 @@ mod tests {
         );
         assert_eq!(items.len(), 2);
         assert_eq!(items[1].title, "二");
+    }
+    #[test]
+    fn compacts_copy_to_template_limits() {
+        let limits = CopyLimits {
+            title_chars: 6,
+            body_chars: 12,
+            body_lines: 2,
+            tags_count: 2,
+            tag_chars: 4,
+        };
+        let item = CopyItem {
+            id: None,
+            title: "这个标题明显太长".into(),
+            body: "第一行真的很长很长\n第二行也很长很长\n第三行不该保留".into(),
+            tags: "#珠海台球 #超级长话题 #多余话题".into(),
+        };
+        let compacted = compact_item(item, limits);
+        assert!(item_fits(&compacted, limits));
+        assert!(compacted.title.ends_with('…'));
+        assert_eq!(compacted.tags.split_whitespace().count(), 2);
     }
 }
