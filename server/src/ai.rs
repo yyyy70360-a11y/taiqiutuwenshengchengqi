@@ -62,7 +62,9 @@ fn limits_for_template(template: Option<&str>) -> CopyLimits {
             tags_count: 3,
             tag_chars: 12,
         },
-        "magazine_pro" | "fresh" | "journal" => CopyLimits {
+        "magazine_pro" | "fresh" | "journal" | "neon_club" | "chalkboard" | "retro_ticket"
+        | "cyber_grid" | "cream_note" | "arena_score" | "sunset_gradient" | "ink_stamp"
+        | "glass_card" | "tactical_blue" => CopyLimits {
             title_chars: 30,
             body_chars: 112,
             body_lines: 7,

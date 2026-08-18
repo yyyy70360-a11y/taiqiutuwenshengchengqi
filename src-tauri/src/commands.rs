@@ -23,6 +23,16 @@ const TEMPLATES: &[(&str, &str)] = &[
     ("minimal", "极简留白风"),
     ("poster", "深色海报风"),
     ("journal", "手账贴纸风"),
+    ("neon_club", "霓虹球房风"),
+    ("chalkboard", "黑板战术风"),
+    ("retro_ticket", "复古票根风"),
+    ("cyber_grid", "赛博网格风"),
+    ("cream_note", "奶油便签风"),
+    ("arena_score", "球赛记分牌风"),
+    ("sunset_gradient", "日落渐变风"),
+    ("ink_stamp", "墨印章报风"),
+    ("glass_card", "玻璃拟态风"),
+    ("tactical_blue", "战术蓝图风"),
 ];
 
 static LAST_FILE_STAMP: AtomicU64 = AtomicU64::new(0);
@@ -30,6 +40,10 @@ const MAX_BATCH_SIZE: usize = 100;
 
 #[tauri::command]
 pub fn get_templates() -> Vec<TemplateInfo> {
+    debug_assert!(TEMPLATES
+        .iter()
+        .map(|(id, _)| *id)
+        .eq(render::TEMPLATE_IDS.iter().copied()));
     TEMPLATES
         .iter()
         .map(|(id, name)| TemplateInfo {
