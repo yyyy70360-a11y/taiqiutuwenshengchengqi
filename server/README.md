@@ -1,10 +1,11 @@
 # 台球图文生成器云端 API
 
-这是 macOS 云端化原型的服务端骨架。第一阶段只提供健康检查和版本接口，后续按施工清单增加账号、同步和 AI 网关。
+这是 macOS 云端化原型的服务端。图片仍由客户端本地渲染，服务端负责账号、配置同步、文案库和 AI 网关。
 
 ## 本地运行
 
 ```bash
+cp server/.env.example server/.env
 cargo run --manifest-path server/Cargo.toml
 curl http://127.0.0.1:38123/health
 ```
@@ -15,6 +16,17 @@ curl http://127.0.0.1:38123/health
 
 - `GET /health`
 - `GET /api/v1/version`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET/PUT /api/v1/me/settings`
+- `GET/PUT /api/v1/me/accounts`
+- `GET/POST /api/v1/me/copy-library`
+- `POST /api/v1/ai/generate-copy`
+- `POST /api/v1/ai/generate-batch-copy`
+
+用户数据接口和 AI 接口使用 `Authorization: Bearer <accessToken>`。access token 有效期 15 分钟，refresh token 有效期 30 天且只在数据库保存 SHA-256 哈希。密码使用 Argon2id 哈希。
 
 ## 服务器部署原则
 

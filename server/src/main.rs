@@ -1,19 +1,33 @@
+mod ai;
+mod api;
+mod auth;
+mod config;
+mod db;
+mod errors;
+mod models;
+
 use axum::{
     extract::State,
     http::StatusCode,
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
+use config::Config;
+use reqwest::Client;
 use serde::Serialize;
-use std::{env, net::SocketAddr, sync::Arc};
-use tokio::net::TcpListener;
+use sqlx::PgPool;
+use std::{env, sync::Arc};
+use tokio::{net::TcpListener, sync::Semaphore};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
 #[derive(Clone)]
-struct AppState {
-    environment: Arc<str>,
+pub struct AppState {
+    pub config: Arc<Config>,
+    pub db: PgPool,
+    pub ai_client: Client,
+    pub ai_semaphore: Arc<Semaphore>,
 }
 
 #[derive(Serialize)]
@@ -23,11 +37,6 @@ struct HealthResponse {
     service: &'static str,
     version: &'static str,
     environment: String,
-}
-
-#[derive(Serialize)]
-struct ErrorResponse {
-    error: &'static str,
 }
 
 #[tokio::main]
@@ -41,18 +50,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compact()
         .init();
 
-    let bind = env::var("BILLIARDS_BIND").unwrap_or_else(|_| "127.0.0.1:38123".into());
-    let address: SocketAddr = bind.parse()?;
-    let state = AppState {
-        environment: Arc::from(
-            env::var("BILLIARDS_ENV").unwrap_or_else(|_| "development".into()),
-        ),
-    };
+    let config = Arc::new(Config::from_env()?);
+    let db = db::connect(&config.database_url).await?;
+    let ai_client = Client::builder().timeout(config.ai_timeout).build()?;
+    let address = config.bind;
+    let ai_semaphore = Arc::new(Semaphore::new(config.ai_max_concurrency));
+    let state = AppState { config, db, ai_client, ai_semaphore };
 
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/v1/version", get(version))
+        .route("/api/v1/auth/register", post(auth::register))
+        .route("/api/v1/auth/login", post(auth::login))
+        .route("/api/v1/auth/refresh", post(auth::refresh))
+        .route("/api/v1/auth/logout", post(auth::logout))
+        .route("/api/v1/me/settings", get(api::get_settings).put(api::put_settings))
+        .route("/api/v1/me/accounts", get(api::get_accounts).put(api::put_accounts))
+        .route("/api/v1/me/copy-library", get(api::get_copy_library).post(api::save_copy_library))
+        .route("/api/v1/ai/generate-copy", post(ai::generate_copy))
+        .route("/api/v1/ai/generate-batch-copy", post(ai::generate_batch_copy))
         .fallback(not_found)
+        .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -69,7 +87,7 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
         status: "ok",
         service: "billiards-api",
         version: env!("CARGO_PKG_VERSION"),
-        environment: state.environment.to_string(),
+        environment: state.config.environment.clone(),
     })
 }
 
@@ -84,7 +102,7 @@ async fn version() -> Json<serde_json::Value> {
 async fn not_found() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
-        Json(ErrorResponse { error: "not_found" }),
+        Json(serde_json::json!({"error": "not_found", "message": "接口不存在"})),
     )
 }
 
