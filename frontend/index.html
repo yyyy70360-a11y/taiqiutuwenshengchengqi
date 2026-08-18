@@ -39,11 +39,29 @@ button{padding:10px;background:var(--accent);color:#fff;border:1px solid var(--a
 button:hover{background:var(--accent-h);border-color:var(--accent-h)}
 button.sec{background:var(--bg3);color:var(--t1);border:1px solid var(--border);margin-top:8px}
 button.sec:hover{background:var(--bg4);border-color:var(--border2)}
+button:disabled{opacity:.48;cursor:not-allowed}
+button:disabled:hover{background:var(--accent);border-color:var(--accent)}
+button.sec:disabled:hover{background:var(--bg3);border-color:var(--border)}
 .action-status{min-height:18px;margin-top:7px;font-size:11px;line-height:1.45;color:var(--t2)}
 .action-status.success{color:#4ADE80}.action-status.error{color:#FF8855}
-.cloud-panel{margin-bottom:18px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:4px}
+.cloud-panel{margin-bottom:18px;padding:14px;background:linear-gradient(180deg,#353535,#2D2D2D);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 26px rgba(0,0,0,.18)}
+.cloud-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+.cloud-title{font-size:14px;font-weight:700;color:var(--t1);line-height:1.3}
+.cloud-subtitle{font-size:11px;color:var(--t3);margin-top:3px;line-height:1.5}
+.cloud-chip{flex:0 0 auto;border:1px solid var(--border);border-radius:999px;padding:4px 9px;font-size:10px;color:var(--t2);background:var(--bg)}
+.cloud-chip.on{color:#4ADE80;border-color:rgba(74,222,128,.45);background:rgba(74,222,128,.09)}
+.cloud-chip.off{color:#FFB86C;border-color:rgba(255,184,108,.35);background:rgba(255,184,108,.08)}
+.cloud-helper{font-size:10px;color:var(--t3);margin-top:5px;line-height:1.45}
+.input-action-row{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:8px;align-items:center}
+.input-action-row button{height:34px;padding:0;margin:0}
+.password-row{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:8px;align-items:center}
+.password-row button{height:34px;padding:0;margin:0}
+.cloud-logged-card{padding:10px;margin-bottom:12px;border:1px solid rgba(74,222,128,.35);border-radius:8px;background:rgba(74,222,128,.08)}
+.cloud-logged-email{font-size:12px;color:var(--t1);font-weight:600;word-break:break-all}
+.cloud-logged-tip{font-size:10px;color:var(--t3);margin:3px 0 8px;line-height:1.45}
 .cloud-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cloud-actions button{margin:0}
+.cloud-actions.single{grid-template-columns:1fr}
 .cloud-summary{min-width:260px;text-align:left;line-height:1.8;color:var(--t2)}
 .hint{color:var(--t3);font-size:12px;text-align:center;line-height:1.7}
 .sect{font-size:10px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
@@ -113,7 +131,7 @@ td textarea{min-height:48px;resize:vertical}
     <div class="field"><label>标题</label><input id="title"></div>
     <div class="field"><label>正文（换行用回车）</label><textarea id="bodytxt"></textarea></div>
     <div class="field"><label>话题标签</label><input id="tags"></div>
-    <details>
+    <details open>
     <summary class="sect" style="cursor:pointer;list-style:none">AI生成文案</summary>
     <div class="row" style="margin-bottom:8px">
       <div class="field" style="margin:0"><label>题材</label><select id="gTheme"><option>找搭子</option><option>球房测评</option><option>新手避坑</option><option>约球吐槽</option><option>球杆科普</option><option>技术段位</option><option>球友日常</option><option>赛事战报</option></select></div>
@@ -169,16 +187,23 @@ td textarea{min-height:48px;resize:vertical}
   <div class="left">
     <h1>系统设置</h1>
     <div class="sect">云服务</div>
-    <div class="cloud-panel">
-      <div class="field"><label>服务器地址</label><input id="cloudServerUrl" placeholder="https://api.example.com" style="font-family:monospace"></div>
+    <div class="cloud-panel" id="cloudPanel">
+      <div class="cloud-head">
+        <div><div class="cloud-title">账号登录</div><div class="cloud-subtitle">登录后启用 AI 文案、云同步和多端配置</div></div>
+        <div class="cloud-chip off" id="cloudStateChip">未登录</div>
+      </div>
+      <div class="field"><label>服务器地址</label><div class="input-action-row"><input id="cloudServerUrl" placeholder="http://127.0.0.1:38123" style="font-family:monospace"><button id="cloudLocalServerButton" type="button" class="sec" title="填入本机 SSH 通道地址">本机</button></div><div class="cloud-helper">本机开发默认地址：127.0.0.1:38123；换服务器时重新保存即可。</div></div>
       <div class="cloud-actions" style="margin-bottom:12px"><button id="saveCloudServerButton" type="button" class="sec">保存地址</button><button id="testCloudButton" type="button" class="sec">测试连接</button></div>
-      <div class="field"><label>邮箱</label><input id="cloudEmail" type="email" autocomplete="username" placeholder="name@example.com"></div>
-      <div class="field"><label>密码</label><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="至少 8 个字符"></div>
-      <div class="cloud-actions"><button id="cloudLoginButton" type="button">登录</button><button id="cloudRegisterButton" type="button" class="sec">注册</button><button id="cloudLogoutButton" type="button" class="sec" style="grid-column:1/-1">退出登录</button></div>
+      <div id="cloudLoggedBanner" class="cloud-logged-card" hidden><div class="cloud-logged-email" id="cloudLoggedEmail">已登录</div><div class="cloud-logged-tip">当前账号可使用 AI 文案和云端数据同步。</div><button id="cloudLogoutButton" type="button" class="sec">退出登录</button></div>
+      <div id="cloudLoginForm">
+        <div class="field"><label>邮箱</label><input id="cloudEmail" type="email" autocomplete="username" placeholder="name@example.com"></div>
+        <div class="field"><label>密码</label><div class="password-row"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="至少 8 个字符"><button id="cloudPasswordToggle" type="button" class="sec">显示</button></div></div>
+        <div class="cloud-actions"><button id="cloudLoginButton" type="button">登录</button><button id="cloudRegisterButton" type="button" class="sec">注册</button></div>
+      </div>
       <div id="cloudStatus" class="action-status" aria-live="polite"></div>
     </div>
     <div class="sect">云端数据</div>
-    <div class="cloud-actions"><button id="cloudUploadButton" type="button" class="sec">上传本机数据</button><button id="cloudDownloadButton" type="button" class="sec">下载云端数据</button></div>
+    <div class="cloud-actions"><button id="cloudUploadButton" type="button" class="sec" disabled>上传本机数据</button><button id="cloudDownloadButton" type="button" class="sec" disabled>下载云端数据</button></div>
     <div id="cloudSyncStatus" class="action-status" aria-live="polite"></div>
     <div style="margin-top:22px"><div class="field"><label>图片存储路径</label><input id="outDir" placeholder="/Users/.../output" style="font-family:monospace"></div>
     <div style="display:flex;gap:8px"><button id="saveDirectoryButton" type="button" class="sec" style="flex:1;margin:0">保存路径</button><button id="openFolderButton" type="button" class="sec" style="flex:1;margin:0" title="在系统中打开输出文件夹">打开文件夹</button></div></div>
@@ -204,6 +229,8 @@ const tauriListen=window.__TAURI__?.event?.listen;
 const nativeReady=typeof tauriInvoke==="function";
 const nativeInvoke=nativeReady?tauriInvoke.bind(window.__TAURI__.core):async()=>{throw new Error("桌面服务不可用")};
 const nativeListen=typeof tauriListen==="function"?tauriListen.bind(window.__TAURI__.event):null;
+const LOCAL_CLOUD_SERVER="http://127.0.0.1:38123";
+const $=id=>document.getElementById(id);
 const SC=[{n:"暖橙",g1:"#FF8A5C",g2:"#FF5E62",a:"#FF5E62"},{n:"薄荷",g1:"#43E97B",g2:"#38F9D7",a:"#0FB9B1"},{n:"天蓝",g1:"#4FACFE",g2:"#00C6FB",a:"#1E90FF"},{n:"紫粉",g1:"#A18CD1",g2:"#FBC2EB",a:"#8E44AD"},{n:"深蓝",g1:"#2C3E50",g2:"#4CA1AF",a:"#3A6E8F"}];
 let cur=SC[0],presets=[],tpls=[],templateMixCounts={},lastFile="",histArr=[],renderTimer=null,renderCnt=0,renderBusy=false,renderQueued=false,cloudLoggedIn=false;
 function showTab(i){document.querySelectorAll('.tab').forEach((tab,index)=>{const active=index===i;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});document.querySelectorAll('.page').forEach((page,index)=>page.classList.toggle('active',index===i))}
@@ -213,14 +240,14 @@ function closeLightbox(){document.getElementById("lightbox").classList.remove("s
 // 配色
 function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
 if(nativeReady){
-  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix()}).catch(e=>alert("模板读取失败："+e));
+  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
   nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
 }
 function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}scheduleRender()}
 
 // 实时预览
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
-async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
+async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
 async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
 async function clearHist(){if(!nativeReady||!confirm("清空历史记录？已保存的图片文件不会删除。"))return;try{await nativeInvoke("clear_render_history");histArr=[];await loadHistory()}catch(e){alert("清空历史失败："+e)}}
 async function saveRender(btn){const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent="保存到文件夹"},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent="保存到文件夹"}}
@@ -277,15 +304,21 @@ async function bRender(){
 async function addLib(title,body,tags){try{await nativeInvoke("save_copy_library",{item:{title,body,tags}});await renderLib()}catch(e){alert("文案保存失败："+e)}}
 async function renderLib(){let arr=[];try{arr=await nativeInvoke("get_copy_library")}catch(e){document.getElementById("libList").innerHTML="<div class='hist-empty'>文案库读取失败</div>";return}const el=document.getElementById("libList");if(!arr.length){el.innerHTML="<div class='hist-empty'>AI生成的文案<br>存这里可复用</div>";return}el.innerHTML="";arr.forEach(it=>{const d=document.createElement("div"),title=document.createElement("div"),body=document.createElement("div");d.style.cssText="padding:8px;border:1px solid var(--border);border-radius:4px;margin-bottom:5px;cursor:pointer;font-size:11px;transition:all .15s";title.style.cssText="color:var(--t1);margin-bottom:3px;font-weight:500";body.style.cssText="color:var(--t3);font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis";title.textContent=it.title;body.textContent=it.body;d.appendChild(title);d.appendChild(body);d.addEventListener("mouseenter",()=>d.style.borderColor="var(--accent)");d.addEventListener("mouseleave",()=>d.style.borderColor="var(--border)");d.addEventListener("click",()=>{document.getElementById("title").value=it.title;document.getElementById("bodytxt").value=it.body;document.getElementById("tags").value=it.tags;scheduleRender()});el.appendChild(d)})}
 function cloudTime(value){if(!value)return "尚未同步";try{return "上次同步："+new Date(value*1000).toLocaleString()}catch(_){return "尚未同步"}}
-function applyCloudStatus(status){cloudLoggedIn=status.loggedIn===true;const dot=document.getElementById("apiDot"),stat=document.getElementById("apiStat"),cloudStatus=document.getElementById("cloudStatus"),title=document.getElementById("cloudSummaryTitle"),detail=document.getElementById("cloudSummaryDetail"),sync=document.getElementById("cloudSummarySync"),logout=document.getElementById("cloudLogoutButton"),upload=document.getElementById("cloudUploadButton"),download=document.getElementById("cloudDownloadButton");dot.classList.toggle("on",cloudLoggedIn);stat.textContent=cloudLoggedIn?"云服务已登录":"云服务未登录";document.getElementById("cloudServerUrl").value=status.serverUrl||"";if(status.email&&!document.getElementById("cloudEmail").value)document.getElementById("cloudEmail").value=status.email;title.textContent=cloudLoggedIn?(status.email||"已登录云服务"):"未登录云服务";detail.textContent=status.serverConfigured?(status.serverUrl+(cloudLoggedIn?"":"，等待登录")):"请配置服务器地址";sync.textContent=cloudTime(status.lastSyncAt);logout.disabled=!cloudLoggedIn;upload.disabled=!cloudLoggedIn;download.disabled=!cloudLoggedIn;if(cloudStatus&&!cloudStatus.textContent)cloudStatus.textContent=cloudLoggedIn?"云端功能可用":""}
-async function loadCloudStatus(){try{const status=await nativeInvoke("get_cloud_status");applyCloudStatus(status)}catch(e){document.getElementById("cloudStatus").textContent="云服务状态读取失败："+String(e)}}
-async function saveCloudServer(showMessage=true){const value=document.getElementById("cloudServerUrl").value.trim();if(!value){setActionStatus("cloudStatus","请填写服务器地址","error");return false}try{const status=await nativeInvoke("set_cloud_server_url",{serverUrl:value});applyCloudStatus(status);if(showMessage)setActionStatus("cloudStatus","服务器地址已保存","success");return true}catch(e){setActionStatus("cloudStatus",String(e),"error");return false}}
-async function testCloud(){const button=document.getElementById("testCloudButton");button.disabled=true;button.textContent="测试中...";try{if(!await saveCloudServer(false))return;const message=await nativeInvoke("test_cloud_connection");setActionStatus("cloudStatus",message,"success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{button.disabled=false;button.textContent="测试连接"}}
-async function cloudAuth(mode){const email=document.getElementById("cloudEmail").value.trim(),password=document.getElementById("cloudPassword").value;const button=document.getElementById(mode==="login"?"cloudLoginButton":"cloudRegisterButton");if(!email||!password){setActionStatus("cloudStatus","请输入邮箱和密码","error");return}button.disabled=true;button.textContent=mode==="login"?"登录中...":"注册中...";try{if(!await saveCloudServer(false))return;const status=await nativeInvoke(mode==="login"?"cloud_login":"cloud_register",{email,password});applyCloudStatus(status);document.getElementById("cloudPassword").value="";setActionStatus("cloudStatus",mode==="login"?"登录成功，请选择同步方向":"注册成功，请选择同步方向","success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{button.disabled=false;button.textContent=mode==="login"?"登录":"注册"}}
-async function cloudLogout(){const button=document.getElementById("cloudLogoutButton");button.disabled=true;try{const status=await nativeInvoke("cloud_logout");applyCloudStatus(status);setActionStatus("cloudStatus","已退出登录","success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{button.disabled=!cloudLoggedIn}}
+function setButtonBusy(button,busy,busyText,readyText){if(!button)return;button.disabled=busy;button.textContent=busy?busyText:readyText}
+function setCloudButtonsForState(){["cloudUploadButton","cloudDownloadButton","cloudLogoutButton"].forEach(id=>{const el=$(id);if(el)el.disabled=!cloudLoggedIn});["saveCloudServerButton","testCloudButton","cloudLoginButton","cloudRegisterButton","cloudLocalServerButton"].forEach(id=>{const el=$(id);if(el)el.disabled=!nativeReady})}
+function applyNativeUnavailable(){cloudLoggedIn=false;const chip=$("cloudStateChip");if(chip){chip.textContent="桌面未连接";chip.className="cloud-chip off"}$("apiDot")?.classList.remove("on");if($("apiStat"))$("apiStat").textContent="桌面服务不可用";if($("cloudSummaryTitle"))$("cloudSummaryTitle").textContent="请从桌面应用打开";if($("cloudSummaryDetail"))$("cloudSummaryDetail").textContent="浏览器预览能看界面，但不能登录、同步或调用 AI。";if($("cloudSummarySync"))$("cloudSummarySync").textContent="";setCloudButtonsForState();setActionStatus("cloudStatus","请从桌面应用打开，浏览器预览不能连接云服务","error")}
+function applyCloudStatus(status){cloudLoggedIn=status.loggedIn===true;const dot=$("apiDot"),stat=$("apiStat"),title=$("cloudSummaryTitle"),detail=$("cloudSummaryDetail"),sync=$("cloudSummarySync"),chip=$("cloudStateChip"),loginForm=$("cloudLoginForm"),loggedBanner=$("cloudLoggedBanner"),loggedEmail=$("cloudLoggedEmail"),serverInput=$("cloudServerUrl"),emailInput=$("cloudEmail");dot?.classList.toggle("on",cloudLoggedIn);if(stat)stat.textContent=cloudLoggedIn?"云服务已登录":"云服务未登录";if(serverInput)serverInput.value=status.serverUrl||LOCAL_CLOUD_SERVER;if(status.email&&emailInput)emailInput.value=status.email;if(chip){chip.textContent=cloudLoggedIn?"已登录":(status.serverConfigured?"待登录":"未配置");chip.className="cloud-chip "+(cloudLoggedIn?"on":"off")}if(loginForm)loginForm.hidden=cloudLoggedIn;if(loggedBanner)loggedBanner.hidden=!cloudLoggedIn;if(loggedEmail)loggedEmail.textContent=status.email||"已登录云服务";if(title)title.textContent=cloudLoggedIn?(status.email||"已登录云服务"):"未登录云服务";if(detail)detail.textContent=status.serverConfigured?(status.serverUrl+(cloudLoggedIn?"":"，等待登录")):"请配置服务器地址";if(sync)sync.textContent=cloudTime(status.lastSyncAt);setCloudButtonsForState()}
+async function loadCloudStatus(){if(!nativeReady){applyNativeUnavailable();return}try{const status=await nativeInvoke("get_cloud_status");applyCloudStatus(status);setActionStatus("cloudStatus",cloudLoggedIn?"云端功能可用":"请登录后使用 AI 文案和云同步")}catch(e){setActionStatus("cloudStatus","云服务状态读取失败："+String(e),"error")}}
+async function saveCloudServer(showMessage=true){if(!nativeReady){applyNativeUnavailable();return false}const value=$("cloudServerUrl").value.trim();if(!value){setActionStatus("cloudStatus","请填写服务器地址","error");$("cloudServerUrl").focus();return false}try{const status=await nativeInvoke("set_cloud_server_url",{serverUrl:value});applyCloudStatus(status);if(showMessage)setActionStatus("cloudStatus","服务器地址已保存","success");return true}catch(e){setActionStatus("cloudStatus",String(e),"error");return false}}
+async function testCloud(){const button=$("testCloudButton");setButtonBusy(button,true,"测试中...","测试连接");try{if(!await saveCloudServer(false))return;const message=await nativeInvoke("test_cloud_connection");setActionStatus("cloudStatus",message,"success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{setButtonBusy(button,false,"测试中...","测试连接");setCloudButtonsForState()}}
+async function cloudAuth(mode){if(!nativeReady){applyNativeUnavailable();return}const email=$("cloudEmail").value.trim(),password=$("cloudPassword").value,button=$(mode==="login"?"cloudLoginButton":"cloudRegisterButton");if(!email||!password){setActionStatus("cloudStatus","请输入邮箱和密码","error");(!email?$("cloudEmail"):$("cloudPassword")).focus();return}setButtonBusy(button,true,mode==="login"?"登录中...":"注册中...",mode==="login"?"登录":"注册");try{if(!await saveCloudServer(false))return;const status=await nativeInvoke(mode==="login"?"cloud_login":"cloud_register",{email,password});applyCloudStatus(status);$("cloudPassword").value="";setActionStatus("cloudStatus",mode==="login"?"登录成功，请选择同步方向":"注册成功，请选择同步方向","success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{setButtonBusy(button,false,mode==="login"?"登录中...":"注册中...",mode==="login"?"登录":"注册");setCloudButtonsForState()}}
+async function cloudLogout(){const button=$("cloudLogoutButton");setButtonBusy(button,true,"退出中...","退出登录");try{const status=await nativeInvoke("cloud_logout");applyCloudStatus(status);setActionStatus("cloudStatus","已退出登录","success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{setButtonBusy(button,false,"退出中...","退出登录");setCloudButtonsForState()}}
+async function useLocalCloudServer(){const input=$("cloudServerUrl");input.value=LOCAL_CLOUD_SERVER;setActionStatus("cloudStatus","已填入本机通道地址，正在保存...");await saveCloudServer()}
+function toggleCloudPassword(){const input=$("cloudPassword"),button=$("cloudPasswordToggle");const showing=input.type==="text";input.type=showing?"password":"text";button.textContent=showing?"显示":"隐藏";input.focus()}
+function submitCloudOnEnter(event){if(event.key==="Enter"){event.preventDefault();cloudAuth("login")}}
 function collectAccounts(){return[...document.querySelectorAll("#accountRows tr")].map(row=>{const data={cloudId:row.dataset.cloudId||null,persona:row.dataset.persona||"热情约球型",tone:row.dataset.tone||"口语化",status:row.dataset.status||"养号中"};row.querySelectorAll("input").forEach(input=>data[input.dataset.key]=input.value.trim());return data}).filter(account=>account.name)}
-async function cloudUpload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus","请先登录云服务","error");return}if(!confirm("上传本机账号和文案库，覆盖云端同类数据？"))return;try{await nativeInvoke("set_accounts",{accounts:collectAccounts()});const result=await nativeInvoke("cloud_sync_upload");setActionStatus("cloudSyncStatus",`已上传 ${result.accounts} 个账号、${result.copyItems} 条文案`,"success");await loadCloudStatus()}catch(e){setActionStatus("cloudSyncStatus","上传失败："+String(e),"error")}}
-async function cloudDownload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus","请先登录云服务","error");return}if(!confirm("下载云端数据会替换本机账号和文案库，图片历史与输出目录不受影响。继续？"))return;try{const result=await nativeInvoke("cloud_sync_download");setActionStatus("cloudSyncStatus",`已下载 ${result.accounts} 个账号、${result.copyItems} 条文案`,"success");await Promise.all([loadSettings(),loadAccounts(),renderLib(),loadCloudStatus()])}catch(e){setActionStatus("cloudSyncStatus","下载失败："+String(e),"error")}}
+async function cloudUpload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus","请先登录云服务","error");return}if(!confirm("上传本机账号和文案库，覆盖云端同类数据？"))return;const button=$("cloudUploadButton");setButtonBusy(button,true,"上传中...","上传本机数据");try{await nativeInvoke("set_accounts",{accounts:collectAccounts()});const result=await nativeInvoke("cloud_sync_upload");setActionStatus("cloudSyncStatus",`已上传 ${result.accounts} 个账号、${result.copyItems} 条文案`,"success");await loadCloudStatus()}catch(e){setActionStatus("cloudSyncStatus","上传失败："+String(e),"error")}finally{setButtonBusy(button,false,"上传中...","上传本机数据");setCloudButtonsForState()}}
+async function cloudDownload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus","请先登录云服务","error");return}if(!confirm("下载云端数据会替换本机账号和文案库，图片历史与输出目录不受影响。继续？"))return;const button=$("cloudDownloadButton");setButtonBusy(button,true,"下载中...","下载云端数据");try{const result=await nativeInvoke("cloud_sync_download");setActionStatus("cloudSyncStatus",`已下载 ${result.accounts} 个账号、${result.copyItems} 条文案`,"success");await Promise.all([loadSettings(),loadAccounts(),renderLib(),loadCloudStatus()])}catch(e){setActionStatus("cloudSyncStatus","下载失败："+String(e),"error")}finally{setButtonBusy(button,false,"下载中...","下载云端数据");setCloudButtonsForState()}}
 async function saveDir(){const outputDir=document.getElementById("outDir").value.trim();if(!outputDir){alert("请输入路径");return}try{await nativeInvoke("set_settings",{settings:{output_dir:outputDir}});await loadSettings();alert("路径已保存")}catch(e){alert("目录不可用："+e)}}
 async function openFolder(){try{await nativeInvoke("open_output_folder",{path:null})}catch(e){alert("打开目录失败："+e)}}
 async function loadSettings(){try{const s=await nativeInvoke("get_settings");document.getElementById("statDir").textContent=(s.output_dir||"output").split("/").pop();if(s.output_dir)document.getElementById("outDir").value=s.output_dir}catch(e){setActionStatus("cloudStatus","设置读取失败："+String(e),"error")}}
@@ -313,13 +346,17 @@ function bindStaticEvents(){
   ["bTheme","bLevel","bPersona","bTone","bUseEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("b","bPrompt")));
   document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);
+  document.getElementById("bTpl").addEventListener("change",updateTemplateMixSummary);
   document.getElementById("bCount").addEventListener("input",updateTemplateMixSummary);
   document.getElementById("batchRenderButton").addEventListener("click",bRender);
   document.getElementById("saveCloudServerButton").addEventListener("click",()=>saveCloudServer());
   document.getElementById("testCloudButton").addEventListener("click",testCloud);
+  document.getElementById("cloudLocalServerButton").addEventListener("click",useLocalCloudServer);
   document.getElementById("cloudLoginButton").addEventListener("click",()=>cloudAuth("login"));
   document.getElementById("cloudRegisterButton").addEventListener("click",()=>cloudAuth("register"));
   document.getElementById("cloudLogoutButton").addEventListener("click",cloudLogout);
+  document.getElementById("cloudPasswordToggle").addEventListener("click",toggleCloudPassword);
+  ["cloudEmail","cloudPassword"].forEach(id=>document.getElementById(id).addEventListener("keydown",submitCloudOnEnter));
   document.getElementById("cloudUploadButton").addEventListener("click",cloudUpload);
   document.getElementById("cloudDownloadButton").addEventListener("click",cloudDownload);
   document.getElementById("saveDirectoryButton").addEventListener("click",saveDir);
@@ -332,5 +369,7 @@ function bindStaticEvents(){
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
 }
 bindStaticEvents();
-if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{setActionStatus("cloudStatus","桌面服务不可用","error");loadHistory()}
+if($("cloudServerUrl")&&!$("cloudServerUrl").value)$("cloudServerUrl").value=LOCAL_CLOUD_SERVER;
+setCloudButtonsForState();
+if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{applyNativeUnavailable();loadHistory()}
 </script></body></html>
