@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager};
 
 const CREDENTIAL_SERVICE: &str = "com.billiards.matrix";
 const CREDENTIAL_USER: &str = "api_key";
+const DEFAULT_CLOUD_SERVER_URL: &str = "http://127.0.0.1:38123";
 
 pub fn connection(app: &AppHandle) -> Result<Connection, String> {
     let directory = app
@@ -21,8 +22,8 @@ pub fn connection(app: &AppHandle) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|error| format!("打开数据库失败: {error}"))?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
-         CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, level TEXT NOT NULL, region TEXT NOT NULL, persona TEXT NOT NULL, tone TEXT NOT NULL, status TEXT NOT NULL);
-         CREATE TABLE IF NOT EXISTS copy_library (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, tags TEXT NOT NULL, created_at INTEGER NOT NULL);
+         CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, cloud_id TEXT, name TEXT NOT NULL, level TEXT NOT NULL, region TEXT NOT NULL, persona TEXT NOT NULL, tone TEXT NOT NULL, status TEXT NOT NULL);
+         CREATE TABLE IF NOT EXISTS copy_library (id INTEGER PRIMARY KEY AUTOINCREMENT, cloud_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL, tags TEXT NOT NULL, created_at INTEGER NOT NULL);
          CREATE TABLE IF NOT EXISTS render_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT NOT NULL, template TEXT NOT NULL, created_at INTEGER NOT NULL, output_dir TEXT NOT NULL DEFAULT '');
          CREATE TABLE IF NOT EXISTS presets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, tag TEXT NOT NULL, glow1 TEXT NOT NULL, glow2 TEXT NOT NULL, accent TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, tags TEXT NOT NULL);",
     )
@@ -41,8 +42,92 @@ pub fn connection(app: &AppHandle) -> Result<Connection, String> {
         )
         .map_err(|error| format!("升级历史数据结构失败: {error}"))?;
     }
+    ensure_column(&conn, "accounts", "cloud_id", "TEXT")?;
+    ensure_column(&conn, "copy_library", "cloud_id", "TEXT")?;
+    conn.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS accounts_cloud_id_idx ON accounts(cloud_id) WHERE cloud_id IS NOT NULL;
+         CREATE UNIQUE INDEX IF NOT EXISTS copy_library_cloud_id_idx ON copy_library(cloud_id) WHERE cloud_id IS NOT NULL;",
+    )
+    .map_err(|error| format!("升级云同步索引失败: {error}"))?;
     seed_presets(&conn)?;
     Ok(conn)
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<(), String> {
+    let allowed = matches!(
+        (table, column, definition),
+        ("accounts", "cloud_id", "TEXT") | ("copy_library", "cloud_id", "TEXT")
+    );
+    if !allowed {
+        return Err("不支持的数据库升级".into());
+    }
+    let sql = format!(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('{table}') WHERE name = '{column}')"
+    );
+    let exists: bool = conn
+        .query_row(&sql, [], |row| row.get(0))
+        .map_err(|error| format!("检查云同步数据结构失败: {error}"))?;
+    if !exists {
+        conn.execute_batch(&format!(
+            "ALTER TABLE {table} ADD COLUMN {column} {definition}"
+        ))
+        .map_err(|error| format!("升级云同步数据结构失败: {error}"))?;
+    }
+    Ok(())
+}
+
+pub fn cloud_server_url(app: &AppHandle) -> Result<String, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, "cloud_server_url")?.unwrap_or_else(|| DEFAULT_CLOUD_SERVER_URL.into()))
+}
+
+pub fn set_cloud_server_url(app: &AppHandle, value: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    write_setting(&conn, "cloud_server_url", value.trim())
+}
+
+pub fn cloud_email(app: &AppHandle) -> Result<String, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, "cloud_email")?.unwrap_or_default())
+}
+
+pub fn set_cloud_email(app: &AppHandle, value: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    write_setting(&conn, "cloud_email", value.trim())
+}
+
+pub fn cloud_owner_email(app: &AppHandle) -> Result<String, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, "cloud_owner_email")?.unwrap_or_default())
+}
+
+pub fn set_cloud_owner_email(app: &AppHandle, value: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    write_setting(&conn, "cloud_owner_email", value.trim())
+}
+
+pub fn clear_cloud_record_ids(app: &AppHandle) -> Result<(), String> {
+    let conn = connection(app)?;
+    conn.execute("UPDATE accounts SET cloud_id = NULL", [])
+        .map_err(|error| format!("清理账号云端标识失败: {error}"))?;
+    conn.execute("UPDATE copy_library SET cloud_id = NULL", [])
+        .map_err(|error| format!("清理文案云端标识失败: {error}"))?;
+    Ok(())
+}
+
+pub fn last_cloud_sync_at(app: &AppHandle) -> Result<Option<i64>, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, "cloud_last_sync_at")?.and_then(|value| value.parse::<i64>().ok()))
+}
+
+pub fn set_last_cloud_sync_at(app: &AppHandle, value: i64) -> Result<(), String> {
+    let conn = connection(app)?;
+    write_setting(&conn, "cloud_last_sync_at", &value.to_string())
 }
 
 pub fn get_presets(app: &AppHandle) -> Result<Vec<PresetInfo>, String> {
@@ -68,15 +153,6 @@ pub fn get_presets(app: &AppHandle) -> Result<Vec<PresetInfo>, String> {
         .map_err(|error| format!("读取预设失败: {error}"))?;
     rows.map(|row| row.map_err(|error| format!("读取预设失败: {error}")))
         .collect()
-}
-
-pub fn ai_config(app: &AppHandle) -> Result<(String, String, String), String> {
-    let conn = connection(app)?;
-    let url = read_setting(&conn, "api_url")?
-        .unwrap_or_else(|| "https://api.deepseek.com/v1/chat/completions".into());
-    let model = read_setting(&conn, "api_model")?.unwrap_or_else(|| "deepseek-chat".into());
-    let key = read_api_key()?.unwrap_or_default();
-    Ok((url, key, model))
 }
 
 pub fn get_settings(app: &AppHandle) -> Result<Value, String> {
@@ -151,17 +227,20 @@ pub fn set_settings(app: &AppHandle, settings: SettingsInput) -> Result<(), Stri
 pub fn get_accounts(app: &AppHandle) -> Result<Vec<Account>, String> {
     let conn = connection(app)?;
     let mut statement = conn
-        .prepare("SELECT name, level, region, persona, tone, status FROM accounts ORDER BY id")
+        .prepare(
+            "SELECT cloud_id, name, level, region, persona, tone, status FROM accounts ORDER BY id",
+        )
         .map_err(|error| format!("读取账号失败: {error}"))?;
     let rows = statement
         .query_map([], |row| {
             Ok(Account {
-                name: row.get(0)?,
-                level: row.get(1)?,
-                region: row.get(2)?,
-                persona: row.get(3)?,
-                tone: row.get(4)?,
-                status: row.get(5)?,
+                cloud_id: row.get(0)?,
+                name: row.get(1)?,
+                level: row.get(2)?,
+                region: row.get(3)?,
+                persona: row.get(4)?,
+                tone: row.get(5)?,
+                status: row.get(6)?,
             })
         })
         .map_err(|error| format!("读取账号失败: {error}"))?;
@@ -178,7 +257,7 @@ pub fn save_accounts(app: &AppHandle, accounts: Vec<Account>) -> Result<(), Stri
         .execute("DELETE FROM accounts", [])
         .map_err(|error| format!("清空账号失败: {error}"))?;
     for account in accounts {
-        transaction.execute("INSERT INTO accounts (name, level, region, persona, tone, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", params![account.name, account.level, account.region, account.persona, account.tone, account.status]).map_err(|error| format!("保存账号失败: {error}"))?;
+        transaction.execute("INSERT INTO accounts (cloud_id, name, level, region, persona, tone, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", params![account.cloud_id, account.name, account.level, account.region, account.persona, account.tone, account.status]).map_err(|error| format!("保存账号失败: {error}"))?;
     }
     transaction
         .commit()
@@ -188,14 +267,15 @@ pub fn save_accounts(app: &AppHandle, accounts: Vec<Account>) -> Result<(), Stri
 pub fn get_library(app: &AppHandle) -> Result<Vec<CopyItem>, String> {
     let conn = connection(app)?;
     let mut statement = conn
-        .prepare("SELECT title, body, tags FROM copy_library ORDER BY id DESC LIMIT 200")
+        .prepare("SELECT cloud_id, title, body, tags FROM copy_library ORDER BY id DESC LIMIT 200")
         .map_err(|error| format!("读取文案库失败: {error}"))?;
     let rows = statement
         .query_map([], |row| {
             Ok(CopyItem {
-                title: row.get(0)?,
-                body: row.get(1)?,
-                tags: row.get(2)?,
+                cloud_id: row.get(0)?,
+                title: row.get(1)?,
+                body: row.get(2)?,
+                tags: row.get(3)?,
             })
         })
         .map_err(|error| format!("读取文案库失败: {error}"))?;
@@ -203,9 +283,96 @@ pub fn get_library(app: &AppHandle) -> Result<Vec<CopyItem>, String> {
         .collect()
 }
 
+pub fn get_library_records(app: &AppHandle) -> Result<Vec<(i64, CopyItem)>, String> {
+    let conn = connection(app)?;
+    let mut statement = conn
+        .prepare(
+            "SELECT id, cloud_id, title, body, tags FROM copy_library ORDER BY id ASC LIMIT 500",
+        )
+        .map_err(|error| format!("读取待同步文案失败: {error}"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                CopyItem {
+                    cloud_id: row.get(1)?,
+                    title: row.get(2)?,
+                    body: row.get(3)?,
+                    tags: row.get(4)?,
+                },
+            ))
+        })
+        .map_err(|error| format!("读取待同步文案失败: {error}"))?;
+    rows.map(|row| row.map_err(|error| format!("读取待同步文案失败: {error}")))
+        .collect()
+}
+
+pub fn set_library_cloud_id(app: &AppHandle, row_id: i64, cloud_id: &str) -> Result<(), String> {
+    let conn = connection(app)?;
+    conn.execute(
+        "UPDATE copy_library SET cloud_id = ?1 WHERE id = ?2",
+        params![cloud_id, row_id],
+    )
+    .map_err(|error| format!("保存文案云端标识失败: {error}"))?;
+    Ok(())
+}
+
+pub fn replace_cloud_data(
+    app: &AppHandle,
+    settings: SettingsInput,
+    accounts: Vec<Account>,
+    items: Vec<CopyItem>,
+) -> Result<(), String> {
+    let mut conn = connection(app)?;
+    let transaction = conn
+        .transaction()
+        .map_err(|error| format!("开始云数据下载事务失败: {error}"))?;
+    if let Some(value) = settings.api_url.filter(|value| !value.trim().is_empty()) {
+        transaction
+            .execute(
+                "INSERT INTO settings (key, value) VALUES ('api_url', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [value],
+            )
+            .map_err(|error| format!("下载云设置失败: {error}"))?;
+    }
+    if let Some(value) = settings.api_model.filter(|value| !value.trim().is_empty()) {
+        transaction
+            .execute(
+                "INSERT INTO settings (key, value) VALUES ('api_model', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [value],
+            )
+            .map_err(|error| format!("下载云设置失败: {error}"))?;
+    }
+    transaction
+        .execute("DELETE FROM accounts", [])
+        .map_err(|error| format!("替换本地账号失败: {error}"))?;
+    for account in accounts {
+        transaction
+            .execute(
+                "INSERT INTO accounts (cloud_id, name, level, region, persona, tone, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![account.cloud_id, account.name, account.level, account.region, account.persona, account.tone, account.status],
+            )
+            .map_err(|error| format!("下载账号失败: {error}"))?;
+    }
+    transaction
+        .execute("DELETE FROM copy_library", [])
+        .map_err(|error| format!("替换本地文案失败: {error}"))?;
+    for item in items {
+        transaction
+            .execute(
+                "INSERT INTO copy_library (cloud_id, title, body, tags, created_at) VALUES (?1, ?2, ?3, ?4, strftime('%s','now'))",
+                params![item.cloud_id, item.title, item.body, item.tags],
+            )
+            .map_err(|error| format!("下载文案失败: {error}"))?;
+    }
+    transaction
+        .commit()
+        .map_err(|error| format!("提交云数据下载事务失败: {error}"))
+}
+
 pub fn save_library_item(app: &AppHandle, item: CopyItem) -> Result<(), String> {
     let conn = connection(app)?;
-    conn.execute("INSERT INTO copy_library (title, body, tags, created_at) VALUES (?1, ?2, ?3, strftime('%s','now'))", params![item.title, item.body, item.tags])
+    conn.execute("INSERT INTO copy_library (cloud_id, title, body, tags, created_at) VALUES (?1, ?2, ?3, ?4, strftime('%s','now'))", params![item.cloud_id, item.title, item.body, item.tags])
         .map_err(|error| format!("保存文案失败: {error}"))?;
     Ok(())
 }
@@ -592,11 +759,13 @@ mod tests {
             &mut conn,
             vec![
                 CopyItem {
+                    cloud_id: None,
                     title: "first".into(),
                     body: "body".into(),
                     tags: "#one".into(),
                 },
                 CopyItem {
+                    cloud_id: None,
                     title: "reject".into(),
                     body: "body".into(),
                     tags: "#two".into(),

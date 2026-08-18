@@ -1,0 +1,4 @@
+# Replace api.example.com with a domain pointing to this server.
+api.example.com {
+    reverse_proxy 127.0.0.1:38123
+}

@@ -120,7 +120,10 @@ pub struct HistoryEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Account {
+    #[serde(default)]
+    pub cloud_id: Option<String>,
     #[serde(default)]
     pub name: String,
     #[serde(default = "default_level")]
@@ -140,7 +143,10 @@ fn default_level() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CopyItem {
+    #[serde(default)]
+    pub cloud_id: Option<String>,
     #[serde(default)]
     pub title: String,
     #[serde(default)]
@@ -155,4 +161,23 @@ pub struct SettingsInput {
     pub api_key: Option<String>,
     pub api_model: Option<String>,
     pub output_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudStatus {
+    pub server_url: String,
+    pub server_configured: bool,
+    pub logged_in: bool,
+    pub email: String,
+    pub last_sync_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudSyncResult {
+    pub direction: String,
+    pub accounts: usize,
+    pub copy_items: usize,
+    pub synced_at: i64,
 }

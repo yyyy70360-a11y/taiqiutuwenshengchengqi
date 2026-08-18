@@ -1,8 +1,8 @@
 use crate::{
-    ai,
+    cloud,
     models::{
-        Account, CopyItem, JobComplete, JobFailure, JobProgress, PresetInfo, RenderRequest,
-        RenderResponse, SettingsInput, TemplateInfo,
+        Account, CloudStatus, CloudSyncResult, CopyItem, JobComplete, JobFailure, JobProgress,
+        PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo,
     },
     render, storage,
 };
@@ -204,6 +204,57 @@ pub async fn get_api_key_status(app: AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub async fn get_cloud_status(app: AppHandle) -> Result<CloudStatus, String> {
+    cloud::status(&app).await
+}
+
+#[tauri::command]
+pub async fn set_cloud_server_url(
+    app: AppHandle,
+    server_url: String,
+) -> Result<CloudStatus, String> {
+    cloud::set_server_url(&app, &server_url).await
+}
+
+#[tauri::command]
+pub async fn test_cloud_connection(app: AppHandle) -> Result<String, String> {
+    cloud::test_connection(&app).await
+}
+
+#[tauri::command]
+pub async fn cloud_register(
+    app: AppHandle,
+    email: String,
+    password: String,
+) -> Result<CloudStatus, String> {
+    cloud::register(&app, &email, &password).await
+}
+
+#[tauri::command]
+pub async fn cloud_login(
+    app: AppHandle,
+    email: String,
+    password: String,
+) -> Result<CloudStatus, String> {
+    cloud::login(&app, &email, &password).await
+}
+
+#[tauri::command]
+pub async fn cloud_logout(app: AppHandle) -> Result<CloudStatus, String> {
+    cloud::logout(&app).await
+}
+
+#[tauri::command]
+pub async fn cloud_sync_upload(app: AppHandle) -> Result<CloudSyncResult, String> {
+    cloud::sync_upload(&app).await
+}
+
+#[tauri::command]
+pub async fn cloud_sync_download(app: AppHandle) -> Result<CloudSyncResult, String> {
+    cloud::sync_download(&app).await
+}
+
+#[tauri::command]
 pub fn get_accounts(app: AppHandle) -> Result<Vec<Account>, String> {
     storage::get_accounts(&app)
 }
@@ -258,7 +309,7 @@ pub fn migrate_copy_library(app: AppHandle, items: Vec<CopyItem>) -> Result<usiz
 
 #[tauri::command]
 pub async fn generate_copy(app: AppHandle, prompt: String) -> Result<CopyItem, String> {
-    ai::generate_copy(&app, &prompt).await
+    cloud::generate_copy(&app, &prompt).await
 }
 
 #[tauri::command]
@@ -267,7 +318,7 @@ pub async fn generate_batch_copy(
     prompt: String,
     count: usize,
 ) -> Result<Vec<CopyItem>, String> {
-    ai::generate_batch(&app, &prompt, count).await
+    cloud::generate_batch(&app, &prompt, count).await
 }
 
 fn response_for(request: &RenderRequest) -> Result<RenderResponse, String> {

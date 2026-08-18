@@ -13,6 +13,9 @@
 cargo check --manifest-path src-tauri\Cargo.toml
 cargo test --manifest-path src-tauri\Cargo.toml
 cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
+cargo check --manifest-path server\Cargo.toml
+cargo test --manifest-path server\Cargo.toml
+cargo clippy --manifest-path server\Cargo.toml --all-targets -- -D warnings
 cargo tauri build --bundles nsis,msi
 ```
 
@@ -20,15 +23,17 @@ cargo tauri build --bundles nsis,msi
 
 ```text
 src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.0_x64-setup.exe
-src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_en-US.msi
+src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_zh-CN.msi
 ```
 
 ## 验收清单
 
 - 全新用户目录启动后创建 `%APPDATA%\com.billiards.matrix\billiards.sqlite3` 和默认预设。
 - 预览、单条保存、批量文案和 100 张离线批量渲染均完成，文件名不覆盖。
+- Win 客户端与 macOS 客户端使用同一云服务地址、同一 AI 网关和同一 `/admin` 后台管理面板。
+- 云服务登录、退出、上传本机数据、下载云端数据均可用；云端不可用时本地预览和出图仍可用。
 - 点击“打开文件夹”后由 Windows Explorer 打开输出目录。
-- 保存 API Key 后，SQLite、普通配置文件和应用日志均不包含明文 Key；Windows Credential Manager 中存在服务 `com.billiards.matrix`、账号 `api_key`。
+- 云服务 access/refresh token 保存在 Windows Credential Manager；SQLite、普通配置文件和应用日志均不包含明文 token 或服务端 AI Key。
 - 从旧版 `settings.json`、`accounts.json` 和 JSON 文案库启动，数据迁移完成且旧输出图片未移动或删除。
 - 在没有开发工具的干净 Windows 10 机器上安装 NSIS 或 MSI，首次启动、同路径升级、卸载均成功。
 - 卸载应用后用户数据库、输出图片和系统凭据仍保留，除非用户明确要求清理数据。

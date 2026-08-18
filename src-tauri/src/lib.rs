@@ -1,4 +1,4 @@
-mod ai;
+mod cloud;
 mod commands;
 mod models;
 mod render;
@@ -17,6 +17,14 @@ pub fn run() {
             commands::get_settings,
             commands::set_settings,
             commands::get_api_key_status,
+            commands::get_cloud_status,
+            commands::set_cloud_server_url,
+            commands::test_cloud_connection,
+            commands::cloud_register,
+            commands::cloud_login,
+            commands::cloud_logout,
+            commands::cloud_sync_upload,
+            commands::cloud_sync_download,
             commands::get_accounts,
             commands::set_accounts,
             commands::get_copy_library,
