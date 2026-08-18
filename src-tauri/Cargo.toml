@@ -17,7 +17,10 @@ tauri-build = { version = "2.0.0", features = [] }
 [dependencies]
 base64 = "0.22"
 fontdb = "0.23"
-keyring = { version = "3", features = ["apple-native"] }
+# Use the native credential store on each supported desktop target. The API is
+# shared by macOS Keychain and Windows Credential Manager, while keeping
+# secrets out of SQLite and ordinary configuration files.
+keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 resvg = "0.45"
 rusqlite = { version = "0.32", features = ["bundled"] }

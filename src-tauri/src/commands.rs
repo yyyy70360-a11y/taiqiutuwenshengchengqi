@@ -149,18 +149,39 @@ pub fn open_output_folder(app: AppHandle, path: Option<String>) -> Result<(), St
         .map(PathBuf::from)
         .unwrap_or(storage::output_dir(&app)?);
     fs::create_dir_all(&directory).map_err(|error| format!("创建目录失败: {error}"))?;
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(&directory)
-            .spawn()
-            .map_err(|error| format!("打开目录失败: {error}"))?;
-        Ok(())
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Err("当前版本只实现 macOS 打开目录".into())
-    }
+    open_directory(&directory)
+}
+
+#[cfg(target_os = "windows")]
+fn open_directory(directory: &Path) -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg(directory)
+        .spawn()
+        .map_err(|error| format!("打开目录失败: {error}"))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn open_directory(directory: &Path) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(directory)
+        .spawn()
+        .map_err(|error| format!("打开目录失败: {error}"))?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn open_directory(directory: &Path) -> Result<(), String> {
+    std::process::Command::new("xdg-open")
+        .arg(directory)
+        .spawn()
+        .map_err(|error| format!("打开目录失败: {error}"))?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn open_directory(_directory: &Path) -> Result<(), String> {
+    Err("当前平台不支持自动打开输出目录".into())
 }
 
 #[tauri::command]
@@ -179,7 +200,7 @@ pub async fn set_settings(app: AppHandle, settings: SettingsInput) -> Result<(),
 pub async fn get_api_key_status(app: AppHandle) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || storage::get_api_key_status(&app))
         .await
-        .map_err(|error| format!("检查钥匙串任务失败: {error}"))?
+        .map_err(|error| format!("检查系统凭据任务失败: {error}"))?
 }
 
 #[tauri::command]

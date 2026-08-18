@@ -8,8 +8,8 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
-const KEYCHAIN_SERVICE: &str = "com.billiards.matrix";
-const KEYCHAIN_USER: &str = "api_key";
+const CREDENTIAL_SERVICE: &str = "com.billiards.matrix";
+const CREDENTIAL_USER: &str = "api_key";
 
 pub fn connection(app: &AppHandle) -> Result<Connection, String> {
     let directory = app
@@ -140,9 +140,9 @@ pub fn set_settings(app: &AppHandle, settings: SettingsInput) -> Result<(), Stri
         write_setting(&conn, "output_dir", &value)?;
     }
     if let Some(value) = settings.api_key.filter(|value| !value.trim().is_empty()) {
-        keychain_entry()?
+        credential_entry()?
             .set_password(&value)
-            .map_err(|error| format!("保存 API Key 失败: {error}"))?;
+            .map_err(|error| format!("保存 API Key 到系统凭据失败: {error}"))?;
         write_setting(&conn, "api_key_configured", "true")?;
     }
     Ok(())
@@ -467,9 +467,18 @@ fn legacy_roots(app: &AppHandle) -> Vec<PathBuf> {
         roots.push(current.join("workflow"));
         roots.push(current.join("../workflow"));
     }
+    if let Ok(documents) = app.path().document_dir() {
+        roots.push(documents.join("台球图文生成器"));
+        roots.push(documents.join("台球矩阵搭建").join("workflow"));
+    }
     if let Ok(home) = app.path().home_dir() {
-        roots.push(home.join("Documents/台球图文生成器"));
-        roots.push(home.join("Documents/台球矩阵搭建/workflow"));
+        // Keep the literal Documents fallback for older portable layouts.
+        roots.push(home.join("Documents").join("台球图文生成器"));
+        roots.push(
+            home.join("Documents")
+                .join("台球矩阵搭建")
+                .join("workflow"),
+        );
     }
     if let Ok(executable) = std::env::current_exe() {
         for ancestor in executable.ancestors().take(6) {
@@ -502,28 +511,28 @@ fn import_settings_if_missing(conn: &Connection, value: &Value) -> Result<(), St
         .and_then(Value::as_str)
         .filter(|key| !key.trim().is_empty())
     {
-        let entry = keychain_entry()?;
+        let entry = credential_entry()?;
         if read_api_key()?.is_none() {
             entry
                 .set_password(key)
-                .map_err(|error| format!("迁移 API Key 到系统钥匙串失败: {error}"))?;
+                .map_err(|error| format!("迁移 API Key 到系统凭据失败: {error}"))?;
         }
         write_setting(conn, "api_key_configured", "true")?;
     }
     Ok(())
 }
 
-fn keychain_entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
-        .map_err(|error| format!("访问系统钥匙串失败: {error}"))
+fn credential_entry() -> Result<keyring::Entry, String> {
+    keyring::Entry::new(CREDENTIAL_SERVICE, CREDENTIAL_USER)
+        .map_err(|error| format!("访问系统凭据存储失败: {error}"))
 }
 
 fn read_api_key() -> Result<Option<String>, String> {
-    match keychain_entry()?.get_password() {
+    match credential_entry()?.get_password() {
         Ok(value) if value.trim().is_empty() => Ok(None),
         Ok(value) => Ok(Some(value)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(format!("读取系统钥匙串失败: {error}")),
+        Err(error) => Err(format!("读取系统凭据存储失败: {error}")),
     }
 }
 
