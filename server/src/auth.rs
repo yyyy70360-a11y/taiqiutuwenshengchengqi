@@ -169,7 +169,7 @@ async fn issue_tokens(pool: &PgPool, user_id: &str) -> Result<AuthResponse, ApiE
     })
 }
 
-fn normalize_email(email: &str) -> Result<String, ApiError> {
+pub(crate) fn normalize_email(email: &str) -> Result<String, ApiError> {
     let value = email.trim().to_lowercase();
     if value.is_empty() || value.len() > 254 || !value.contains('@') {
         return Err(ApiError::bad_request("请输入有效邮箱"));
@@ -177,7 +177,7 @@ fn normalize_email(email: &str) -> Result<String, ApiError> {
     Ok(value)
 }
 
-fn validate_password(password: &str) -> Result<(), ApiError> {
+pub(crate) fn validate_password(password: &str) -> Result<(), ApiError> {
     if password.chars().count() < 8 || password.len() > 256 {
         return Err(ApiError::bad_request("密码长度需为 8 至 256 个字符"));
     }

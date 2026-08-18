@@ -3,7 +3,7 @@ use crate::{
     auth, AppState,
 };
 use axum::{
-    extract::{Form, Path, State},
+    extract::{Form, Path, Query, State},
     http::{
         header::{CACHE_CONTROL, CONTENT_TYPE, COOKIE, SET_COOKIE},
         HeaderMap, HeaderValue, StatusCode,
@@ -37,6 +37,26 @@ pub struct CsrfForm {
     csrf: String,
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct UsersQuery {
+    q: Option<String>,
+    status: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserCreateForm {
+    csrf: String,
+    email: String,
+    password: String,
+    disabled: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PasswordForm {
+    csrf: String,
+    password: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AiConfigForm {
     csrf: String,
@@ -46,6 +66,28 @@ pub struct AiConfigForm {
     clear_api_key: Option<String>,
     timeout_seconds: u64,
     max_concurrency: usize,
+}
+
+#[derive(Debug, Clone)]
+struct UserListFilter {
+    q: String,
+    status: String,
+}
+
+#[derive(Debug)]
+struct UserDetailData {
+    id: String,
+    email: String,
+    disabled: bool,
+    created_at: DateTime<Utc>,
+    last_login_at: Option<DateTime<Utc>>,
+    active_sessions: i64,
+    total_sessions: i64,
+    account_count: i64,
+    copy_count: i64,
+    ai_calls: i64,
+    ai_items: i64,
+    recent_usage_rows: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -154,7 +196,11 @@ pub async fn dashboard(State(state): State<AppState>, headers: HeaderMap) -> Res
     ))
 }
 
-pub async fn users(State(state): State<AppState>, headers: HeaderMap) -> Response {
+pub async fn users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<UsersQuery>,
+) -> Response {
     let Some(session) = require_session(&state, &headers).await else {
         return Redirect::to("/admin/login").into_response();
     };
@@ -162,7 +208,8 @@ pub async fn users(State(state): State<AppState>, headers: HeaderMap) -> Respons
         Ok(value) => value,
         Err(response) => return response,
     };
-    let rows = match user_rows(&state).await {
+    let normalized = normalize_users_query(query);
+    let rows = match user_rows(&state, &normalized).await {
         Ok(value) => value,
         Err(response) => return response,
     };
@@ -170,8 +217,182 @@ pub async fn users(State(state): State<AppState>, headers: HeaderMap) -> Respons
         "用户管理",
         &state.config.admin_email,
         "users",
-        &users_html(&rows, &csrf),
+        &users_html(&rows, &csrf, &normalized),
     ))
+}
+
+pub async fn new_user(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    html_response(layout(
+        "创建用户",
+        &state.config.admin_email,
+        "users",
+        &new_user_html(&csrf, ""),
+    ))
+}
+
+pub async fn create_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(input): Form<UserCreateForm>,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    if !verify_csrf(&session, &input.csrf) {
+        return html_response(layout(
+            "请求已过期",
+            &state.config.admin_email,
+            "users",
+            "<p class=\"error\">页面已过期，请返回创建用户页重试。</p>",
+        ));
+    }
+    let email = match auth::normalize_email(&input.email) {
+        Ok(value) => value,
+        Err(error) => {
+            return html_response(layout(
+                "创建用户",
+                &state.config.admin_email,
+                "users",
+                &new_user_html(&input.csrf, &error.message),
+            ))
+        }
+    };
+    if let Err(error) = auth::validate_password(&input.password) {
+        return html_response(layout(
+            "创建用户",
+            &state.config.admin_email,
+            "users",
+            &new_user_html(&input.csrf, &error.message),
+        ));
+    }
+    let password_hash = match auth::hash_password(&input.password) {
+        Ok(value) => value,
+        Err(error) => {
+            return html_response(layout(
+                "创建用户",
+                &state.config.admin_email,
+                "users",
+                &new_user_html(&input.csrf, &error.message),
+            ))
+        }
+    };
+    let user_id = Uuid::new_v4().to_string();
+    let disabled = input.disabled.is_some();
+    let result = sqlx::query(
+        "INSERT INTO users (id, email, password_hash, disabled) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(&user_id)
+    .bind(&email)
+    .bind(password_hash)
+    .bind(disabled)
+    .execute(&state.db)
+    .await;
+    match result {
+        Ok(_) => Redirect::to(&format!("/admin/users/{user_id}")).into_response(),
+        Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23505") => {
+            html_response(layout(
+                "创建用户",
+                &state.config.admin_email,
+                "users",
+                &new_user_html(&input.csrf, "该邮箱已注册"),
+            ))
+        }
+        Err(error) => internal_page(&state, error, "创建用户失败"),
+    }
+}
+
+pub async fn user_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let detail = match user_detail_data(&state, &user_id).await {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            return html_response(layout(
+                "用户不存在",
+                &state.config.admin_email,
+                "users",
+                "<p class=\"error\">用户不存在。</p>",
+            ))
+        }
+        Err(response) => return response,
+    };
+    html_response(layout(
+        "用户详情",
+        &state.config.admin_email,
+        "users",
+        &user_detail_html(&detail, &csrf, "", false),
+    ))
+}
+
+pub async fn reset_user_password(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    Form(input): Form<PasswordForm>,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let message = if !verify_csrf(&session, &input.csrf) {
+        ("页面已过期，请返回用户详情页重试。".to_string(), false)
+    } else if let Err(error) = auth::validate_password(&input.password) {
+        (error.message, false)
+    } else {
+        match auth::hash_password(&input.password) {
+            Ok(password_hash) => {
+                let updated = sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+                    .bind(password_hash)
+                    .bind(&user_id)
+                    .execute(&state.db)
+                    .await;
+                match updated {
+                    Ok(_) => {
+                        let _ = revoke_sessions(&state, &user_id).await;
+                        ("密码已重置，用户需要重新登录。".to_string(), true)
+                    }
+                    Err(error) => return internal_page(&state, error, "重置密码失败"),
+                }
+            }
+            Err(error) => (error.message, false),
+        }
+    };
+    render_user_detail_message(state, session, user_id, &message.0, message.1).await
+}
+
+pub async fn revoke_user_sessions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    Form(input): Form<CsrfForm>,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let message = if verify_csrf(&session, &input.csrf) {
+        match revoke_sessions(&state, &user_id).await {
+            Ok(_) => ("已强制该用户下线。".to_string(), true),
+            Err(error) => return internal_page(&state, error, "强制下线失败"),
+        }
+    } else {
+        ("页面已过期，请返回用户详情页重试。".to_string(), false)
+    };
+    render_user_detail_message(state, session, user_id, &message.0, message.1).await
 }
 
 pub async fn disable_user(
@@ -307,7 +528,7 @@ async fn update_user_disabled(
     }
     if let Err(error) = sqlx::query("UPDATE users SET disabled = $1 WHERE id = $2")
         .bind(disabled)
-        .bind(user_id)
+        .bind(&user_id)
         .execute(&state.db)
         .await
     {
@@ -318,6 +539,11 @@ async fn update_user_disabled(
             "users",
             "<p class=\"error\">更新用户状态失败。</p>",
         ));
+    }
+    if disabled {
+        if let Err(error) = revoke_sessions(&state, &user_id).await {
+            return internal_page(&state, error, "撤销用户会话失败");
+        }
     }
     Redirect::to("/admin/users").into_response()
 }
@@ -367,6 +593,136 @@ fn verify_csrf(session: &AdminSession, csrf: &str) -> bool {
     !csrf.trim().is_empty() && auth::hash_token(csrf) == session.csrf_token_hash
 }
 
+fn normalize_users_query(query: UsersQuery) -> UserListFilter {
+    let status = match query.status.as_deref() {
+        Some("active") => "active",
+        Some("disabled") => "disabled",
+        _ => "all",
+    }
+    .to_string();
+    UserListFilter {
+        q: query.q.unwrap_or_default().trim().to_string(),
+        status,
+    }
+}
+
+async fn render_user_detail_message(
+    state: AppState,
+    session: AdminSession,
+    user_id: String,
+    message: &str,
+    success: bool,
+) -> Response {
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let detail = match user_detail_data(&state, &user_id).await {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            return html_response(layout(
+                "用户不存在",
+                &state.config.admin_email,
+                "users",
+                "<p class=\"error\">用户不存在。</p>",
+            ))
+        }
+        Err(response) => return response,
+    };
+    html_response(layout(
+        "用户详情",
+        &state.config.admin_email,
+        "users",
+        &user_detail_html(&detail, &csrf, message, success),
+    ))
+}
+
+async fn revoke_sessions(state: &AppState, user_id: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL")
+        .bind(user_id)
+        .execute(&state.db)
+        .await?;
+    Ok(())
+}
+
+async fn user_detail_data(
+    state: &AppState,
+    user_id: &str,
+) -> Result<Option<UserDetailData>, Response> {
+    let Some(user) = sqlx::query(
+        "SELECT id, email, disabled, created_at, last_login_at FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|error| internal_page(state, error, "读取用户详情失败"))?
+    else {
+        return Ok(None);
+    };
+
+    let stats = sqlx::query(
+        "SELECT
+            (SELECT COUNT(*)::BIGINT FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND refresh_expires_at > NOW()) AS active_sessions,
+            (SELECT COUNT(*)::BIGINT FROM sessions WHERE user_id = $1) AS total_sessions,
+            (SELECT COUNT(*)::BIGINT FROM accounts WHERE user_id = $1) AS account_count,
+            (SELECT COUNT(*)::BIGINT FROM copy_library WHERE user_id = $1) AS copy_count,
+            (SELECT COUNT(*)::BIGINT FROM usage_records WHERE user_id = $1) AS ai_calls,
+            (SELECT COALESCE(SUM(item_count), 0)::BIGINT FROM usage_records WHERE user_id = $1) AS ai_items",
+    )
+    .bind(user_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|error| internal_page(state, error, "读取用户统计失败"))?;
+
+    let usage_rows = sqlx::query(
+        "SELECT operation, item_count, status, duration_ms, error_message, created_at FROM usage_records WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20",
+    )
+    .bind(user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|error| internal_page(state, error, "读取用户调用记录失败"))?;
+    let recent_usage_rows = usage_rows
+        .into_iter()
+        .map(|row| {
+            let operation: String = row.get("operation");
+            let item_count: i32 = row.get("item_count");
+            let status_value: String = row.get("status");
+            let duration_ms: i64 = row.get("duration_ms");
+            let error_message: String = row.get("error_message");
+            let created_at: DateTime<Utc> = row.get("created_at");
+            let status = if status_value == "success" {
+                "<span class=\"badge ok\">成功</span>"
+            } else {
+                "<span class=\"badge bad\">失败</span>"
+            };
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{} ms</td><td>{}</td></tr>",
+                escape_html(&format_time(created_at)),
+                escape_html(&operation),
+                item_count,
+                status,
+                duration_ms,
+                escape_html(&error_message)
+            )
+        })
+        .collect();
+
+    Ok(Some(UserDetailData {
+        id: user.get("id"),
+        email: user.get("email"),
+        disabled: user.get("disabled"),
+        created_at: user.get("created_at"),
+        last_login_at: user.get("last_login_at"),
+        active_sessions: stats.get("active_sessions"),
+        total_sessions: stats.get("total_sessions"),
+        account_count: stats.get("account_count"),
+        copy_count: stats.get("copy_count"),
+        ai_calls: stats.get("ai_calls"),
+        ai_items: stats.get("ai_items"),
+        recent_usage_rows,
+    }))
+}
+
 async fn dashboard_stats(state: &AppState) -> Result<DashboardStats, Response> {
     let users = sqlx::query("SELECT COUNT(*)::BIGINT AS total, COUNT(*) FILTER (WHERE disabled)::BIGINT AS disabled FROM users")
         .fetch_one(&state.db)
@@ -409,10 +765,12 @@ async fn recent_error_rows(state: &AppState) -> Result<Vec<String>, Response> {
         .collect())
 }
 
-async fn user_rows(state: &AppState) -> Result<Vec<String>, Response> {
+async fn user_rows(state: &AppState, filter: &UserListFilter) -> Result<Vec<String>, Response> {
     let rows = sqlx::query(
-        "SELECT u.id, u.email, u.disabled, u.created_at, u.last_login_at, COALESCE(SUM(r.item_count), 0)::BIGINT AS items, COUNT(r.id)::BIGINT AS calls FROM users u LEFT JOIN usage_records r ON r.user_id = u.id GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200",
+        "SELECT u.id, u.email, u.disabled, u.created_at, u.last_login_at, COALESCE(SUM(r.item_count), 0)::BIGINT AS items, COUNT(r.id)::BIGINT AS calls FROM users u LEFT JOIN usage_records r ON r.user_id = u.id WHERE ($1 = '' OR u.email ILIKE '%' || $1 || '%') AND ($2 = 'all' OR ($2 = 'active' AND u.disabled = FALSE) OR ($2 = 'disabled' AND u.disabled = TRUE)) GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200",
     )
+    .bind(&filter.q)
+    .bind(&filter.status)
     .fetch_all(&state.db)
     .await
     .map_err(|error| internal_page(state, error, "读取用户列表失败"))?;
@@ -431,7 +789,8 @@ async fn user_rows(state: &AppState) -> Result<Vec<String>, Response> {
             let action_label = if disabled { "解封" } else { "封禁" };
             let action_class = if disabled { "secondary" } else { "danger" };
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><form method=\"post\" action=\"/admin/users/{}/{}\"><input type=\"hidden\" name=\"csrf\" value=\"__CSRF__\"><button class=\"{}\" type=\"submit\">{}</button></form></td></tr>",
+                "<tr><td><a href=\"/admin/users/{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><form method=\"post\" action=\"/admin/users/{}/{}\"><input type=\"hidden\" name=\"csrf\" value=\"__CSRF__\"><button class=\"{}\" type=\"submit\">{}</button></form></td></tr>",
+                escape_html(&id),
                 escape_html(&email),
                 status,
                 escape_html(&format_time(created_at)),
@@ -541,15 +900,90 @@ fn ai_config_html(config: &AiRuntimeConfig, csrf: &str, message: &str, success: 
     )
 }
 
-fn users_html(rows: &[String], csrf: &str) -> String {
+fn users_html(rows: &[String], csrf: &str, filter: &UserListFilter) -> String {
     let body = if rows.is_empty() {
         "<tr><td colspan=\"7\" class=\"muted\">暂无用户</td></tr>".into()
     } else {
         rows.join("").replace("__CSRF__", &escape_html(csrf))
     };
+    let all_selected = selected(&filter.status, "all");
+    let active_selected = selected(&filter.status, "active");
+    let disabled_selected = selected(&filter.status, "disabled");
     format!(
-        "<section><h2>用户管理</h2><table><tr><th>邮箱</th><th>状态</th><th>注册时间</th><th>最后登录</th><th>AI 次数</th><th>生成条数</th><th>操作</th></tr>{}</table></section>",
+        "<section><div class=\"section-head\"><h2>用户管理</h2><a class=\"button-link\" href=\"/admin/users/new\">创建用户</a></div><form class=\"inline-form\" method=\"get\" action=\"/admin/users\"><label>邮箱搜索<input name=\"q\" value=\"{}\" placeholder=\"user@example.com\"></label><label>状态<select name=\"status\"><option value=\"all\" {}>全部</option><option value=\"active\" {}>正常</option><option value=\"disabled\" {}>已封禁</option></select></label><button type=\"submit\">筛选</button><a class=\"button-link secondary\" href=\"/admin/users\">重置</a></form><table><tr><th>邮箱</th><th>状态</th><th>注册时间</th><th>最后登录</th><th>AI 次数</th><th>生成条数</th><th>操作</th></tr>{}</table></section>",
+        escape_html(&filter.q),
+        all_selected,
+        active_selected,
+        disabled_selected,
         body
+    )
+}
+
+fn new_user_html(csrf: &str, error: &str) -> String {
+    let error_html = if error.is_empty() {
+        String::new()
+    } else {
+        format!("<p class=\"error\">{}</p>", escape_html(error))
+    };
+    format!(
+        "<section><h2>创建用户</h2>{}<form method=\"post\" action=\"/admin/users\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><label>邮箱<input name=\"email\" type=\"email\" autocomplete=\"off\" required></label><label>初始密码<input name=\"password\" type=\"text\" autocomplete=\"off\" minlength=\"8\" required></label><label class=\"check\"><input name=\"disabled\" type=\"checkbox\" value=\"1\">创建后先封禁</label><button type=\"submit\">创建用户</button><a class=\"button-link secondary\" href=\"/admin/users\">返回</a></form></section>",
+        error_html,
+        escape_html(csrf)
+    )
+}
+
+fn user_detail_html(detail: &UserDetailData, csrf: &str, message: &str, success: bool) -> String {
+    let message_html = if message.is_empty() {
+        String::new()
+    } else if success {
+        format!("<p class=\"notice\">{}</p>", escape_html(message))
+    } else {
+        format!("<p class=\"error\">{}</p>", escape_html(message))
+    };
+    let status = if detail.disabled {
+        "<span class=\"badge bad\">已封禁</span>"
+    } else {
+        "<span class=\"badge ok\">正常</span>"
+    };
+    let action = if detail.disabled { "enable" } else { "disable" };
+    let action_label = if detail.disabled {
+        "解封用户"
+    } else {
+        "封禁用户"
+    };
+    let action_class = if detail.disabled {
+        "secondary"
+    } else {
+        "danger"
+    };
+    let usage_rows = if detail.recent_usage_rows.is_empty() {
+        "<tr><td colspan=\"6\" class=\"muted\">暂无 AI 调用记录</td></tr>".to_string()
+    } else {
+        detail.recent_usage_rows.join("")
+    };
+    format!(
+        "<section><div class=\"section-head\"><h2>用户详情</h2><a class=\"button-link secondary\" href=\"/admin/users\">返回用户列表</a></div>{}<table><tr><th>项目</th><th>值</th></tr><tr><td>邮箱</td><td>{}</td></tr><tr><td>状态</td><td>{}</td></tr><tr><td>注册时间</td><td>{}</td></tr><tr><td>最后登录</td><td>{}</td></tr><tr><td>活动会话</td><td>{} / {}</td></tr><tr><td>账号配置数</td><td>{}</td></tr><tr><td>文案库条数</td><td>{}</td></tr><tr><td>AI 调用 / 生成条数</td><td>{} / {}</td></tr></table><div class=\"actions\"><form method=\"post\" action=\"/admin/users/{}/{}\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><button class=\"{}\" type=\"submit\">{}</button></form><form method=\"post\" action=\"/admin/users/{}/sessions/revoke\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><button class=\"secondary\" type=\"submit\">强制下线</button></form></div></section><section><h2>重置密码</h2><form method=\"post\" action=\"/admin/users/{}/password\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><label>新密码<input name=\"password\" type=\"text\" autocomplete=\"off\" minlength=\"8\" required></label><button type=\"submit\">重置密码并下线</button></form></section><section><h2>最近 AI 调用</h2><table><tr><th>时间</th><th>接口</th><th>条数</th><th>状态</th><th>耗时</th><th>错误</th></tr>{}</table></section>",
+        message_html,
+        escape_html(&detail.email),
+        status,
+        escape_html(&format_time(detail.created_at)),
+        escape_html(&detail.last_login_at.map(format_time).unwrap_or_else(|| "未登录".into())),
+        detail.active_sessions,
+        detail.total_sessions,
+        detail.account_count,
+        detail.copy_count,
+        detail.ai_calls,
+        detail.ai_items,
+        escape_html(&detail.id),
+        action,
+        escape_html(csrf),
+        action_class,
+        action_label,
+        escape_html(&detail.id),
+        escape_html(csrf),
+        escape_html(&detail.id),
+        escape_html(csrf),
+        usage_rows
     )
 }
 
@@ -600,6 +1034,14 @@ fn admin_not_configured_html() -> String {
 fn active_class(active: &str, current: &str) -> &'static str {
     if active == current {
         "active"
+    } else {
+        ""
+    }
+}
+
+fn selected(active: &str, current: &str) -> &'static str {
+    if active == current {
+        "selected"
     } else {
         ""
     }
@@ -689,7 +1131,7 @@ fn escape_html(value: &str) -> String {
 }
 
 fn css() -> &'static str {
-    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.notice{color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}.check{display:flex;gap:8px;align-items:center;font-weight:600}.check input{width:auto;margin:0}input{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}</style>"
+    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.notice{color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}.check{display:flex;gap:8px;align-items:center;font-weight:600}.check input{width:auto;margin:0}input,select{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.inline-form{display:grid;grid-template-columns:2fr 1fr auto auto;gap:12px;align-items:end;margin-bottom:16px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.button-link{display:inline-block;border-radius:6px;background:#111827;color:white;text-decoration:none;padding:8px 12px;font-weight:700}.button-link.secondary{background:#475569}input,select{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid,.inline-form{grid-template-columns:1fr}.section-head{display:block}table{display:block;overflow-x:auto;white-space:nowrap}}</style>"
 }
 
 #[cfg(test)]

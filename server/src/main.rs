@@ -89,9 +89,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/admin", get(admin::dashboard))
         .route("/admin/login", get(admin::login_page).post(admin::login))
         .route("/admin/logout", post(admin::logout))
-        .route("/admin/users", get(admin::users))
+        .route("/admin/users", get(admin::users).post(admin::create_user))
+        .route("/admin/users/new", get(admin::new_user))
+        .route("/admin/users/{user_id}", get(admin::user_detail))
         .route("/admin/users/{user_id}/disable", post(admin::disable_user))
         .route("/admin/users/{user_id}/enable", post(admin::enable_user))
+        .route(
+            "/admin/users/{user_id}/password",
+            post(admin::reset_user_password),
+        )
+        .route(
+            "/admin/users/{user_id}/sessions/revoke",
+            post(admin::revoke_user_sessions),
+        )
         .route(
             "/admin/ai-config",
             get(admin::ai_config).post(admin::save_ai_config),
