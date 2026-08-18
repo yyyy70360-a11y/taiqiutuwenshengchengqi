@@ -641,11 +641,7 @@ fn legacy_roots(app: &AppHandle) -> Vec<PathBuf> {
     if let Ok(home) = app.path().home_dir() {
         // Keep the literal Documents fallback for older portable layouts.
         roots.push(home.join("Documents").join("台球图文生成器"));
-        roots.push(
-            home.join("Documents")
-                .join("台球矩阵搭建")
-                .join("workflow"),
-        );
+        roots.push(home.join("Documents").join("台球矩阵搭建").join("workflow"));
     }
     if let Ok(executable) = std::env::current_exe() {
         for ancestor in executable.ancestors().take(6) {
