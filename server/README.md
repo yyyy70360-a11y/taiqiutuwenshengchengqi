@@ -70,4 +70,7 @@ AI 文案接口支持可选 `template` 字段。旧客户端不传时按 `magazi
 - PostgreSQL 不开放公网端口，只允许本机 API 服务访问。
 - Caddy 配置域名后自动申请 HTTPS 证书。
 
-详见 `docs/MACOS_CLOUD_PROTOTYPE_CHECKLIST.md`。
+更多说明：
+
+- macOS 云端化施工清单：`docs/MACOS_CLOUD_PROTOTYPE_CHECKLIST.md`
+- Windows 客户端共用后台约束：`docs/WINDOWS_BACKEND_CONTRACT.md`

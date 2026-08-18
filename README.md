@@ -105,6 +105,10 @@ SQLite 数据库位于：
 
 首次启动会查找旧版开发目录及 `~/Documents/台球图文生成器`，只补充尚未存在的数据。迁移完成或确认无旧数据后写入版本标记，后续启动不会重复扫描或覆盖新设置。只有旧配置真正包含 API Key 时才在迁移中访问 Keychain。旧输出图片不移动、不删除。
 
+## 跨端后台约束
+
+Mac 与 Windows 可以各自实现本地渲染、安装包和系统凭据存储，但账号、同步、AI 网关和后台管理必须共用 `server/` 这一套协议。Windows 客户端接入约束见 [WINDOWS_BACKEND_CONTRACT.md](docs/WINDOWS_BACKEND_CONTRACT.md)。
+
 ## 自用说明
 
 当前包用于本机自用，不上架 App Store，也不要求 Developer ID 签名或 Apple 公证。未签名二进制每次重编后，macOS 仍可能在读取 Keychain 会话或旧版 API Key 时重新询问授权；应用启动和本地出图不依赖该授权。只有将应用发给其他人时，才建议额外完成 Developer ID 签名与公证。详见 [RELEASE.md](docs/RELEASE.md)。

@@ -53,7 +53,7 @@ pub async fn generate_copy(
     let capacity = template_capacity(input.template.as_deref());
     let started = Instant::now();
     let result = async {
-        let text = call_provider(&state, &single_prompt(&input.prompt), 600).await?;
+        let text = call_provider(&state, &single_prompt(&input.prompt, capacity), 600).await?;
         parse_item(&text)
             .map(|item| fit_item_to_capacity(item, capacity))
             .ok_or_else(|| ApiError::internal("AI 返回内容无法解析"))
@@ -104,7 +104,7 @@ pub async fn generate_batch_copy(
     let count = input.count.clamp(1, 100);
     let capacity = template_capacity(input.template.as_deref());
     let started = Instant::now();
-    let prompt = format!("{}\n\n生成{}条差异化内容，每条按【第N条】分隔。每条严格包含：标题：xxx、正文：xxx、话题：#xx #xx", input.prompt, count);
+    let prompt = batch_prompt(&input.prompt, count, capacity);
     let result = async {
         let text = call_provider(&state, &prompt, (count as u32 * 600).min(12000)).await?;
         let items: Vec<CopyItem> = parse_batch(&text)
@@ -333,8 +333,25 @@ fn count_chars(value: &str) -> usize {
     value.trim().chars().count()
 }
 
-fn single_prompt(prompt: &str) -> String {
-    format!("{prompt}\n\n严格按以下格式输出，不要添加解释：\n标题：xxx\n正文：xxx\n话题：#xx #xx")
+fn single_prompt(prompt: &str, capacity: TemplateCapacity) -> String {
+    format!(
+        "{prompt}\n\n{limits}\n严格按以下格式输出，不要添加解释：\n标题：xxx\n正文：xxx\n话题：#xx #xx",
+        limits = capacity_instruction(capacity)
+    )
+}
+
+fn batch_prompt(prompt: &str, count: usize, capacity: TemplateCapacity) -> String {
+    format!(
+        "{prompt}\n\n{limits}\n生成{count}条差异化内容，每条按【第N条】分隔。每条严格包含：标题：xxx、正文：xxx、话题：#xx #xx",
+        limits = capacity_instruction(capacity)
+    )
+}
+
+fn capacity_instruction(capacity: TemplateCapacity) -> String {
+    format!(
+        "【模板容量限制：最高优先级】标题≤{}字；正文≤{}字且最多{}行；话题最多{}个，每个≤{}字。宁可短一点，不要撑满或超出模板。",
+        capacity.title, capacity.body, capacity.body_lines, capacity.tags, capacity.tag
+    )
 }
 
 fn parse_item(text: &str) -> Option<CopyItem> {
@@ -446,6 +463,20 @@ mod tests {
         let poster_capacity = template_capacity(Some("poster"));
         assert!(poster_capacity.body > magazine_capacity.body);
         assert!(poster_capacity.body_lines > magazine_capacity.body_lines);
+    }
+
+    #[test]
+    fn server_prompts_include_template_capacity_limits() {
+        let capacity = template_capacity(Some("minimal"));
+        let single = single_prompt("斗门今晚约球", capacity);
+        assert!(single.contains("模板容量限制"));
+        assert!(single.contains("标题≤30字"));
+        assert!(single.contains("正文≤136字且最多8行"));
+        assert!(single.contains("话题最多3个，每个≤12字"));
+
+        let batch = batch_prompt("斗门今晚约球", 10, capacity);
+        assert!(batch.contains("生成10条差异化内容"));
+        assert!(batch.contains("正文≤136字且最多8行"));
     }
 
     #[test]
