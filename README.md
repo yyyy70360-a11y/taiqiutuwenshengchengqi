@@ -1,46 +1,39 @@
 # 台球图文生成器 Tauri 版
 
-这是一个基于 Tauri 2、Rust、原生 SVG/PNG 渲染和共享云端 API 的桌面应用。当前代码已按 Windows 10 优先适配，同时保留原有 macOS 行为。Mac 和 Windows 客户端共用同一套云服务、AI 网关和后台管理面板；客户端本地出图不需要 Python、FastAPI、Playwright、系统 Chrome、localhost 服务或联网字体。
+这是一个基于 Tauri 2、Rust、原生 SVG/PNG 渲染和共享云端 API 的桌面应用。Windows 和 macOS 客户端共用同一套云服务、AI 网关和后台管理面板；客户端本地出图不依赖 Python、FastAPI、Playwright、系统 Chrome 或联网字体。
 
 ## 功能
 
-- 6 套 SVG 模板，固定输出 `1080 x 1920` PNG。
-- 内置 Noto Sans/Serif CJK 字体，不依赖系统字体。
-- 单条预览、单条保存、云端 AI 文案、批量文案和最多 100 张批量渲染。
-- 批量渲染支持统一模板，或按数量分配多套模板。
-- 批量进度、失败和完成事件。
-- SQLite 保存预设、设置、账号、文案库和渲染历史元数据。
-- 云服务登录会话使用操作系统的系统凭据存储：Windows 10 为 Windows Credential Manager，macOS 为 Keychain。服务器侧 AI Provider Key 只放在服务端环境配置中，不进入客户端或 SQLite。
-- 旧版 `settings.json`、`accounts.json` 和 JSON 文案库一次性迁移，旧输出目录不移动、不删除。
-- Windows 生成 NSIS 和 MSI 安装包；原有 macOS `.app` 和 `.dmg` 目标仍保留。
+- 50 套不同风格模板，固定输出 `1080 x 1920` PNG。
+- 内置中文字体，支持标题和正文字体、粗细、颜色等自定义选项。
+- 单条生成、批量生成、随机模板和自定义模板数量分配。
+- 30 种语气，单条和批量模式均支持随机语气；实际语气约束会写入发送给 AI 的提示词。
+- 文案容量前端提示、服务端校验和渲染自适应，减少文案超出模板承载范围的问题。
+- SQLite 保存预设、设置、账号、文案库和渲染历史。
+- 云服务登录会话使用 Windows Credential Manager 或 macOS Keychain；AI Provider Key 只保存在服务端。
+- Windows 生成 NSIS 和 MSI 安装包，保留 macOS `.app` 和 `.dmg` 构建能力。
 
 ## 工程结构
 
 ```text
-frontend/index.html          三栏工作界面与 Tauri IPC 适配
-src-tauri/src/render.rs      SVG 模板、中文换行与 PNG 输出
-src-tauri/src/commands.rs    Tauri commands、跨平台目录打开、云同步与批量事件
-src-tauri/src/storage.rs     SQLite、系统凭据、云同步字段与旧数据迁移
-src-tauri/src/cloud.rs       共享云服务客户端、登录会话、AI 网关与同步
+frontend/index.html          工作界面、交互和 Tauri IPC 适配
+src-tauri/src/render.rs      模板、中文换行、自适应排版和 PNG 输出
+src-tauri/src/commands.rs    Tauri commands、云同步和批量事件
+src-tauri/src/storage.rs     SQLite、系统凭据和旧数据迁移
+src-tauri/src/cloud.rs       共享云服务客户端、AI 网关和同步
+src-tauri/src/tunnel.rs      Windows 启动时静默建立云服务 SSH 隧道
 src-tauri/fonts/             随应用打包的中文字体
-server/                      Mac 与 Windows 共用的云端 API 和后台管理面板
-scripts/windows/             Windows 10 开发环境检查与引导
+server/                      Mac 与 Windows 共用的云端 API 和管理后台
+scripts/windows/             Windows 10 环境检查和发布脚本
 ```
 
 ## Windows 10 环境
 
-推荐使用 Windows 10 64 位、Visual Studio 2022 Build Tools（C++ workload 和 Windows 10/11 SDK）、Rust MSVC 工具链、Tauri CLI 2.11.4，以及 Microsoft Edge WebView2 Runtime。
-
-管理员 PowerShell 中执行一次：
+推荐使用 Windows 10 64 位、Visual Studio 2022 Build Tools（C++ workload 和 Windows SDK）、Rust MSVC 工具链、Tauri CLI 2，以及 Microsoft Edge WebView2 Runtime。
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\windows\bootstrap-dev.ps1
-```
-
-检查环境：
-
-```powershell
 .\scripts\windows\verify-dev.ps1
 ```
 
@@ -50,46 +43,43 @@ Set-ExecutionPolicy -Scope Process Bypass
 cargo check --manifest-path src-tauri\Cargo.toml
 cargo test --manifest-path src-tauri\Cargo.toml
 cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
-cargo check --manifest-path server\Cargo.toml
-cargo test --manifest-path server\Cargo.toml
-cargo clippy --manifest-path server\Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri\Cargo.toml renders_hundred_images_without_external_dependencies -- --ignored
 cargo tauri build --bundles nsis,msi
-# 或使用 npm 脚本：
-npm run build:windows
 ```
 
 Windows 构建产物位于：
 
 ```text
-src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.0_x64-setup.exe
-src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_zh-CN.msi
+src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.1_x64-setup.exe
+src-tauri\target\release\bundle\msi\台球图文生成器_0.1.1_x64_zh-CN.msi
+```
+
+## 云服务隧道
+
+Windows 客户端默认访问 `http://127.0.0.1:38123`。应用启动时会先做健康检查；不可用时静默启动 SSH 本地转发，再次等待云服务就绪。
+
+安装包内包含 Windows OpenSSH 客户端，以及 `billiards-tunnel` 受限账号的专用密钥，因此目标电脑不需要额外安装 SSH。服务器端通过 `permitopen="127.0.0.1:38123"` 限制密钥用途，不能使用 root 账号，也不能获得交互式 shell。私钥和 OpenSSH 可执行文件在 `.gitignore` 中排除，不上传到 GitHub；构建发布包前必须通过安全渠道放到：
+
+```text
+src-tauri\resources\tunnel\billiards_tunnel_ed25519
+src-tauri\resources\tunnel\ssh.exe
 ```
 
 ## 数据与迁移
 
-Windows 10 默认数据库路径：
+Windows 默认数据库路径：
 
 ```text
 %APPDATA%\com.billiards.matrix\billiards.sqlite3
 ```
 
-云服务 access/refresh token 使用服务名 `com.billiards.matrix` 写入 Windows Credential Manager。应用启动和本地出图不需要登录；只有云端同步和 AI 文案生成会访问云服务。旧版本地 API Key 迁移逻辑仍会清理明文配置，并把历史 Key 放入系统凭据存储。
-
-首次启动会查找当前目录、可执行文件附近的旧版目录，以及 `%USERPROFILE%\Documents\台球图文生成器` 和 `%USERPROFILE%\Documents\台球矩阵搭建\workflow`。迁移完成后写入一次性标记，不会重复覆盖新设置。
+应用首次启动会查找旧版数据目录并执行一次性迁移。旧输出目录不会移动或删除。
 
 ## 发布注意事项
 
-Windows 安装包默认使用当前用户安装模式，不要求管理员权限；NSIS 安装器会按配置下载 WebView2 Bootstrapper。目标机器没有 WebView2 时需要联网完成运行时安装，企业离线环境应预装 WebView2 Runtime。
-
-Windows 有时会缓存旧版快捷方式/任务栏图标。安装新版后如果桌面、开始菜单或任务栏仍显示默认 Python 图标，先运行：
+Windows 有时会缓存旧版快捷方式或任务栏图标。安装新版后如仍显示旧图标，可运行：
 
 ```powershell
 .\scripts\windows\fix-shortcut-icons.ps1
 ```
 
-如果任务栏固定项仍未刷新，请取消固定旧图标，再从开始菜单重新固定 `台球图文生成器`。
-
-未签名的 Windows 安装包适合本机测试。对外分发前应使用组织代码签名证书签名，并在一台干净的 Windows 10 机器上验证安装、首次启动、升级、卸载和数据保留。
-
-详细验收步骤见 [`docs/WINDOWS10_RELEASE.md`](docs/WINDOWS10_RELEASE.md)。
+未签名安装包适合测试。正式分发前应使用代码签名证书，并在干净的 Windows 10 机器上验证安装、首次启动、升级、卸载、云服务连接和数据保留。详细验收步骤见 [`docs/WINDOWS10_RELEASE.md`](docs/WINDOWS10_RELEASE.md)。

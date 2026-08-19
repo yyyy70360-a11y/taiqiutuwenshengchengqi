@@ -23,6 +23,9 @@ output/
 *.key
 *.pem
 *.p12
+src-tauri/resources/tunnel/billiards_tunnel_ed25519
+src-tauri/resources/tunnel/billiards_tunnel_ed25519.pub
+src-tauri/resources/tunnel/ssh.exe
 
 # Bundled artifacts
 *.dmg

@@ -3,10 +3,19 @@ mod commands;
 mod models;
 mod render;
 mod storage;
+#[cfg(target_os = "windows")]
+mod tunnel;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            tunnel::ensure_startup_tunnel(app.handle().clone());
+            #[cfg(not(target_os = "windows"))]
+            let _ = app;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_templates,
             commands::get_presets,
