@@ -59,9 +59,11 @@ Windows 和 macOS 共用同一套账号库与管理后台。macOS 客户端不�
 
     {
       "email": "name@example.com",
-      "password": "example-password",
-      "confirmPassword": "example-password"
+      "password": "Example2026",
+      "confirmPassword": "Example2026"
     }
+
+密码必须至少 8 个字符，并同时包含字母和数字。申请成功响应为 HTTP 202，响应体包含 `status: "pending"` 和 `message`；申请成功不会返回 access token 或 refresh token。
 
 客户端需要按服务端 error 字段处理状态：
 
