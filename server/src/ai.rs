@@ -251,47 +251,50 @@ const STANDARD_CAPACITY_TEMPLATES: &[&str] = &[
     "magazine_pro",
     "fresh",
     "journal",
-    "neon",
-    "blueprint",
-    "polaroid",
-    "scoreboard",
-    "classic",
-    "club",
-    "street",
-    "aurora",
-    "espresso",
-    "sunset",
-    "ocean",
-    "rainforest",
+    "neon_club",
     "chalkboard",
-    "luxury",
-    "arcade",
-    "comic",
-    "paper_cut",
-    "gradient_card",
-    "ink_brush",
-    "tech_hud",
-    "warm_note",
-    "ice",
-    "candy",
-    "carbon",
-    "ceramic",
-    "matchday",
-    "lounge",
-    "diagonal",
-    "retro_tv",
-    "terrazzo",
-    "silk",
-    "desert",
-    "mint",
-    "royal_blue",
-    "darkroom",
-    "data_panel",
-    "sticker_bomb",
-    "prism",
-    "stadium",
-    "typewriter",
-    "zen",
+    "retro_ticket",
+    "cyber_grid",
+    "cream_note",
+    "arena_score",
+    "sunset_gradient",
+    "ink_stamp",
+    "glass_card",
+    "tactical_blue",
+    "midnight_lux",
+    "candy_pop",
+    "forest_match",
+    "steel_gray",
+    "royal_gold",
+    "ocean_wave",
+    "lava_motion",
+    "pearl_lite",
+    "street_snap",
+    "comic_burst",
+    "vaporwave",
+    "newspaper",
+    "coffee_receipt",
+    "scoreboard_green",
+    "purple_stage",
+    "ice_blue",
+    "red_warning",
+    "kraft_label",
+    "mint_mono",
+    "black_gold",
+    "gradient_ring",
+    "billiard_felt",
+    "tournament_bracket",
+    "soft_shadow",
+    "bold_blocks",
+    "pink_soda",
+    "desert_sand",
+    "matrix_code",
+    "club_vip",
+    "clean_blue",
+    "orange_zine",
+    "silver_card",
+    "green_laser",
+    "classic_serif",
 ];
 
 fn template_capacity(template: Option<&str>) -> TemplateCapacity {
@@ -306,7 +309,7 @@ fn template_capacity(template: Option<&str>) -> TemplateCapacity {
         };
     }
     match template {
-        "minimal" | "newspaper" | "vaporwave" | "mono" => TemplateCapacity {
+        "minimal" | "mono" => TemplateCapacity {
             title: 30,
             body: 136,
             body_lines: 8,
@@ -524,8 +527,9 @@ mod tests {
         }
         for template in ["newspaper", "vaporwave", "mono"] {
             let capacity = template_capacity(Some(template));
-            assert_eq!(capacity.body, 136);
-            assert_eq!(capacity.body_lines, 8);
+            let expected = if template == "mono" { 136 } else { 112 };
+            assert_eq!(capacity.body, expected);
+            assert_eq!(capacity.body_lines, if template == "mono" { 8 } else { 7 });
         }
     }
 

@@ -29,10 +29,10 @@ impl ApiError {
         }
     }
 
-    pub fn conflict(message: impl Into<String>) -> Self {
+    pub fn coded(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self {
-            status: StatusCode::CONFLICT,
-            code: "conflict",
+            status,
+            code,
             message: message.into(),
         }
     }

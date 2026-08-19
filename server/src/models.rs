@@ -7,6 +7,21 @@ pub struct RegisterRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterApplicationRequest {
+    pub email: String,
+    pub password: String,
+    pub confirm_password: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterApplicationResponse {
+    pub status: &'static str,
+    pub message: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,

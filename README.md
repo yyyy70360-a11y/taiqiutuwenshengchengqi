@@ -61,11 +61,11 @@ cargo test --manifest-path server/Cargo.toml
 cargo clippy --manifest-path server/Cargo.toml --all-targets -- -D warnings
 ```
 
-构建产物位于：
+当前 Mac 构建版本为 `0.1.2`，构建产物位于：
 
 ```text
 src-tauri/target/release/bundle/macos/台球图文生成器.app
-src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg
+src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg
 ```
 
 ## 2026-08-18 仓库检查结果
@@ -77,6 +77,15 @@ src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg
 - `cargo tauri build --debug` 通过，调试 DMG 已可校验。
 - Git 追踪内容未发现 `.env`、`.pem`、数据库、DMG、`.app`、`target`、`node_modules` 或输出图片等产物。
 - Mac 前端已将当前模板传给 AI 网关；服务端会按 50 套模板容量规则再次收口。
+
+## 2026-08-20 跨端同步结果
+
+- Mac 与 Win 共用版本已统一为 `0.1.2`。
+- Mac 已同步注册申请审核、会话启动校验、50 个共享模板 ID、30 种语气、随机模板、自定义模板数量分配和模板容量协议。
+- 服务端测试 `14 passed`，Mac 普通测试 `19 passed, 2 ignored`；两个手工测试已单独执行，包含 50 套模板样例和 100 张离线连续渲染。
+- 前端人工回归覆盖单条提示词、批量提示词、批量模板模式和设置页，控制台无错误。
+- `cargo clippy --all-targets -- -D warnings`、`.app/.dmg` release 构建和 `hdiutil verify` 均通过。
+- Windows 隧道、安装器、WebView2、`.ps1` 和平台图标保持为 Windows 支线专属实现。
 
 ## 2026-08-15 本地版验收结果
 

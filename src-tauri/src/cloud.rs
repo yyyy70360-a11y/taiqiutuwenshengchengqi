@@ -29,6 +29,21 @@ struct Credentials<'a> {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct RegisterApplicationRequest<'a> {
+    email: &'a str,
+    password: &'a str,
+    confirm_password: &'a str,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RegisterApplicationResponse {
+    status: String,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RefreshRequest<'a> {
     refresh_token: &'a str,
 }
@@ -145,7 +160,76 @@ pub async fn test_connection(app: &AppHandle) -> Result<String, String> {
 }
 
 pub async fn register(app: &AppHandle, email: &str, password: &str) -> Result<CloudStatus, String> {
-    authenticate(app, "/api/v1/auth/register", email, password).await
+    let _ = register_application(app, email, password, password).await?;
+    status(app).await
+}
+
+pub async fn register_application(
+    app: &AppHandle,
+    email: &str,
+    password: &str,
+    confirm_password: &str,
+) -> Result<String, String> {
+    let email = email.trim().to_lowercase();
+    if email.is_empty() || !email.contains('@') {
+        return Err("请输入有效邮箱".into());
+    }
+    if password != confirm_password {
+        return Err("两次输入的密码不一致".into());
+    }
+    if password.chars().count() < 8 {
+        return Err("密码至少需要 8 个字符".into());
+    }
+    if !password.chars().any(char::is_alphabetic) || !password.chars().any(char::is_numeric) {
+        return Err("密码需同时包含字母和数字".into());
+    }
+    let base = configured_base_url(app).await?;
+    let response = client()
+        .post(endpoint(&base, "/api/v1/auth/register-application"))
+        .json(&RegisterApplicationRequest {
+            email: &email,
+            password,
+            confirm_password,
+        })
+        .send()
+        .await
+        .map_err(network_error)?;
+    let result: RegisterApplicationResponse = parse_response(response).await?;
+    if result.status != "pending" {
+        return Err("注册申请状态异常".into());
+    }
+    Ok(result.message)
+}
+
+pub async fn validate_session(app: &AppHandle) -> Result<Option<bool>, String> {
+    if read_secret(REFRESH_TOKEN_ACCOUNT).await?.is_none() {
+        return Ok(None);
+    }
+    if read_secret(ACCESS_TOKEN_ACCOUNT).await?.is_none() {
+        let base = configured_base_url(app).await?;
+        if let Err(error) = refresh_session(&base).await {
+            if error.contains("无法连接云服务") {
+                return Err(error);
+            }
+            clear_tokens().await?;
+            return Ok(Some(false));
+        }
+    }
+    match authenticated_json::<RemoteSettings>(app, Method::GET, "/api/v1/me/settings", None).await
+    {
+        Ok(_) => Ok(Some(true)),
+        Err(error) if error.contains("无法连接云服务") => Err(error),
+        Err(_) => {
+            clear_tokens().await?;
+            let app_for_email = app.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                storage::set_cloud_email(&app_for_email, "")
+            })
+            .await
+            .map_err(|error| format!("清理云账号任务失败: {error}"))??;
+            Ok(Some(false))
+        }
+    }
 }
 
 pub async fn login(app: &AppHandle, email: &str, password: &str) -> Result<CloudStatus, String> {

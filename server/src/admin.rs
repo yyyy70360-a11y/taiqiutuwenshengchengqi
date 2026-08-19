@@ -68,6 +68,13 @@ pub struct AiConfigForm {
     max_concurrency: usize,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ApplicationReviewForm {
+    csrf: String,
+    #[serde(default)]
+    note: String,
+}
+
 #[derive(Debug, Clone)]
 struct UserListFilter {
     q: String,
@@ -235,6 +242,194 @@ pub async fn new_user(State(state): State<AppState>, headers: HeaderMap) -> Resp
         "users",
         &new_user_html(&csrf, ""),
     ))
+}
+
+pub async fn registration_applications(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let rows = match sqlx::query(
+        "SELECT id, email, status, requested_at, review_note FROM registration_applications ORDER BY requested_at DESC LIMIT 200",
+    )
+    .fetch_all(&state.db)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(error) => return internal_page(&state, error, "读取注册申请失败"),
+    };
+    let mut body = String::new();
+    for row in rows {
+        let id: String = row.get("id");
+        let email: String = row.get("email");
+        let status: String = row.get("status");
+        let requested_at: DateTime<Utc> = row.get("requested_at");
+        let note: String = row.get("review_note");
+        let status_html = match status.as_str() {
+            "approved" => "<span class=\"badge ok\">已批准</span>",
+            "rejected" => "<span class=\"badge bad\">已拒绝</span>",
+            _ => "<span class=\"badge\">待审核</span>",
+        };
+        let actions = if status == "pending" {
+            format!(
+                "<form class=\"application-action\" method=\"post\" action=\"/admin/registration-applications/{}/approve\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><input name=\"note\" placeholder=\"审核备注（可选）\"><button type=\"submit\">批准</button></form><form class=\"application-action\" method=\"post\" action=\"/admin/registration-applications/{}/reject\"><input type=\"hidden\" name=\"csrf\" value=\"{}\"><input name=\"note\" placeholder=\"拒绝原因（可选）\"><button class=\"danger\" type=\"submit\">拒绝</button></form>",
+                escape_html(&id), escape_html(&csrf), escape_html(&id), escape_html(&csrf)
+            )
+        } else {
+            "<span class=\"muted\">已处理</span>".to_string()
+        };
+        body.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            escape_html(&email),
+            status_html,
+            escape_html(&format_time(requested_at)),
+            escape_html(&note),
+            actions
+        ));
+    }
+    if body.is_empty() {
+        body = "<tr><td colspan=\"5\" class=\"muted\">暂无注册申请</td></tr>".into();
+    }
+    html_response(layout(
+        "注册申请",
+        &state.config.admin_email,
+        "applications",
+        &format!(
+            "<section><div class=\"section-head\"><h2>注册申请</h2><a class=\"button-link secondary\" href=\"/admin\">返回首页</a></div><table><tr><th>邮箱</th><th>状态</th><th>申请时间</th><th>备注</th><th>操作</th></tr>{}</table></section>",
+            body
+        ),
+    ))
+}
+
+pub async fn registration_application_count(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if require_session(&state, &headers).await.is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    match sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::BIGINT FROM registration_applications WHERE status = 'pending'",
+    )
+    .fetch_one(&state.db)
+    .await
+    {
+        Ok(count) => axum::Json(serde_json::json!({ "pending": count })).into_response(),
+        Err(error) => {
+            tracing::error!(error = %error, "registration application count failed");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+pub async fn approve_registration_application(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(application_id): Path<String>,
+    Form(input): Form<ApplicationReviewForm>,
+) -> Response {
+    review_registration_application(state, headers, application_id, input, true).await
+}
+
+pub async fn reject_registration_application(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(application_id): Path<String>,
+    Form(input): Form<ApplicationReviewForm>,
+) -> Response {
+    review_registration_application(state, headers, application_id, input, false).await
+}
+
+async fn review_registration_application(
+    state: AppState,
+    headers: HeaderMap,
+    application_id: String,
+    input: ApplicationReviewForm,
+    approve: bool,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    if !verify_csrf(&session, &input.csrf) {
+        return html_response(layout(
+            "请求已过期",
+            &state.config.admin_email,
+            "applications",
+            "<p class=\"error\">页面已过期，请返回注册申请页重试。</p>",
+        ));
+    }
+    let mut transaction = match state.db.begin().await {
+        Ok(value) => value,
+        Err(error) => return internal_page(&state, error, "审核操作启动失败"),
+    };
+    let application = match sqlx::query_as::<_, (String, Option<String>, String)>(
+        "SELECT email, password_hash, status FROM registration_applications WHERE id = $1 FOR UPDATE",
+    )
+    .bind(&application_id)
+    .fetch_optional(&mut *transaction)
+    .await
+    {
+        Ok(Some(value)) => value,
+        Ok(None) => return html_response(layout("注册申请", &state.config.admin_email, "applications", "<p class=\"error\">注册申请不存在。</p>")),
+        Err(error) => return internal_page(&state, error, "读取注册申请失败"),
+    };
+    if application.2 != "pending" {
+        return Redirect::to("/admin/registration-applications").into_response();
+    }
+    let result: Result<(), String> = if approve {
+        let Some(password_hash) = application.1 else {
+            return html_response(layout(
+                "注册申请",
+                &state.config.admin_email,
+                "applications",
+                "<p class=\"error\">申请凭据已清除，无法批准。</p>",
+            ));
+        };
+        let exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
+                .bind(&application.0)
+                .fetch_one(&mut *transaction)
+                .await;
+        match exists {
+            Ok(true) => Err("该邮箱已经是正式账号。".to_string()),
+            Ok(false) => {
+                let insert =
+                    sqlx::query("INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)")
+                        .bind(Uuid::new_v4().to_string())
+                        .bind(&application.0)
+                        .bind(password_hash)
+                        .execute(&mut *transaction)
+                        .await;
+                match insert {
+                    Ok(_) => sqlx::query("UPDATE registration_applications SET status = 'approved', password_hash = NULL, reviewed_at = NOW(), reviewed_by = $1, review_note = $2 WHERE id = $3")
+                        .bind(&state.config.admin_email).bind(input.note.trim()).bind(&application_id).execute(&mut *transaction).await.map(|_| ()).map_err(|_| "批准注册申请失败。".to_string()),
+                    Err(_) => Err("批准注册申请失败。".to_string()),
+                }
+            }
+            Err(_) => Err("检查正式账号失败。".to_string()),
+        }
+    } else {
+        sqlx::query("UPDATE registration_applications SET status = 'rejected', password_hash = NULL, reviewed_at = NOW(), reviewed_by = $1, review_note = $2 WHERE id = $3")
+            .bind(&state.config.admin_email).bind(input.note.trim()).bind(&application_id).execute(&mut *transaction).await.map(|_| ()).map_err(|_| "拒绝注册申请失败。".to_string())
+    };
+    if let Err(message) = result {
+        return html_response(layout(
+            "注册申请",
+            &state.config.admin_email,
+            "applications",
+            &format!("<p class=\"error\">{}</p>", escape_html(&message)),
+        ));
+    }
+    if let Err(error) = transaction.commit().await {
+        return internal_page(&state, error, "提交审核结果失败");
+    }
+    Redirect::to("/admin/registration-applications").into_response()
 }
 
 pub async fn create_user(
@@ -1015,12 +1210,13 @@ fn login_html(error: &str, default_email: &str) -> String {
 
 fn layout(title: &str, admin_email: &str, active: &str, content: &str) -> String {
     format!(
-        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/ai-config\">AI 配置</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main></body></html>",
+        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/registration-applications\">注册申请</a><a class=\"{}\" href=\"/admin/ai-config\">AI 配置</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main></body></html>",
         escape_html(title),
         css(),
         escape_html(admin_email),
         active_class(active, "dashboard"),
         active_class(active, "users"),
+        active_class(active, "applications"),
         active_class(active, "ai-config"),
         active_class(active, "ai"),
         content

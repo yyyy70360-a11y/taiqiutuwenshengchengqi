@@ -214,3 +214,25 @@ pub struct CloudSyncResult {
     pub copy_items: usize,
     pub synced_at: i64,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupStatus {
+    pub local_ready: bool,
+    pub resources_ready: bool,
+    pub cloud_configured: bool,
+    pub cloud_reachable: bool,
+    pub session_valid: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiDiagnostics {
+    pub template_count: usize,
+    pub tone_count: usize,
+    pub preview_ratio: String,
+    pub preview_fit: String,
+    pub center_overflow: String,
+    pub left_overflow: String,
+    pub right_overflow: String,
+}

@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-开发和未签名 release 打包使用 Xcode 16.4，目标架构为 Intel `x86_64`。本应用仅供本机自用，不上架 App Store；Developer ID 签名、Apple 公证和 stapling 不属于自用验收的前置条件。
+开发和未签名 release 打包使用 Xcode 16.4，目标架构为 Intel `x86_64`。当前共享产品版本为 `0.1.2`。本应用仅供本机自用，不上架 App Store；Developer ID 签名、Apple 公证和 stapling 不属于自用验收的前置条件。
 
 2026-08-18 已完成的仓库检查：
 
@@ -50,13 +50,13 @@ cargo tauri build --no-sign
 
 ```text
 src-tauri/target/release/bundle/macos/台球图文生成器.app
-src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg
+src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg
 ```
 
 当前自用 DMG SHA-256：
 
 ```text
-52a5d0488655bfbb24c107d9b52cc9d9ee54ccdffdc938a30cf94231e0a290cf
+36832758dfea3da7ebcdc89f93300760efa582935c6ff981688357baf49b6a3e
 ```
 
 未来如需对外分发，安装 Developer ID Application 证书后再执行：
@@ -66,17 +66,27 @@ cargo tauri build
 codesign --verify --deep --strict --verbose=2 \
   src-tauri/target/release/bundle/macos/台球图文生成器.app
 xcrun notarytool submit \
-  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg \
+  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg \
   --keychain-profile billiards-notary --wait
 xcrun stapler staple \
-  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg
+  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg
 spctl --assess --type open --context context:primary-signature -vv \
-  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.0_x64.dmg
+  src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg
 ```
 
 不要把证书、API 私钥、Apple ID 密码或 Keychain profile 内容写入仓库。
 
 ## 发布验收清单
+
+先运行仓库内的只读检查脚本：
+
+```bash
+scripts/macos/verify-release.sh \
+  "src-tauri/target/release/bundle/macos/台球图文生成器.app" \
+  "src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg"
+```
+
+脚本只检查 bundle 元数据、可执行文件、SQLite 与 Keychain 条目是否存在、DMG 完整性和 SHA-256，不读取或输出钥匙串秘密。
 
 - 在断网状态下完成 50 模板预览和保存。
 - 确认进程树中没有 Python、Chrome 或 localhost 服务。

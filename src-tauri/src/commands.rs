@@ -2,7 +2,8 @@ use crate::{
     cloud,
     models::{
         Account, CloudStatus, CloudSyncResult, CopyFitLimits, CopyItem, JobComplete, JobFailure,
-        JobProgress, PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo,
+        JobProgress, PresetInfo, RenderRequest, RenderResponse, SettingsInput, StartupStatus,
+        TemplateInfo, UiDiagnostics,
     },
     render, storage,
 };
@@ -23,91 +24,54 @@ const TEMPLATES: &[(&str, &str)] = &[
     ("minimal", "极简留白风"),
     ("poster", "深色海报风"),
     ("journal", "手账贴纸风"),
-    ("neon", "霓虹赛博风"),
-    ("newspaper", "报纸专栏风"),
-    ("blueprint", "蓝图技术风"),
-    ("polaroid", "拍立得照片风"),
-    ("scoreboard", "记分牌竞技风"),
-    ("vaporwave", "蒸汽波渐变风"),
-    ("classic", "经典牌匾风"),
-    ("mono", "黑白极简风"),
-    ("club", "球房夜场风"),
-    ("street", "街头涂鸦风"),
-    ("aurora", "北极光流彩风"),
-    ("espresso", "咖啡手账风"),
-    ("sunset", "落日胶片风"),
-    ("ocean", "海岸蓝调风"),
-    ("rainforest", "雨林绿影风"),
-    ("chalkboard", "黑板教学风"),
-    ("luxury", "黑金奢华风"),
-    ("arcade", "复古街机风"),
-    ("comic", "漫画分镜风"),
-    ("paper_cut", "剪纸拼贴风"),
-    ("gradient_card", "渐变卡片风"),
-    ("ink_brush", "水墨毛笔风"),
-    ("tech_hud", "科技HUD风"),
-    ("warm_note", "暖色便签风"),
-    ("ice", "霜蓝冰感风"),
-    ("candy", "糖果活力风"),
-    ("carbon", "碳纤维运动风"),
-    ("ceramic", "瓷白画册风"),
-    ("matchday", "比赛日海报风"),
-    ("lounge", "休闲沙发风"),
-    ("diagonal", "斜切动感风"),
-    ("retro_tv", "复古电视风"),
-    ("terrazzo", "水磨石设计风"),
-    ("silk", "缎面柔光风"),
-    ("desert", "沙漠暖阳风"),
-    ("mint", "薄荷清爽风"),
-    ("royal_blue", "皇家蓝金风"),
-    ("darkroom", "暗房胶片风"),
-    ("data_panel", "数据面板风"),
-    ("sticker_bomb", "贴纸轰炸风"),
-    ("prism", "棱镜折射风"),
-    ("stadium", "体育场灯光风"),
-    ("typewriter", "打字机信笺风"),
-    ("zen", "禅意留白风"),
+    ("neon_club", "霓虹球房风"),
+    ("chalkboard", "黑板战术风"),
+    ("retro_ticket", "复古票根风"),
+    ("cyber_grid", "赛博网格风"),
+    ("cream_note", "奶油便签风"),
+    ("arena_score", "球赛记分牌风"),
+    ("sunset_gradient", "日落渐变风"),
+    ("ink_stamp", "墨印章报风"),
+    ("glass_card", "玻璃拟态风"),
+    ("tactical_blue", "战术蓝图风"),
+    ("midnight_lux", "午夜奢华风"),
+    ("candy_pop", "糖果撞色风"),
+    ("forest_match", "森林球局风"),
+    ("steel_gray", "钢灰商务风"),
+    ("royal_gold", "皇家金紫风"),
+    ("ocean_wave", "海浪清爽风"),
+    ("lava_motion", "熔岩动感风"),
+    ("pearl_lite", "珍珠浅色风"),
+    ("street_snap", "街拍黄黑风"),
+    ("comic_burst", "漫画爆炸风"),
+    ("vaporwave", "蒸汽波风"),
+    ("newspaper", "复古报纸风"),
+    ("coffee_receipt", "咖啡票据风"),
+    ("scoreboard_green", "绿色记分屏风"),
+    ("purple_stage", "紫色舞台风"),
+    ("ice_blue", "冰蓝清透风"),
+    ("red_warning", "红色警示风"),
+    ("kraft_label", "牛皮纸标签风"),
+    ("mint_mono", "薄荷单色风"),
+    ("black_gold", "黑金会员风"),
+    ("gradient_ring", "渐变圆环风"),
+    ("billiard_felt", "台呢绿毡风"),
+    ("tournament_bracket", "赛事对阵风"),
+    ("soft_shadow", "柔和阴影风"),
+    ("bold_blocks", "粗块拼贴风"),
+    ("pink_soda", "粉色汽水风"),
+    ("desert_sand", "沙漠暖砂风"),
+    ("matrix_code", "矩阵代码风"),
+    ("club_vip", "球房VIP风"),
+    ("clean_blue", "干净蓝白风"),
+    ("orange_zine", "橙色小刊风"),
+    ("silver_card", "银色卡片风"),
+    ("green_laser", "绿色激光风"),
+    ("classic_serif", "经典衬线风"),
 ];
 
 fn copy_limits_for_template(template: &str) -> CopyFitLimits {
-    match template {
-        "minimal" => CopyFitLimits {
-            title_chars: 30,
-            body_chars: 136,
-            body_lines: 8,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-        "poster" => CopyFitLimits {
-            title_chars: 30,
-            body_chars: 144,
-            body_lines: 8,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-        "magazine_pro" | "fresh" | "journal" | "neon" | "newspaper" | "blueprint" | "polaroid"
-        | "scoreboard" | "vaporwave" | "classic" | "mono" | "club" | "street" | "aurora"
-        | "espresso" | "sunset" | "ocean" | "rainforest" | "chalkboard" | "luxury" | "arcade"
-        | "comic" | "paper_cut" | "gradient_card" | "ink_brush" | "tech_hud" | "warm_note"
-        | "ice" | "candy" | "carbon" | "ceramic" | "matchday" | "lounge" | "diagonal"
-        | "retro_tv" | "terrazzo" | "silk" | "desert" | "mint" | "royal_blue" | "darkroom"
-        | "data_panel" | "sticker_bomb" | "prism" | "stadium" | "typewriter" | "zen" => {
-            CopyFitLimits {
-                title_chars: 30,
-                body_chars: 112,
-                body_lines: 7,
-                tags_count: 3,
-                tag_chars: 12,
-            }
-        }
-        _ => CopyFitLimits {
-            title_chars: 30,
-            body_chars: 96,
-            body_lines: 6,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-    }
+    render::copy_limits_for_template(template)
 }
 
 static LAST_FILE_STAMP: AtomicU64 = AtomicU64::new(0);
@@ -274,6 +238,52 @@ pub async fn get_cloud_status(app: AppHandle) -> Result<CloudStatus, String> {
 }
 
 #[tauri::command]
+pub async fn validate_cloud_session(app: AppHandle) -> Result<Option<bool>, String> {
+    cloud::validate_session(&app).await
+}
+
+#[tauri::command]
+pub async fn startup_check(app: AppHandle) -> Result<StartupStatus, String> {
+    let app_for_local = app.clone();
+    let local_ready = tauri::async_runtime::spawn_blocking(move || {
+        storage::get_settings(&app_for_local)?;
+        storage::get_accounts(&app_for_local)?;
+        storage::get_library(&app_for_local)?;
+        storage::get_history(&app_for_local)?;
+        Ok::<_, String>(())
+    })
+    .await
+    .map_err(|error| format!("本地数据检查任务失败: {error}"))?
+    .is_ok();
+    let resources_ready = render::validate_embedded_resources().is_ok();
+    let cloud_status = cloud::status(&app).await?;
+    let cloud_reachable = cloud::test_connection(&app).await.is_ok();
+    let session_valid = cloud::validate_session(&app).await?;
+    Ok(StartupStatus {
+        local_ready,
+        resources_ready,
+        cloud_configured: cloud_status.server_configured,
+        cloud_reachable,
+        session_valid,
+    })
+}
+
+#[tauri::command]
+pub fn report_ui_ready(report: UiDiagnostics) -> Result<(), String> {
+    let valid = report.template_count == 50
+        && report.tone_count == 31
+        && report.preview_ratio.replace(' ', "") == "9/16"
+        && report.preview_fit == "contain"
+        && report.center_overflow == "hidden"
+        && matches!(report.left_overflow.as_str(), "auto" | "scroll")
+        && matches!(report.right_overflow.as_str(), "auto" | "scroll");
+    if !valid {
+        return Err(format!("UI 自检未通过: {report:?}"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn set_cloud_server_url(
     app: AppHandle,
     server_url: String,
@@ -293,6 +303,16 @@ pub async fn cloud_register(
     password: String,
 ) -> Result<CloudStatus, String> {
     cloud::register(&app, &email, &password).await
+}
+
+#[tauri::command]
+pub async fn cloud_register_application(
+    app: AppHandle,
+    email: String,
+    password: String,
+    confirm_password: String,
+) -> Result<String, String> {
+    cloud::register_application(&app, &email, &password, &confirm_password).await
 }
 
 #[tauri::command]

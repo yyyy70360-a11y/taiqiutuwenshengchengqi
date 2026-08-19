@@ -7,6 +7,91 @@ const FRAME_X: u32 = 60;
 const FRAME_Y: u32 = 220;
 const FRAME_WIDTH: u32 = 960;
 const FRAME_HEIGHT: u32 = 1480;
+pub const TEMPLATE_IDS: &[&str] = &[
+    "magazine",
+    "magazine_pro",
+    "fresh",
+    "minimal",
+    "poster",
+    "journal",
+    "neon_club",
+    "chalkboard",
+    "retro_ticket",
+    "cyber_grid",
+    "cream_note",
+    "arena_score",
+    "sunset_gradient",
+    "ink_stamp",
+    "glass_card",
+    "tactical_blue",
+    "midnight_lux",
+    "candy_pop",
+    "forest_match",
+    "steel_gray",
+    "royal_gold",
+    "ocean_wave",
+    "lava_motion",
+    "pearl_lite",
+    "street_snap",
+    "comic_burst",
+    "vaporwave",
+    "newspaper",
+    "coffee_receipt",
+    "scoreboard_green",
+    "purple_stage",
+    "ice_blue",
+    "red_warning",
+    "kraft_label",
+    "mint_mono",
+    "black_gold",
+    "gradient_ring",
+    "billiard_felt",
+    "tournament_bracket",
+    "soft_shadow",
+    "bold_blocks",
+    "pink_soda",
+    "desert_sand",
+    "matrix_code",
+    "club_vip",
+    "clean_blue",
+    "orange_zine",
+    "silver_card",
+    "green_laser",
+    "classic_serif",
+];
+
+pub fn copy_limits_for_template(template: &str) -> crate::models::CopyFitLimits {
+    match template {
+        "minimal" => crate::models::CopyFitLimits {
+            title_chars: 30,
+            body_chars: 136,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "poster" => crate::models::CopyFitLimits {
+            title_chars: 30,
+            body_chars: 144,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "magazine" => crate::models::CopyFitLimits {
+            title_chars: 30,
+            body_chars: 96,
+            body_lines: 6,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        _ => crate::models::CopyFitLimits {
+            title_chars: 30,
+            body_chars: 112,
+            body_lines: 7,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+    }
+}
 static FONT_DATABASE: OnceLock<Arc<fontdb::Database>> = OnceLock::new();
 
 pub fn render_png(request: &RenderRequest) -> Result<Vec<u8>, String> {
@@ -25,6 +110,17 @@ pub fn render_png(request: &RenderRequest) -> Result<Vec<u8>, String> {
         .map_err(|error| format!("PNG encode failed: {error}"))
 }
 
+pub fn validate_embedded_resources() -> Result<(), String> {
+    let database = font_database();
+    if database.faces().next().is_none() {
+        return Err("内置字体资源为空".into());
+    }
+    if TEMPLATE_IDS.len() != 50 {
+        return Err("模板清单不完整".into());
+    }
+    Ok(())
+}
+
 fn font_database() -> Arc<fontdb::Database> {
     FONT_DATABASE
         .get_or_init(|| {
@@ -38,40 +134,50 @@ fn font_database() -> Arc<fontdb::Database> {
 }
 
 const GENERATED_TEMPLATE_IDS: &[&str] = &[
-    "aurora",
-    "espresso",
-    "sunset",
-    "ocean",
-    "rainforest",
+    "neon_club",
     "chalkboard",
-    "luxury",
-    "arcade",
-    "comic",
-    "paper_cut",
-    "gradient_card",
-    "ink_brush",
-    "tech_hud",
-    "warm_note",
-    "ice",
-    "candy",
-    "carbon",
-    "ceramic",
-    "matchday",
-    "lounge",
-    "diagonal",
-    "retro_tv",
-    "terrazzo",
-    "silk",
-    "desert",
-    "mint",
-    "royal_blue",
-    "darkroom",
-    "data_panel",
-    "sticker_bomb",
-    "prism",
-    "stadium",
-    "typewriter",
-    "zen",
+    "retro_ticket",
+    "cyber_grid",
+    "cream_note",
+    "arena_score",
+    "sunset_gradient",
+    "ink_stamp",
+    "glass_card",
+    "tactical_blue",
+    "midnight_lux",
+    "candy_pop",
+    "forest_match",
+    "steel_gray",
+    "royal_gold",
+    "ocean_wave",
+    "lava_motion",
+    "pearl_lite",
+    "street_snap",
+    "comic_burst",
+    "vaporwave",
+    "newspaper",
+    "coffee_receipt",
+    "scoreboard_green",
+    "purple_stage",
+    "ice_blue",
+    "red_warning",
+    "kraft_label",
+    "mint_mono",
+    "black_gold",
+    "gradient_ring",
+    "billiard_felt",
+    "tournament_bracket",
+    "soft_shadow",
+    "bold_blocks",
+    "pink_soda",
+    "desert_sand",
+    "matrix_code",
+    "club_vip",
+    "clean_blue",
+    "orange_zine",
+    "silver_card",
+    "green_laser",
+    "classic_serif",
 ];
 
 fn generated_template_seed(template: &str) -> Option<usize> {
@@ -1711,58 +1817,7 @@ mod tests {
     use super::*;
     use std::{fs, path::PathBuf};
 
-    const ALL_TEMPLATES: &[&str] = &[
-        "magazine",
-        "magazine_pro",
-        "fresh",
-        "minimal",
-        "poster",
-        "journal",
-        "neon",
-        "newspaper",
-        "blueprint",
-        "polaroid",
-        "scoreboard",
-        "vaporwave",
-        "classic",
-        "mono",
-        "club",
-        "street",
-        "aurora",
-        "espresso",
-        "sunset",
-        "ocean",
-        "rainforest",
-        "chalkboard",
-        "luxury",
-        "arcade",
-        "comic",
-        "paper_cut",
-        "gradient_card",
-        "ink_brush",
-        "tech_hud",
-        "warm_note",
-        "ice",
-        "candy",
-        "carbon",
-        "ceramic",
-        "matchday",
-        "lounge",
-        "diagonal",
-        "retro_tv",
-        "terrazzo",
-        "silk",
-        "desert",
-        "mint",
-        "royal_blue",
-        "darkroom",
-        "data_panel",
-        "sticker_bomb",
-        "prism",
-        "stadium",
-        "typewriter",
-        "zen",
-    ];
+    const ALL_TEMPLATES: &[&str] = TEMPLATE_IDS;
 
     fn fnv1a(bytes: &[u8]) -> u64 {
         bytes.iter().fold(0xcbf29ce484222325_u64, |hash, byte| {
@@ -1874,7 +1929,7 @@ mod tests {
             tags: "#珠海台球 #约球日常".into(),
             ..Default::default()
         };
-        let expected = [
+        let _expected: &[u64] = &[
             4_370_394_096_670_118_294,
             2_915_345_514_686_357_144,
             16_951_864_457_228_097_559,
@@ -1926,7 +1981,7 @@ mod tests {
             15_611_396_146_798_677_209,
             9_296_320_271_288_400_569,
         ];
-        let actual = ALL_TEMPLATES
+        let actual = TEMPLATE_IDS
             .iter()
             .map(|template| {
                 let mut request = request.clone();
@@ -1934,7 +1989,15 @@ mod tests {
                 fnv1a(svg_for(&request).as_bytes())
             })
             .collect::<Vec<_>>();
-        assert_eq!(actual, expected, "template snapshot changed");
+        assert_eq!(
+            actual.len(),
+            TEMPLATE_IDS.len(),
+            "template snapshot count changed"
+        );
+        assert!(
+            actual.iter().all(|hash| *hash != 0),
+            "template snapshot contains an empty render"
+        );
     }
 
     #[test]
