@@ -66,6 +66,7 @@ async fn ensure_startup_tunnel_inner(app: &AppHandle) -> Result<(), String> {
         }
     }
 
+    shutdown();
     Err("云服务隧道启动后健康检查未通过".into())
 }
 
