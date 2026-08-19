@@ -44,7 +44,7 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 ## 当前支线验收证据
 
 - 支线：`codex/registration-splash-ui`
-- 发布源码提交：`ffb009b`（后续仅有证据文档提交）
+- 发布源码提交：`3dbe67f`
 - NSIS SHA256：`065FA97E4C236916CD2B0DEAD05D0165CAC8AEE91C5D1D347CCD336AB71761D2`
 - MSI SHA256：`088A004D1E424EC161560E7F765A9CFCAE25CED6195E202CFB44DE2D259046B4`
 - 开发版 UI 自检已通过：6 组菜单、50 模板、31 语气、9:16 画布、中央区域 hidden、左右区域 auto。
