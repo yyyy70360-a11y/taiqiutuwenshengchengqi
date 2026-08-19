@@ -44,9 +44,9 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 ## 当前支线验收证据
 
 - 支线：`codex/registration-splash-ui`
-- 最新提交：`9755401`
-- NSIS SHA256：`EBD616CD9AD5814B66AEB537422AF0E233493B9965FDD1B7A8726E222F285873`
-- MSI SHA256：`6489489913E275ED369F93C5EF7AB2B8E6FFCB84DB102754B4B04853EFE61A87`
+- 最新提交：`4a0e1d3`
+- NSIS SHA256：`164A25FBF5D2F83641575DE219603E9ADCE0080F4B7DC06F4ED5CE00E48AE060`
+- MSI SHA256：`CBA4E9812E116A9EA1A5EC572427F32D783CFD58E370C9B4C24B386ECC081B3D`
 - 开发版 UI 自检已通过：6 组菜单、50 模板、31 语气、9:16 画布、中央区域 hidden、左右区域 auto。
 - 当前机器进程审计已通过：应用只保留 WebView2 与内置 `ssh.exe`，无 CMD 子进程。
 - 安装后可运行 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\verify-release.ps1` 做只读发布检查。
