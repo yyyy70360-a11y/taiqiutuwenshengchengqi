@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><title>台球图文生成器</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,"Segoe UI",sans-serif}
-:root{--bg:#1E1E1E;--bg2:#262626;--bg3:#323232;--bg4:#383838;--border:#404040;--border2:#4A4A4A;--t1:#E8E8E8;--t2:#A0A0A0;--t3:#707070;--accent:#2680EB;--accent-h:#3A8FFF;--danger:#FA6F3C;--purple:#6B4FBB}
+:root{--bg:#1E1E1E;--bg2:#262626;--bg3:#323232;--bg4:#383838;--border:#404040;--border2:#4A4A4A;--t1:#E8E8E8;--t2:#A0A0A0;--t3:#707070;--accent:#2680EB;--accent-h:#3A8FFF;--danger:#FA6F3C;--warning:#FFB86C;--purple:#6B4FBB}
 body{background:var(--bg);color:var(--t1);min-height:100vh;font-size:13px}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#4A4A4A;border:2px solid var(--bg);border-radius:5px}::-webkit-scrollbar-thumb:hover{background:#5A5A5A}
 .tabs{display:flex;background:var(--bg2);padding:0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
@@ -25,6 +25,8 @@ body{background:var(--bg);color:var(--t1);min-height:100vh;font-size:13px}
 .field input:hover,.field textarea:hover,.field select:hover{border-color:var(--border2)}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .field textarea.prompt-generated{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.field input.fit-warn,.field textarea.fit-warn,.field select.fit-warn{border-color:var(--warning);box-shadow:inset 0 0 0 1px rgba(199,164,91,.5)}
+.field input.fit-error,.field textarea.fit-error,.field select.fit-error{border-color:var(--danger);box-shadow:inset 0 0 0 1px rgba(250,111,60,.5)}
 .field textarea{resize:vertical;min-height:72px;line-height:1.5}
 .row{display:flex;gap:8px}.row .field{flex:1}
 .colors{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
@@ -64,8 +66,11 @@ button.sec:disabled:hover{background:var(--bg3);border-color:var(--border)}
 .cloud-actions.single{grid-template-columns:1fr}
 .cloud-summary{min-width:260px;text-align:left;line-height:1.8;color:var(--t2)}
 .hint{color:var(--t3);font-size:12px;text-align:center;line-height:1.7}
+.ui-tooltip{position:fixed;left:0;top:0;max-width:280px;padding:9px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:var(--bg4);color:var(--t1);font-size:12px;line-height:1.45;box-shadow:0 12px 30px rgba(0,0,0,.35);pointer-events:none;z-index:5000;opacity:0;transform:translate3d(-999px,-999px,0) scale(.98);transition:opacity .12s ease,transform .12s ease}
+.ui-tooltip.show{opacity:1}
 .sect{font-size:10px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
 .render-badge{position:absolute;top:16px;left:16px;background:rgba(38,128,235,.92);color:#fff;font-size:10px;padding:4px 10px;border-radius:3px;display:none;z-index:5;font-weight:500}
+.type-panel{margin-bottom:12px}.type-panel .sect{cursor:pointer;list-style:none}.type-colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.type-color{font-size:10px;color:var(--t2)}.type-color input[type=color]{display:block;width:38px;height:38px;margin-top:6px}.type-color input:disabled{opacity:.35;cursor:not-allowed}.inline-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin:-2px 0 8px}.inline-check input{width:auto}
 .hist-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--t2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
 .hist-clear{flex:0 0 auto;width:auto;min-width:44px;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;color:var(--t2);font-size:10px;font-weight:600;line-height:1.2;position:relative;z-index:2}
 .hist-clear:hover{background:var(--bg4);border-color:var(--border2);color:var(--t1)}
@@ -97,6 +102,9 @@ td textarea{min-height:48px;resize:vertical}
 .capacity-status.ok{color:#4ADE80;border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.06)}
 .capacity-status.warn{color:#FFB86C;border-color:rgba(255,184,108,.35);background:rgba(255,184,108,.07)}
 .bi-capacity{margin:0 0 7px;padding:6px 7px;font-size:10px}
+.copy-fit-hint{margin:-6px 0 12px;padding:10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;background:rgba(255,255,255,.035);font-size:10px;line-height:1.45;color:var(--t2)}
+.copy-fit-hint.ok{border-left-color:#4ADE80}.copy-fit-hint.warn{border-left-color:#FFB86C}.copy-fit-hint.error{border-left-color:#FF8855;background:rgba(250,111,60,.08)}
+.copy-fit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.copy-fit-title{font-size:11px;font-weight:600;color:var(--t1)}.copy-fit-badge{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:rgba(74,222,128,.12);color:#4ADE80}.copy-fit-hint.error .copy-fit-badge{background:rgba(255,136,85,.14);color:#FF8855}.copy-fit-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.copy-fit-chip{padding:5px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg)}.copy-fit-chip.over{border-color:#FF8855;color:#FF8855}.copy-fit-detail{margin-top:7px;color:var(--t3)}
 [hidden]{display:none!important}
 .del{color:var(--danger);cursor:pointer;font-size:14px;padding:2px}
 .del:hover{color:#FF8855}
@@ -129,6 +137,13 @@ td textarea{min-height:48px;resize:vertical}
       <div style="flex:1;height:44px;border-radius:22px;background:linear-gradient(90deg,#FF8A5C,#FF5E62);border:1px solid var(--border);transition:all .15s" id="gradPreview" title="渐变预览：实时显示主辅色渐变效果"></div>
       <input type="color" id="color2" value="#FF5E62" title="辅色：点击拾色器选择渐变结束色">
     </div></div>
+    <details class="type-panel">
+      <summary class="sect">字体样式</summary>
+      <div class="field"><label>字体</label><select id="fontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="titleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <label class="inline-check"><input type="checkbox" id="customTextColors"> 启用文字颜色覆盖</label>
+      <div class="type-colors"><label class="type-color">标题<input type="color" id="titleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="tagColor" value="#2680EB" disabled></label></div>
+    </details>
     <div class="sect">内容</div>
     <div class="row">
       <div class="field"><label>序号</label><input id="num" value="01"></div>
@@ -149,11 +164,11 @@ td textarea{min-height:48px;resize:vertical}
       <div class="field" style="margin:0"><label>区域</label><input id="gRegion" value="斗门"></div>
       <div class="field" style="margin:0"><label>性格</label><select id="gPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div>
     </div>
-    <div class="field"><label>语气</label><select id="gTone"><option selected>口语化</option><option>略专业</option><option>搞笑自嘲</option></select></div>
-    <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="useEmoji" style="width:auto;cursor:pointer"> 文案含表情</label>
-    <button id="generatePromptButton" type="button" class="sec" style="margin-bottom:8px" title="根据上方人设配置生成提示词">生成提示词</button>
-    <div class="field"><label>提示词（可编辑）</label><textarea id="promptView" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:80px"></textarea></div>
-    <button id="singleGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="用提示词调API生成文案">用提示词生成文案</button>
+    <div class="field"><label>语气</label><select id="gTone"></select></div>
+    <label class="inline-check"><input type="checkbox" id="useEmoji"> 文案含表情</label>
+    <button id="generatePromptButton" type="button" class="sec" style="margin-bottom:8px" title="根据上方人设配置生成提示词" data-tip="根据上方人设配置生成创作方向">生成提示词</button>
+    <div class="field"><label>提示词（可编辑）</label><textarea id="promptView" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:80px" data-tip="可直接编辑，发送给 AI 前会自动校验"></textarea></div>
+    <button id="singleGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="用提示词调API生成文案" data-tip="按当前创作方向生成文案">用提示词生成文案</button>
     <div id="singleAiStatus" class="action-status" aria-live="polite"></div>
     </details>
   </div>
@@ -177,15 +192,23 @@ td textarea{min-height:48px;resize:vertical}
     <h1>批量生成</h1>
     <div class="row"><div class="field"><label>题材</label><select id="bTheme"><option>找搭子</option><option>球房测评</option><option>新手避坑</option><option>约球吐槽</option><option>球杆科普</option><option>技术段位</option><option>球友日常</option><option>赛事战报</option></select></div><div class="field"><label>档位</label><select id="bLevel"><option>1档</option><option selected>2档</option><option>3档</option></select></div></div>
     <div class="row"><div class="field"><label>区域</label><input id="bRegion" value="斗门"></div><div class="field"><label>性格</label><select id="bPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div></div>
-    <div class="row"><div class="field"><label>语气</label><select id="bTone"><option selected>口语化</option><option>略专业</option><option>搞笑自嘲</option></select></div><div class="field"><label>生成数量</label><input id="bCount" type="number" value="10" min="1" max="100"></div></div>
-    <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bUseEmoji" style="width:auto;cursor:pointer"> 文案含表情</label>
+    <div class="row"><div class="field"><label>语气</label><select id="bTone"></select></div><div class="field"><label>生成数量</label><input id="bCount" type="number" value="10" min="1" max="100"></div></div>
+    <label class="inline-check"><input type="checkbox" id="bUseEmoji"> 文案含表情</label>
     <div class="row"><div class="field"><label>模板模式</label><select id="bTplMode"><option value="single" selected>统一模板</option><option value="random">随机模板</option><option value="mix">自定义分配</option></select></div><div class="field" id="bTplUniformWrap"><label>渲染模板</label><select id="bTpl"></select></div></div>
     <div id="bTplMixWrap" class="template-mix" hidden><label>模板数量分配</label><div id="bTplMix"></div><div id="bTplMixSummary" class="template-mix-summary">总计 0 张</div></div>
+    <div id="batchFitHint" class="copy-fit-hint" aria-live="polite"></div>
+    <details class="type-panel">
+      <summary class="sect">字体样式</summary>
+      <div class="field"><label>字体</label><select id="bFontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="bTitleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bBodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <label class="inline-check"><input type="checkbox" id="bCustomTextColors"> 启用文字颜色覆盖</label>
+      <div class="type-colors"><label class="type-color">标题<input type="color" id="bTitleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bBodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="bTagColor" value="#2680EB" disabled></label></div>
+    </details>
     <div class="field"><label>配色</label><select id="bColor"><option value="-1">随机轮换</option><option value="0">暖橙</option><option value="1">薄荷</option><option value="2">天蓝</option><option value="3">紫粉</option><option value="4">深蓝</option></select></div>
     <div class="field"><label>保存到子文件夹（可选）</label><input id="bSubfolder" placeholder="如：斗门约球0815"></div>
-    <button id="batchGeneratePromptButton" type="button" class="sec" style="margin-top:10px" title="根据人设配置生成提示词">生成提示词</button>
-    <div class="field" style="margin-top:8px"><label>提示词（可编辑）</label><textarea id="bPrompt" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:90px"></textarea></div>
-    <button id="batchGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="一次生成N条差异化文案避免雷同">AI生成N条文案</button>
+    <button id="batchGeneratePromptButton" type="button" class="sec" style="margin-top:10px" title="根据人设配置生成提示词" data-tip="根据当前配置整理批量创作方向">生成提示词</button>
+    <div class="field" style="margin-top:8px"><label>提示词（可编辑）</label><textarea id="bPrompt" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:90px" data-tip="可编辑，批量生成前会自动校验"></textarea></div>
+    <button id="batchGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="一次生成N条差异化文案避免雷同" data-tip="一次生成多条差异化文案，降低重复感">AI生成N条文案</button>
     <div id="batchAiStatus" class="action-status" aria-live="polite"></div>
     <button id="batchRenderButton" type="button" style="margin-top:8px">批量渲染出图</button>
   </div>
@@ -249,17 +272,17 @@ function closeLightbox(){document.getElementById("lightbox").classList.remove("s
 // 配色
 function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
 if(nativeReady){
-  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();updateSingleCapacity();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
+  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();updateSingleCapacity();updateSingleFitStates();populateToneSelects();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
   nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
 }
-function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}updateSingleCapacity();scheduleRender()}
+function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}updateSingleCapacity();updateSingleFitStates();scheduleRender()}
 
 // 实时预览
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
-async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
+async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload("")};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
 async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
 async function clearHist(){const status=document.getElementById("historyStatus"),button=document.getElementById("clearHistoryButton"),list=document.getElementById("histList");if(!nativeReady){if(status){status.textContent="请在桌面应用中清空历史";status.className="hist-status error"}return}if(button.disabled)return;if(status){status.textContent="正在清空历史...";status.className="hist-status"}button.disabled=true;try{try{await nativeInvoke("clear_render_history")}catch(firstError){await nativeInvoke("clearRenderHistory").catch(()=>{throw firstError})}histArr=[];if(list)list.innerHTML="<div class='hist-empty'>暂无历史<br>改参数自动预览</div>";if(status){status.textContent="历史已清空，图片文件不会删除";status.className="hist-status success"}}catch(e){if(status){status.textContent="清空历史失败："+String(e);status.className="hist-status error"}else alert("清空历史失败："+e)}finally{button.disabled=false}}
-async function saveRender(btn){const readyText=btn.dataset.readyText||btn.textContent||"保存到文件夹",b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a};if(!b.title.trim()){alert("请先生成或填写标题");return}btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent=readyText},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent=readyText}}
+async function saveRender(btn){const readyText=btn.dataset.readyText||btn.textContent||"保存到文件夹",b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload("")};if(!b.title.trim()){alert("请先生成或填写标题");return}btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent=readyText},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent=readyText}}
 
 // AI生成
 const PERSONA_GUIDES={
@@ -277,8 +300,36 @@ const LEVEL_GUIDES={
 const TONE_GUIDES={
   "口语化":"像发给本地球友的消息，多用自然短句，不写宣传稿。",
   "略专业":"表达清楚、术语准确，每次只讲一个重点，普通球友也能看懂。",
-  "搞笑自嘲":"用具体反差制造笑点，主要调侃自己，不刻薄别人。"
+  "搞笑自嘲":"用具体反差制造笑点，主要调侃自己，不刻薄别人。",
+  "热血鼓励":"语气积极、有冲劲，强调进步、上场和再来一局，但不要喊口号过猛。",
+  "克制高级":"短句克制、有质感，少用感叹号，表达像高端球房笔记，不堆华丽词。",
+  "朋友聊天":"像熟人聊天一样自然，带一点生活细节和随口感，别写成正式广告。",
+  "老板推荐":"像球房老板真诚推荐局和场地，强调体验、氛围和适合谁来玩，不夸张承诺。",
+  "新手求助":"承认还在学习，用问题和小困惑切入，语气真诚，适合引发球友回复。",
+  "老炮点评":"有经验但不端着，给一条实战判断或观察，语气稳、平等、不说教。",
+  "技术分析":"围绕一个技术点讲清楚因果，如走位、发力、杆法或防守，普通球友也能读懂。",
+  "轻松吐槽":"吐槽真实球局里的小尴尬，节奏轻快，主要吐槽自己或场景，不攻击别人。",
+  "反差幽默":"用预期和结果的反差制造笑点，短句有梗，但不要尬段子或网络烂梗堆叠。",
+  "温柔陪练":"语气耐心、鼓励，适合带新手或约练，强调不催、不嫌弃、慢慢打。",
+  "赛事解说":"像简短战报或现场解说，有比分感、回合感和关键转折，别写长篇新闻稿。",
+  "探店测评":"从环境、台况、价格、服务或人群切入，评价具体，优缺点都可以轻轻提。",
+  "避坑提醒":"直接给一个容易踩坑的点和解决建议，语气友好，不制造焦虑。",
+  "挑战宣言":"带一点挑战感和目标感，适合约战、练球打卡，语气坚定但不狂。",
+  "沉浸故事":"用第一人称小故事展开，有时间、地点或动作细节，结尾自然落到约球。",
+  "干货清单":"用清单或要点表达，信息密度高但短，适合技巧、装备、球房选择。",
+  "犀利短评":"观点鲜明、句子短，有一点锋芒，但不人身攻击、不阴阳怪气。",
+  "悬念开场":"开头设置一个具体悬念或反常识观察，正文快速揭示，不故弄玄虚。",
+  "社群召集":"目标是招呼同城球友进群，语气明确友好，强调一起玩和群内氛围。",
+  "深夜碎碎念":"像晚上打完球后的随笔，有情绪和复盘感，语气松弛，不伤感过度。",
+  "高级冷淡":"冷静、简短、有距离感，像极简海报文案，少形容词，保留一点态度。",
+  "俏皮可爱":"轻快俏皮，可有少量语气词和表情符号，但不要幼稚或过度卖萌。",
+  "硬核训练":"强调训练计划、重复练习和结果反馈，语气认真，适合技术提升内容。",
+  "佛系随缘":"轻松、不卷，强调输赢随缘、开心打球，语气柔和但不要空泛。",
+  "本地烟火气":"带本地生活感和同城熟人感，可提区域、下班、周末、附近球房等场景。",
+  "复盘总结":"像打完一局后的简短复盘，有收获、有问题、有下一步，不写流水账。",
+  "轻奢种草":"语气精致、推荐感强，突出环境、体验和质感，但避免虚假高端和过度营销。"
 };
+const FONT_FAMILIES={theme:"theme",sans:'"Noto Sans CJK SC", "Noto Sans SC", sans-serif',serif:'"Noto Serif CJK SC", "Noto Serif SC", serif',system:'-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',mono:'"Cascadia Mono", "Consolas", monospace'};
 const TEMPLATE_CAPACITY={
   magazine:{title:30,body:96,bodyLines:6,tags:3,tag:12},
   magazine_pro:{title:30,body:112,bodyLines:7,tags:3,tag:12},
@@ -298,24 +349,34 @@ const TEMPLATE_CAPACITY={
   street:{title:30,body:112,bodyLines:7,tags:3,tag:12}
 };
 ["aurora","espresso","sunset","ocean","rainforest","chalkboard","luxury","arcade","comic","paper_cut","gradient_card","ink_brush","tech_hud","warm_note","ice","candy","carbon","ceramic","matchday","lounge","diagonal","retro_tv","terrazzo","silk","desert","mint","royal_blue","darkroom","data_panel","sticker_bomb","prism","stadium","typewriter","zen"].forEach(id=>TEMPLATE_CAPACITY[id]={title:30,body:112,bodyLines:7,tags:3,tag:12});
-function templateCapacity(id){return TEMPLATE_CAPACITY[id]||TEMPLATE_CAPACITY.magazine}
+function templateCapacity(id){return tpls.find(t=>t.id===id)?.copyLimits||TEMPLATE_CAPACITY[id]||TEMPLATE_CAPACITY.magazine}
 function templateName(id){return tpls.find(t=>t.id===id)?.name||id||"默认模板"}
+function normalizeCapacity(cap){return{title:cap.titleChars??cap.title??30,body:cap.bodyChars??cap.body??96,bodyLines:cap.bodyLines??6,tags:cap.tagsCount??cap.tags??3,tag:cap.tagChars??cap.tag??12}}
 function countChars(value){return Array.from((value||"").replace(/\s/g,"")).length}
 function tagParts(value){return (value||"").split(/\s+/).map(v=>v.trim()).filter(Boolean)}
-function bodyLineCount(value,cap){if(!(value||"").trim())return 0;const perLine=Math.max(1,Math.ceil(cap.body/cap.bodyLines));return (value||"").split(/\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(Array.from(line.replace(/\s/g,"")).length/perLine)),0)}
-function capacitySummary(title,body,tags,templateId){const cap=templateCapacity(templateId),titleLen=countChars(title),bodyLen=countChars(body),lines=bodyLineCount(body,cap),parts=tagParts(tags),longTag=parts.some(tag=>countChars(tag)>cap.tag),ok=titleLen<=cap.title&&bodyLen<=cap.body&&lines<=cap.bodyLines&&parts.length<=cap.tags&&!longTag;let text=`${templateName(templateId)} · 标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${lines}/${cap.bodyLines} 行，话题 ${parts.length}/${cap.tags}`;if(longTag)text+=`，单个话题≤${cap.tag}字`;return{ok,text}}
+function bodyLineCount(value,cap){const limits=normalizeCapacity(cap);if(!(value||"").trim())return 0;const perLine=Math.max(1,Math.ceil(limits.body/limits.bodyLines));return (value||"").split(/\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(Array.from(line.replace(/\s/g,"")).length/perLine)),0)}
+function capacitySummary(title,body,tags,templateId){const cap=normalizeCapacity(templateCapacity(templateId)),titleLen=countChars(title),bodyLen=countChars(body),lines=bodyLineCount(body,cap),parts=tagParts(tags),longTag=parts.some(tag=>countChars(tag)>cap.tag),ok=titleLen<=cap.title&&bodyLen<=cap.body&&lines<=cap.bodyLines&&parts.length<=cap.tags&&!longTag;let text=`${templateName(templateId)} · 标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${lines}/${cap.bodyLines} 行，话题 ${parts.length}/${cap.tags}`;if(longTag)text+=`，单个话题≤${cap.tag}字`;return{ok,text}}
 function setCapacityStatus(el,title,body,tags,templateId){if(!el)return;const state=capacitySummary(title,body,tags,templateId);el.textContent=state.text;el.className="capacity-status "+(state.ok?"ok":"warn")+(el.classList.contains("bi-capacity")?" bi-capacity":"")}
 function updateSingleCapacity(){setCapacityStatus(document.getElementById("singleCapacity"),document.getElementById("title").value,document.getElementById("bodytxt").value,document.getElementById("tags").value,document.getElementById("tpl").value||"magazine")}
-function conservativeTemplateId(){const ids=(tpls.length?tpls.map(t=>t.id):Object.keys(TEMPLATE_CAPACITY)).filter(id=>TEMPLATE_CAPACITY[id]);return ids.sort((a,b)=>TEMPLATE_CAPACITY[a].body-TEMPLATE_CAPACITY[b].body||TEMPLATE_CAPACITY[a].bodyLines-TEMPLATE_CAPACITY[b].bodyLines)[0]||"magazine"}
-function selectedBatchAiTemplate(){return document.getElementById("bTplMode").value==="single"?(document.getElementById("bTpl").value||"magazine"):conservativeTemplateId()}
-function templateCapacityPrompt(templateId){const cap=templateCapacity(templateId);return `当前模板：${templateName(templateId)}\n标题≤${cap.title}字；正文≤${cap.body}字且最多${cap.bodyLines}行；话题最多${cap.tags}个，每个≤${cap.tag}字。\n宁可短一点，不要撑满或超出模板。`}
-function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",tone=document.getElementById(prefix+"Tone").value,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${TONE_GUIDES[tone]}\n\n【题材】\n${theme}\n\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
+function setFieldFitState(input,state){if(!input)return;input.classList.remove("fit-warn","fit-error");if(state)input.classList.add("fit-"+state)}
+function fitState(value,limit,over){if(over)return"error";return limit>0&&value/limit>=.85?"warn":""}
+function updateSingleFitStates(){const cap=normalizeCapacity(templateCapacity(document.getElementById("tpl").value||"magazine")),title=document.getElementById("title"),body=document.getElementById("bodytxt"),tags=document.getElementById("tags"),titleLen=countChars(title.value),bodyLen=countChars(body.value),bodyLines=bodyLineCount(body.value,cap),tagList=tagParts(tags.value),tagOver=tagList.some(tag=>countChars(tag)>cap.tag);setFieldFitState(title,fitState(titleLen,cap.title,titleLen>cap.title));setFieldFitState(body,fitState(Math.max(bodyLen/cap.body,bodyLines/cap.bodyLines),1,bodyLen>cap.body||bodyLines>cap.bodyLines));setFieldFitState(tags,fitState(Math.max(tagList.length/cap.tags,tagOver?1.1:0),1,tagList.length>cap.tags||tagOver))}
+function conservativeTemplateId(candidates=[]){const source=candidates.length?candidates:(tpls.length?tpls.map(t=>t.id):Object.keys(TEMPLATE_CAPACITY)),ids=source.filter(id=>templateCapacity(id));return ids.sort((a,b)=>normalizeCapacity(templateCapacity(a)).body-normalizeCapacity(templateCapacity(b)).body||normalizeCapacity(templateCapacity(a)).bodyLines-normalizeCapacity(templateCapacity(b)).bodyLines)[0]||"magazine"}
+function selectedBatchAiTemplate(){const mode=document.getElementById("bTplMode").value;if(mode==="single")return document.getElementById("bTpl").value||"magazine";if(mode==="mix"){const selected=tpls.filter(t=>(Number(templateMixCounts[t.id])||0)>0).map(t=>t.id);return conservativeTemplateId(selected)}return conservativeTemplateId()}
+function templateCapacityPrompt(templateId){const cap=normalizeCapacity(templateCapacity(templateId));return `当前模板：${templateName(templateId)}\n标题≤${cap.title}字；正文≤${cap.body}字且最多${cap.bodyLines}行；话题最多${cap.tags}个，每个≤${cap.tag}字。\n宁可短一点，不要撑满或超出模板。`}
+function resolveTone(prefix){const value=document.getElementById(prefix+"Tone")?.value||"口语化";const tone=value==="__random_tone__"?Object.keys(TONE_GUIDES)[Math.floor(Math.random()*Object.keys(TONE_GUIDES).length)]:value;return{tone,guide:TONE_GUIDES[tone]||TONE_GUIDES["口语化"]}}
+function populateToneSelects(){const options=[{value:"口语化",label:"口语化"},{value:"略专业",label:"略专业"},{value:"搞笑自嘲",label:"搞笑自嘲"},{value:"热血鼓励",label:"热血鼓励"},{value:"克制高级",label:"克制高级"},{value:"朋友聊天",label:"朋友聊天"},{value:"老板推荐",label:"老板推荐"},{value:"新手求助",label:"新手求助"},{value:"老炮点评",label:"老炮点评"},{value:"技术分析",label:"技术分析"},{value:"轻松吐槽",label:"轻松吐槽"},{value:"反差幽默",label:"反差幽默"},{value:"温柔陪练",label:"温柔陪练"},{value:"赛事解说",label:"赛事解说"},{value:"探店测评",label:"探店测评"},{value:"避坑提醒",label:"避坑提醒"},{value:"挑战宣言",label:"挑战宣言"},{value:"沉浸故事",label:"沉浸故事"},{value:"干货清单",label:"干货清单"},{value:"犀利短评",label:"犀利短评"},{value:"悬念开场",label:"悬念开场"},{value:"社群召集",label:"社群召集"},{value:"深夜碎碎念",label:"深夜碎碎念"},{value:"高级冷淡",label:"高级冷淡"},{value:"俏皮可爱",label:"俏皮可爱"},{value:"硬核训练",label:"硬核训练"},{value:"佛系随缘",label:"佛系随缘"},{value:"本地烟火气",label:"本地烟火气"},{value:"复盘总结",label:"复盘总结"},{value:"轻奢种草",label:"轻奢种草"}];["gTone","bTone"].forEach(id=>{const sel=document.getElementById(id);if(!sel||sel.dataset.ready==="1")return;sel.innerHTML="<option value='__random_tone__'>随机语气（起稿时抽取）</option>";options.forEach(({value,label})=>{const o=document.createElement("option");o.value=value;o.textContent=label;sel.appendChild(o)});if(!sel.value)sel.value="口语化";sel.dataset.ready="1"})}
+function syncTextColorInputs(prefix=""){const enabled=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;["TitleColor","BodyColor","TagColor"].forEach(name=>{const input=document.getElementById(prefix+name);if(input)input.disabled=!enabled})}
+let tooltipEl=null;
+function initTooltips(){tooltipEl=document.createElement("div");tooltipEl.className="ui-tooltip";document.body.appendChild(tooltipEl);document.querySelectorAll("[data-tip]").forEach(el=>{const show=event=>{const tip=el.getAttribute("data-tip");if(!tip)return;tooltipEl.textContent=tip;tooltipEl.classList.add("show");move(event)};const move=event=>{if(!tooltipEl.classList.contains("show"))return;const pad=14,x=Math.min(window.innerWidth-300,Math.max(12,event.clientX+14)),y=Math.min(window.innerHeight-90,Math.max(12,event.clientY+16));tooltipEl.style.transform=`translate3d(${x}px,${y}px,0) scale(1)`};const hide=()=>tooltipEl.classList.remove("show");el.addEventListener("mouseenter",show);el.addEventListener("mousemove",move);el.addEventListener("mouseleave",hide)})}
+function typographyPayload(prefix=""){const custom=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;const family=document.getElementById((prefix?prefix+"FontFamily":"fontFamily"))?.value||"theme";return{fontFamily:family,titleWeight:parseInt(document.getElementById((prefix?prefix+"TitleWeight":"titleWeight"))?.value)||0,bodyWeight:parseInt(document.getElementById((prefix?prefix+"BodyWeight":"bodyWeight"))?.value)||0,titleColor:custom?(document.getElementById((prefix?prefix+"TitleColor":"titleColor"))?.value||""):"",bodyColor:custom?(document.getElementById((prefix?prefix+"BodyColor":"bodyColor"))?.value||""):"",tagColor:custom?(document.getElementById((prefix?prefix+"TagColor":"tagColor"))?.value||""):""}}
+function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",toneInfo=resolveTone(prefix),tone=toneInfo.tone,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${toneInfo.guide}\n\n【题材】\n${theme}\n\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
 function setPromptValue(output,prompt){output.value=prompt;output.dispatchEvent(new Event("input",{bubbles:true}));output.classList.add("prompt-generated");window.setTimeout(()=>output.classList.remove("prompt-generated"),1200)}
 function writeGeneratedPrompt(outputId,prompt,button){const output=document.getElementById(outputId);setPromptValue(output,prompt);output.scrollIntoView({block:"nearest"});button.textContent="已生成";window.setTimeout(()=>button.textContent="生成提示词",1200)}
 function updPrompt(button=document.getElementById("generatePromptButton")){writeGeneratedPrompt("promptView",buildCopyPrompt("g"),button)}
 function refreshPromptFromConfig(prefix,outputId){const output=document.getElementById(outputId);if(output.value.trim())setPromptValue(output,buildCopyPrompt(prefix))}
 function setActionStatus(id,message,state=""){const status=document.getElementById(id);status.textContent=message;status.className="action-status"+(state?" "+state:"")}
-async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim(),template=document.getElementById("tpl").value||"magazine";if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("singleAiStatus","请先在设置页登录云服务","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt,template});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";updateSingleCapacity();await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，可点上方“保存当前图文”出图","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
+async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim(),template=document.getElementById("tpl").value||"magazine";if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("singleAiStatus","请先在设置页登录云服务","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt,template,...typographyPayload("")});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";updateSingleCapacity();updateSingleFitStates();await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，可点上方“保存当前图文”出图","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
 
 // 批量
 const TAGMAP={"找搭子":"BILLIARDS","球房测评":"REVIEW","新手避坑":"GUIDE","约球吐槽":"RANT","球杆科普":"PRO TIP","技术段位":"RANK","球友日常":"DAILY","赛事战报":"MATCH"};
@@ -324,13 +385,18 @@ function templateMixTotal(){return tpls.reduce((sum,t)=>sum+(Number(templateMixC
 function batchExpectedCount(){const generated=document.querySelectorAll("#bList .bi-item").length;return generated||Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10))}
 function updateTemplateMixSummary(){const summary=document.getElementById("bTplMixSummary");if(!summary)return;const total=templateMixTotal(),expected=batchExpectedCount();summary.textContent=`总计 ${total} 张（当前文案数 ${expected} 张）`;summary.style.color=total===expected?"var(--accent)":"var(--danger)"}
 function renderTemplateMix(){const list=document.getElementById("bTplMix");if(!list||!tpls.length)return;const expected=batchExpectedCount();const hasCounts=Object.values(templateMixCounts).some(value=>Number(value)>0);if(!hasCounts)templateMixCounts[tpls[0].id]=expected;list.innerHTML="";tpls.forEach(t=>{const row=document.createElement("div"),label=document.createElement("span"),input=document.createElement("input");row.className="template-mix-row";label.textContent=t.name;label.title=t.name;input.type="number";input.min="0";input.max="100";input.step="1";input.value=String(Number(templateMixCounts[t.id])||0);input.setAttribute("aria-label",t.name+"数量");input.addEventListener("input",()=>{const value=Math.min(100,Math.max(0,parseInt(input.value)||0));input.value=String(value);templateMixCounts[t.id]=value;updateTemplateMixSummary();updateBatchCapacityStatuses()});row.appendChild(label);row.appendChild(input);list.appendChild(row)});updateTemplateMixSummary();updateBatchCapacityStatuses()}
-function batchTemplateIds(){const ids=(tpls.length?tpls.map(t=>t.id):Object.keys(TEMPLATE_CAPACITY)).filter(id=>TEMPLATE_CAPACITY[id]);return ids.length?ids:["magazine"]}
+function batchTemplateIds(){const ids=(tpls.length?tpls.map(t=>t.id):Object.keys(TEMPLATE_CAPACITY)).filter(id=>templateCapacity(id));return ids.length?ids:["magazine"]}
 function resetRandomTemplatePlan(){randomTemplatePlan={count:0,templates:[]}}
-function randomTemplatePlanFor(itemCount){const ids=batchTemplateIds();if(randomTemplatePlan.count!==itemCount||randomTemplatePlan.templates.length!==itemCount){randomTemplatePlan={count:itemCount,templates:Array.from({length:itemCount},()=>ids[Math.floor(Math.random()*ids.length)]||"magazine")}}return randomTemplatePlan.templates}
-function setBatchTemplateMode(){const mode=document.getElementById("bTplMode").value,mix=mode==="mix",random=mode==="random";document.getElementById("bTplUniformWrap").hidden=mix||random;document.getElementById("bTplMixWrap").hidden=!mix;if(random)resetRandomTemplatePlan();if(mix)renderTemplateMix();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")}
-function batchTemplatePlan(itemCount){const mode=document.getElementById("bTplMode").value;if(mode==="random")return{templates:[...randomTemplatePlanFor(itemCount)]};if(mode!=="mix")return{templates:Array.from({length:itemCount},()=>document.getElementById("bTpl").value)};const total=templateMixTotal();if(total!==itemCount)return{error:`自定义模板分配共 ${total} 张，但当前有 ${itemCount} 条文案，请调整数量后再渲染。`};const templates=[];tpls.forEach(t=>{for(let i=0;i<(Number(templateMixCounts[t.id])||0);i++)templates.push(t.id)});return{templates}}
+function randomTemplatePlanFor(itemCount){const ids=batchTemplateIds();if(randomTemplatePlan.count!==itemCount||randomTemplatePlan.templates.length!==itemCount){const templates=[];while(templates.length<itemCount){const pool=ids.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}templates.push(...pool)}randomTemplatePlan={count:itemCount,templates:templates.slice(0,itemCount)}}return randomTemplatePlan.templates}
+function setBatchTemplateMode(){const mode=document.getElementById("bTplMode").value,mix=mode==="mix",random=mode==="random";document.getElementById("bTplUniformWrap").hidden=mode!=="single";document.getElementById("bTplMixWrap").hidden=!mix;if(random)resetRandomTemplatePlan();if(mix)renderTemplateMix();refreshBatchItemFits();refreshPromptFromConfig("b","bPrompt")}
+function batchTemplatePlan(itemCount){const mode=document.getElementById("bTplMode").value;if(mode==="random")return{templates:[...randomTemplatePlanFor(itemCount)],random:true};if(mode!=="mix")return{templates:Array.from({length:itemCount},()=>document.getElementById("bTpl").value||"magazine")};const total=templateMixTotal();if(total!==itemCount)return{error:`自定义模板分配共 ${total} 张，但当前有 ${itemCount} 条文案，请调整数量后再渲染。`};const templates=[];tpls.forEach(t=>{for(let i=0;i<(Number(templateMixCounts[t.id])||0);i++)templates.push(t.id)});return{templates}}
 function batchCapacityTemplateFor(index,count){const plan=batchTemplatePlan(count);return plan.templates?plan.templates[index]:selectedBatchAiTemplate()}
-function updateBatchCapacityStatuses(){const items=[...document.querySelectorAll("#bList .bi-item")],count=items.length;if(!count)return;items.forEach((item,index)=>setCapacityStatus(item.querySelector(".bi-capacity"),item.querySelector(".bi-title")?.value||"",item.querySelector(".bi-body")?.value||"",item.querySelector(".bi-tags")?.value||"",batchCapacityTemplateFor(index,count)))}
+function batchOverfitCount(){const items=[...document.querySelectorAll("#bList .bi-item")];return{items,over:items.filter(item=>item.dataset.fitOver==="1")}}
+function setFitHint(id,report,prefix,detail){const el=document.getElementById(id);if(!el)return;el.className="copy-fit-hint "+(report.over?"error":"ok");el.innerHTML="";const head=document.createElement("div"),title=document.createElement("span"),badge=document.createElement("span"),metrics=document.createElement("div");head.className="copy-fit-head";title.className="copy-fit-title";badge.className="copy-fit-badge";metrics.className="copy-fit-metrics";title.textContent=prefix;badge.textContent=report.over?"需处理":"适配";const cap=report.cap;const chip=(label,value,over)=>{const span=document.createElement("span");span.className="copy-fit-chip"+(over?" over":"");span.textContent=`${label} ${value}`;return span};metrics.append(chip("标题",`${report.titleLen}/${cap.title}`,report.titleLen>cap.title),chip("正文",`${report.bodyLen}/${cap.body}字`,report.bodyLen>cap.body),chip("行数",`${report.bodyLines}/${cap.bodyLines}`,report.bodyLines>cap.bodyLines),chip("话题",`${report.tagCount}/${cap.tags}`,report.tagCount>cap.tags||report.tagOver));head.append(title,badge);el.append(head,metrics);if(detail){const note=document.createElement("div");note.className="copy-fit-detail";note.textContent=detail;el.appendChild(note)}}
+function updateBatchFitHint(){const mode=document.getElementById("bTplMode").value,template=selectedBatchAiTemplate(),summary=batchOverfitCount(),cap=normalizeCapacity(templateCapacity(template)),report={cap,titleLen:0,bodyLen:0,bodyLines:0,tagCount:0,tagOver:false,over:summary.over.length>0};const prefix=mode==="random"?"随机模板（按最保守容量）":mode==="mix"?"混合模板（按最保守容量）":templateName(template);const detail=summary.items.length?`${summary.items.length-summary.over.length}/${summary.items.length} 条适配${summary.over.length?`，${summary.over.length} 条建议缩短后再渲染。`:"。"}`:(mode==="random"?"AI 生成按最保守模板容量收口；渲染时每条自动抽取模板。":mode==="mix"?"AI 生成按自定义分配中的最保守模板估算。":"AI 生成会按此模板容量收口。");setFitHint("batchFitHint",report,prefix,detail)}
+function refreshBatchItemFits(){const template=selectedBatchAiTemplate();document.querySelectorAll("#bList .bi-item").forEach(item=>item.refreshFit?.(template));updateBatchFitHint()}
+function attachBatchFit(card,template,titleInput,bodyInput,tagsInput){const fit=document.createElement("div");fit.className="bi-fit";const refresh=(nextTemplate=template,updateSummary=true)=>{const cap=templateCapacity(nextTemplate),titleLen=countChars(titleInput.value),bodyLen=countChars(bodyInput.value),bodyLines=bodyLineCount(bodyInput.value,cap),tagList=tagParts(tagsInput.value),tagOver=tagList.some(tag=>countChars(tag)>cap.tag),over=titleLen>cap.title||bodyLen>cap.body||bodyLines>cap.bodyLines||tagList.length>cap.tags||tagOver;card.dataset.fitOver=over?"1":"0";card.dataset.fitTemplate=nextTemplate;card.classList.toggle("overfit",over);fit.textContent=`标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${bodyLines}/${cap.bodyLines} 行，话题 ${tagList.length}/${cap.tags}${tagOver?`，单个话题≤${cap.tag}字`:""}`;fit.className="bi-fit "+(over?"error":"ok");if(updateSummary)updateBatchFitHint()};card.refreshFit=nextTemplate=>refresh(nextTemplate,false);[titleInput,bodyInput,tagsInput].forEach(input=>input.addEventListener("input",()=>refresh()));refresh();return fit}
+function updateBatchCapacityStatuses(){const items=[...document.querySelectorAll("#bList .bi-item")],count=items.length;if(!count){updateBatchFitHint();return}items.forEach((item,index)=>setCapacityStatus(item.querySelector(".bi-capacity"),item.querySelector(".bi-title")?.value||"",item.querySelector(".bi-body")?.value||"",item.querySelector(".bi-tags")?.value||"",batchCapacityTemplateFor(index,count)));updateBatchFitHint()}
 function bGenPrompt(button=document.getElementById("batchGeneratePromptButton")){writeGeneratedPrompt("bPrompt",buildCopyPrompt("b"),button)}
 async function bGen(btn=document.getElementById("batchGenerateCopyButton")){
   const promptField=document.getElementById("bPrompt"),prompt=promptField.value.trim(),template=selectedBatchAiTemplate();
@@ -341,7 +407,7 @@ async function bGen(btn=document.getElementById("batchGenerateCopyButton")){
   btn.textContent="生成中...";btn.disabled=true;setActionStatus("batchAiStatus","AI 正在生成 "+count+" 条文案，请稍候");
   const list=document.getElementById("bList");list.innerHTML="<div class='hint'>AI生成"+count+"条中...</div>";
   try{
-    const items=await nativeInvoke("generate_batch_copy",{prompt,count,template});
+    const items=await nativeInvoke("generate_batch_copy",{prompt,count,template,...typographyPayload("b")});
     list.innerHTML="<div style='color:var(--accent);font-size:12px;margin-bottom:10px'>生成"+items.length+"条，可编辑后批量渲染</div>";
     items.forEach((it,i)=>{
       const d=document.createElement("div"),h=document.createElement("div"),cap=document.createElement("div"),t=document.createElement("input"),b=document.createElement("textarea"),g=document.createElement("input");
@@ -352,7 +418,7 @@ async function bGen(btn=document.getElementById("batchGenerateCopyButton")){
       b.className="bi-body";b.value=it.body;b.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;min-height:60px;margin-bottom:6px;resize:vertical";
       g.className="bi-tags";g.value=it.tags;g.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px";
       [t,b,g].forEach(input=>input.addEventListener("input",updateBatchCapacityStatuses));
-      d.appendChild(h);d.appendChild(cap);d.appendChild(t);d.appendChild(b);d.appendChild(g);list.appendChild(d)
+      d.appendChild(h);d.appendChild(cap);d.appendChild(t);d.appendChild(b);d.appendChild(g);d.appendChild(attachBatchFit(d,template,t,b,g));list.appendChild(d)
     });
     resetRandomTemplatePlan();updateTemplateMixSummary();updateBatchCapacityStatuses();setActionStatus("batchAiStatus","已生成 "+items.length+" 条文案","success")
   }catch(e){list.innerHTML="";setActionStatus("batchAiStatus","批量生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}
@@ -364,8 +430,10 @@ async function bRender(){
   if(!nativeReady){alert("批量渲染仅在桌面应用中可用");return}
   const sourceItems=items.filter(item=>item.querySelector(".bi-title").value.trim()).slice(0,100),plan=batchTemplatePlan(sourceItems.length);
   if(plan.error){setActionStatus("batchAiStatus",plan.error,"error");alert(plan.error);return}
+  const overItems=sourceItems.filter(item=>item.dataset.fitOver==="1");
+  if(overItems.length&&!confirm(`有 ${overItems.length} 条文案超过当前模板容量，渲染时会先缩小正文，仍放不下才省略。仍继续渲染？`)){setActionStatus("batchAiStatus",`已暂停：${overItems.length} 条文案建议先缩短`,"error");return}
   const ci=parseInt(document.getElementById("bColor").value),theme=document.getElementById("bTheme").value;
-  const reqs=sourceItems.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:plan.templates[i],num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim()}});
+  const reqs=sourceItems.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:plan.templates[i],num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim(),...typographyPayload("b")}});
   if(!reqs.length){alert("请至少保留一条有标题的文案");return}
   const g=document.getElementById("batchGrid");g.innerHTML="";const bar=document.createElement("div");bar.style.cssText="width:100%;background:var(--bg3);border-radius:4px;height:28px;margin-bottom:16px;overflow:hidden;position:relative;position:sticky;top:0;z-index:9";const fill=document.createElement("div");fill.style.cssText="height:100%;background:var(--accent);width:0%;transition:width .3s";const txt=document.createElement("div");txt.style.cssText="position:absolute;top:0;left:0;right:0;text-align:center;line-height:28px;font-size:11px;color:#fff;font-weight:600";txt.textContent=`渲染中 0/${reqs.length}`;bar.appendChild(fill);bar.appendChild(txt);g.appendChild(bar);const removers=[];let failures=[];try{if(nativeListen){removers.push(await nativeListen("job-progress",e=>{const p=e.payload;fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`渲染中 ${p.completed}/${p.total}`}),await nativeListen("job-failed",e=>{const p=e.payload;failures.push(`第${p.completed}张：${p.error}`);fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`已处理 ${p.completed}/${p.total}，失败 ${failures.length}`}),await nativeListen("job-complete",e=>{const p=e.payload;txt.textContent=`完成 ${p.succeeded}/${p.total}`}))}const results=await nativeInvoke("render_batch",{requests:reqs,outputDir:null}),recent=await nativeInvoke("get_render_history");for(const item of recent.slice(0,Math.min(results.length,24))){try{const data=await nativeInvoke("read_history_image",{historyId:item.id});const card=document.createElement("div"),img=document.createElement("img"),open=document.createElement("a");card.className="batch-item";img.src="data:image/png;base64,"+data;img.addEventListener("click",()=>openLightbox(img.src));open.className="dl";open.textContent="目录";open.addEventListener("click",event=>{event.preventDefault();openFolder()});card.appendChild(img);card.appendChild(open);g.appendChild(card)}catch(_){}}fill.style.width="100%";txt.textContent=`完成 ${results.length}/${reqs.length}`;if(failures.length)alert("部分图片渲染失败：\n"+failures.slice(0,5).join("\n"));await loadHistory()}catch(e){txt.textContent="批量渲染失败";alert("批量渲染失败："+e)}finally{removers.forEach(remove=>remove())}}
 
@@ -398,11 +466,13 @@ async function saveAccounts(){try{await nativeInvoke("set_accounts",{accounts:co
 async function migrateLegacy(){try{await nativeInvoke("migrate_legacy");const parsed=JSON.parse(localStorage.getItem("lib")||"[]"),items=Array.isArray(parsed)?parsed:[];await nativeInvoke("migrate_copy_library",{items});localStorage.removeItem("lib")}catch(e){setActionStatus("cloudStatus","旧版数据迁移失败："+String(e),"error")}}
 function bindStaticEvents(){
   document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",()=>showTab(Number(tab.dataset.tabIndex)));tab.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();tab.click()}})});
-  document.getElementById("tpl").addEventListener("change",()=>{updateSingleCapacity();refreshPromptFromConfig("g","promptView");scheduleRender()});
+  document.getElementById("tpl").addEventListener("change",()=>{updateSingleCapacity();updateSingleFitStates();refreshPromptFromConfig("g","promptView");scheduleRender()});
   document.getElementById("preset").addEventListener("change",loadPreset);
-  ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{updateSingleCapacity();scheduleRender()}));
+  ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{updateSingleCapacity();updateSingleFitStates();scheduleRender()}));
   document.getElementById("color1").addEventListener("change",event=>{cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
   document.getElementById("color2").addEventListener("change",event=>{cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
+  ["fontFamily","titleWeight","bodyWeight","customTextColors","titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs();scheduleRender()}));
+  ["titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));
   document.getElementById("preview0").addEventListener("click",event=>openLightbox(event.currentTarget.src));
   document.getElementById("clearHistoryButton").onclick=clearHist;
   document.getElementById("saveRenderButton").addEventListener("click",event=>saveRender(event.currentTarget));
@@ -418,6 +488,8 @@ function bindStaticEvents(){
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);
   document.getElementById("bTpl").addEventListener("change",()=>{updateTemplateMixSummary();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")});
   document.getElementById("bCount").addEventListener("input",()=>{resetRandomTemplatePlan();updateTemplateMixSummary();updateBatchCapacityStatuses()});
+  ["bFontFamily","bTitleWeight","bBodyWeight","bCustomTextColors","bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs("b");updateBatchCapacityStatuses()}));
+  ["bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("input",updateBatchCapacityStatuses));
   document.getElementById("batchRenderButton").addEventListener("click",bRender);
   document.getElementById("saveCloudServerButton").addEventListener("click",()=>saveCloudServer());
   document.getElementById("testCloudButton").addEventListener("click",testCloud);
@@ -438,9 +510,15 @@ function bindStaticEvents(){
   close.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();closeLightbox()}});
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
 }
+populateToneSelects();
+syncTextColorInputs();
+syncTextColorInputs("b");
+initTooltips();
 bindStaticEvents();
 if($("cloudServerUrl")&&!$("cloudServerUrl").value)$("cloudServerUrl").value=LOCAL_CLOUD_SERVER;
 setCloudButtonsForState();
 updateSingleCapacity();
+updateSingleFitStates();
+updateBatchFitHint();
 if(nativeReady){migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{applyNativeUnavailable();loadHistory()}
 </script></body></html>

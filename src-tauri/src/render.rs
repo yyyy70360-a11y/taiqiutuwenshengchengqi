@@ -81,27 +81,29 @@ fn generated_template_seed(template: &str) -> Option<usize> {
 }
 
 pub fn svg_for(request: &RenderRequest) -> String {
-    if let Some(seed) = generated_template_seed(request.template.as_str()) {
-        return designed_template(request, seed);
-    }
-    match request.template.as_str() {
-        "fresh" => fresh(request),
-        "minimal" => minimal(request),
-        "poster" => poster(request),
-        "journal" => journal(request),
-        "neon" => neon(request),
-        "newspaper" => newspaper(request),
-        "blueprint" => blueprint(request),
-        "polaroid" => polaroid(request),
-        "scoreboard" => scoreboard(request),
-        "vaporwave" => vaporwave(request),
-        "classic" => classic(request),
-        "mono" => mono(request),
-        "club" => club(request),
-        "street" => street(request),
-        "magazine_pro" => magazine_pro(request),
-        _ => magazine(request),
-    }
+    let svg = if let Some(seed) = generated_template_seed(request.template.as_str()) {
+        designed_template(request, seed)
+    } else {
+        match request.template.as_str() {
+            "fresh" => fresh(request),
+            "minimal" => minimal(request),
+            "poster" => poster(request),
+            "journal" => journal(request),
+            "neon" => neon(request),
+            "newspaper" => newspaper(request),
+            "blueprint" => blueprint(request),
+            "polaroid" => polaroid(request),
+            "scoreboard" => scoreboard(request),
+            "vaporwave" => vaporwave(request),
+            "classic" => classic(request),
+            "mono" => mono(request),
+            "club" => club(request),
+            "street" => street(request),
+            "magazine_pro" => magazine_pro(request),
+            _ => magazine(request),
+        }
+    };
+    apply_typography(svg, request)
 }
 
 fn magazine(request: &RenderRequest) -> String {
@@ -1302,6 +1304,123 @@ fn colors(request: &RenderRequest) -> Colors {
     }
 }
 
+/// Applies user-selected typography after a template has been assembled.
+/// Keeping this at the SVG boundary lets all templates share the same controls
+/// without duplicating style plumbing in each design function.
+fn apply_typography(mut svg: String, request: &RenderRequest) -> String {
+    let family = match request.font_family.as_str() {
+        "sans" | "system" => Some("Noto Sans CJK SC, Noto Sans SC, sans-serif"),
+        "serif" => Some("Noto Serif CJK SC, Noto Serif SC, serif"),
+        "mono" => Some("Noto Sans Mono, Noto Sans CJK SC, sans-serif"),
+        _ => None,
+    };
+    let title_color = color_option(&request.title_color);
+    let body_color = color_option(&request.body_color);
+    let tag_color = color_option(&request.tag_color);
+    let customized = family.is_some()
+        || request.title_weight > 0
+        || request.body_weight > 0
+        || title_color.is_some()
+        || body_color.is_some()
+        || tag_color.is_some();
+
+    let mut output = String::with_capacity(svg.len() + 64);
+    let mut cursor = 0;
+    while let Some(relative_start) = svg[cursor..].find("<text ") {
+        let start = cursor + relative_start;
+        output.push_str(&svg[cursor..start]);
+        let Some(relative_end) = svg[start..].find('>') else {
+            output.push_str(&svg[start..]);
+            cursor = svg.len();
+            break;
+        };
+        let opening_end = start + relative_end + 1;
+        let closing = "</text>";
+        let Some(relative_close) = svg[opening_end..].find(closing) else {
+            output.push_str(&svg[start..]);
+            cursor = svg.len();
+            break;
+        };
+        let close_start = opening_end + relative_close;
+        let opening = &svg[start..opening_end];
+        let role = if opening.contains("data-role='title'") {
+            Some("title")
+        } else if opening.contains("data-role='body'") {
+            Some("body")
+        } else if opening.contains("data-role='tag'") {
+            Some("tag")
+        } else {
+            None
+        };
+        let mut rewritten = opening.to_string();
+        if let Some(family) = family {
+            replace_svg_attribute(&mut rewritten, "font-family", family);
+        }
+        if let Some(role) = role {
+            let weight = match role {
+                "title" => request.title_weight,
+                "body" => request.body_weight,
+                _ => 0,
+            };
+            if weight > 0 {
+                replace_svg_attribute(&mut rewritten, "font-weight", &weight.to_string());
+            }
+            let selected_color = match role {
+                "title" => title_color,
+                "body" => body_color,
+                "tag" => tag_color,
+                _ => None,
+            };
+            if let Some(selected_color) = selected_color {
+                replace_svg_attribute(&mut rewritten, "fill", selected_color);
+            }
+        }
+        if customized {
+            rewritten = strip_role_marker(&rewritten);
+        }
+        output.push_str(&rewritten);
+        output.push_str(&svg[opening_end..close_start + closing.len()]);
+        cursor = close_start + closing.len();
+    }
+    if cursor < svg.len() {
+        output.push_str(&svg[cursor..]);
+    }
+    if !customized {
+        output = output
+            .replace(" data-role='title'", "")
+            .replace(" data-role='body'", "")
+            .replace(" data-role='tag'", "");
+    }
+    svg = output;
+    svg
+}
+
+fn color_option(value: &str) -> Option<&str> {
+    let valid = (value.len() == 4 || value.len() == 7)
+        && value.starts_with('#')
+        && value.chars().skip(1).all(|ch| ch.is_ascii_hexdigit());
+    valid.then_some(value)
+}
+
+fn replace_svg_attribute(opening: &mut String, name: &str, value: &str) {
+    let needle = format!("{name}='");
+    let Some(value_start) = opening.find(&needle).map(|index| index + needle.len()) else {
+        return;
+    };
+    let Some(relative_end) = opening[value_start..].find('\'') else {
+        return;
+    };
+    let value_end = value_start + relative_end;
+    opening.replace_range(value_start..value_end, value);
+}
+
+fn strip_role_marker(opening: &str) -> String {
+    opening
+        .replace(" data-role='title'", "")
+        .replace(" data-role='body'", "")
+        .replace(" data-role='tag'", "")
+}
+
 fn color(value: &str, fallback: &str) -> String {
     let valid = (value.len() == 4 || value.len() == 7)
         && value.starts_with('#')
@@ -1334,7 +1453,7 @@ fn text_lines(
         .enumerate()
         .map(|(index, line)| {
             let baseline = y + (index as u32 * line_step);
-            format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line))
+            format!("<text data-role='title' x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line))
         })
         .collect::<Vec<_>>()
         .join("");
@@ -1366,7 +1485,7 @@ fn body_lines(
         .enumerate()
         .map(|(index, line)| {
             let baseline = y + (index as u32 * line_step);
-            format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line), size = layout.size)
+            format!("<text data-role='body' x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-weight='{weight}' font-family='{family}'>{}</text>", xml(line), size = layout.size)
         })
         .collect::<Vec<_>>()
         .join("")
@@ -1465,7 +1584,7 @@ fn tag_lines(tags: &str, x: u32, right: u32, y: u32, fill: &str, size: u32) -> S
         .enumerate()
         .map(|(index, line)| {
             let baseline = y + (index as u32 * line_step);
-            format!("<text x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", xml(line))
+            format!("<text data-role='tag' x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", xml(line))
         })
         .collect::<Vec<_>>()
         .join("")
@@ -1493,7 +1612,7 @@ fn tag_pills(tags: &str, fill: &str, x: u32, right: u32, y: u32) -> String {
             cursor = x;
             row_y += 66;
         }
-        result.push_str(&format!("<rect x='{cursor}' y='{row_y}' width='{width}' height='52' rx='20' fill='{fill}'/><text x='{}' y='{}' fill='#FFFFFF' font-size='26' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", cursor + 20, row_y + 35, xml(&label)));
+        result.push_str(&format!("<rect x='{cursor}' y='{row_y}' width='{width}' height='52' rx='20' fill='{fill}'/><text data-role='tag' x='{}' y='{}' fill='#FFFFFF' font-size='26' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", cursor + 20, row_y + 35, xml(&label)));
         cursor += width + 14;
     }
     result
@@ -1839,6 +1958,30 @@ mod tests {
             ..Default::default()
         };
         assert!(render_png(&request).is_ok());
+    }
+
+    #[test]
+    fn applies_typography_overrides_to_rendered_roles() {
+        let request = RenderRequest {
+            title: "标题样式".into(),
+            body: "正文样式".into(),
+            tags: "#话题".into(),
+            font_family: "serif".into(),
+            title_weight: 900,
+            body_weight: 300,
+            title_color: "#112233".into(),
+            body_color: "#223344".into(),
+            tag_color: "#334455".into(),
+            ..Default::default()
+        };
+        let svg = svg_for(&request);
+        assert!(!svg.contains("data-role="));
+        assert!(svg.contains("font-family='Noto Serif CJK SC, Noto Serif SC, serif'"));
+        assert!(svg.contains("fill='#112233' font-size"));
+        assert!(svg.contains("fill='#223344' font-size"));
+        assert!(svg.contains("fill='#334455' font-size"));
+        assert!(svg.contains("font-weight='900'"));
+        assert!(svg.contains("font-weight='300'"));
     }
 
     #[test]

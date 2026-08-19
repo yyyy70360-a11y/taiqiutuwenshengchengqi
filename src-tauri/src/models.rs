@@ -21,6 +21,18 @@ pub struct RenderRequest {
     pub glow2: String,
     #[serde(default = "default_accent")]
     pub accent: String,
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
+    #[serde(default)]
+    pub title_weight: u32,
+    #[serde(default)]
+    pub body_weight: u32,
+    #[serde(default)]
+    pub title_color: String,
+    #[serde(default)]
+    pub body_color: String,
+    #[serde(default)]
+    pub tag_color: String,
     #[serde(default)]
     pub subfolder: String,
 }
@@ -37,6 +49,12 @@ impl Default for RenderRequest {
             glow1: default_glow1(),
             glow2: default_glow2(),
             accent: default_accent(),
+            font_family: default_font_family(),
+            title_weight: 0,
+            body_weight: 0,
+            title_color: String::new(),
+            body_color: String::new(),
+            tag_color: String::new(),
             subfolder: String::new(),
         }
     }
@@ -57,6 +75,9 @@ fn default_glow2() -> String {
 fn default_accent() -> String {
     "#FF5E62".into()
 }
+fn default_font_family() -> String {
+    "theme".into()
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +92,18 @@ pub struct RenderResponse {
 pub struct TemplateInfo {
     pub id: String,
     pub name: String,
+    #[serde(rename = "copyLimits")]
+    pub copy_limits: CopyFitLimits,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyFitLimits {
+    pub title_chars: usize,
+    pub body_chars: usize,
+    pub body_lines: usize,
+    pub tags_count: usize,
+    pub tag_chars: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]

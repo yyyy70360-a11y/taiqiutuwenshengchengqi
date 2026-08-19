@@ -1,8 +1,8 @@
 use crate::{
     cloud,
     models::{
-        Account, CloudStatus, CloudSyncResult, CopyItem, JobComplete, JobFailure, JobProgress,
-        PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo,
+        Account, CloudStatus, CloudSyncResult, CopyFitLimits, CopyItem, JobComplete, JobFailure,
+        JobProgress, PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo,
     },
     render, storage,
 };
@@ -69,6 +69,47 @@ const TEMPLATES: &[(&str, &str)] = &[
     ("zen", "禅意留白风"),
 ];
 
+fn copy_limits_for_template(template: &str) -> CopyFitLimits {
+    match template {
+        "minimal" => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 136,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "poster" => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 144,
+            body_lines: 8,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+        "magazine_pro" | "fresh" | "journal" | "neon" | "newspaper" | "blueprint" | "polaroid"
+        | "scoreboard" | "vaporwave" | "classic" | "mono" | "club" | "street" | "aurora"
+        | "espresso" | "sunset" | "ocean" | "rainforest" | "chalkboard" | "luxury" | "arcade"
+        | "comic" | "paper_cut" | "gradient_card" | "ink_brush" | "tech_hud" | "warm_note"
+        | "ice" | "candy" | "carbon" | "ceramic" | "matchday" | "lounge" | "diagonal"
+        | "retro_tv" | "terrazzo" | "silk" | "desert" | "mint" | "royal_blue" | "darkroom"
+        | "data_panel" | "sticker_bomb" | "prism" | "stadium" | "typewriter" | "zen" => {
+            CopyFitLimits {
+                title_chars: 30,
+                body_chars: 112,
+                body_lines: 7,
+                tags_count: 3,
+                tag_chars: 12,
+            }
+        }
+        _ => CopyFitLimits {
+            title_chars: 30,
+            body_chars: 96,
+            body_lines: 6,
+            tags_count: 3,
+            tag_chars: 12,
+        },
+    }
+}
+
 static LAST_FILE_STAMP: AtomicU64 = AtomicU64::new(0);
 const MAX_BATCH_SIZE: usize = 100;
 
@@ -79,6 +120,7 @@ pub fn get_templates() -> Vec<TemplateInfo> {
         .map(|(id, name)| TemplateInfo {
             id: (*id).into(),
             name: (*name).into(),
+            copy_limits: copy_limits_for_template(id),
         })
         .collect()
 }
