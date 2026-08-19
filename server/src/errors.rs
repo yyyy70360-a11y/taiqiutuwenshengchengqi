@@ -13,6 +13,14 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    pub fn coded(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            status,
+            code,
+            message: message.into(),
+        }
+    }
+
     pub fn bad_request(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
@@ -25,14 +33,6 @@ impl ApiError {
         Self {
             status: StatusCode::UNAUTHORIZED,
             code: "unauthorized",
-            message: message.into(),
-        }
-    }
-
-    pub fn conflict(message: impl Into<String>) -> Self {
-        Self {
-            status: StatusCode::CONFLICT,
-            code: "conflict",
             message: message.into(),
         }
     }

@@ -2,6 +2,7 @@ mod cloud;
 mod commands;
 mod models;
 mod render;
+mod startup;
 mod storage;
 #[cfg(target_os = "windows")]
 mod tunnel;
@@ -10,10 +11,7 @@ mod tunnel;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            #[cfg(target_os = "windows")]
-            tunnel::ensure_startup_tunnel(app.handle().clone());
-            #[cfg(not(target_os = "windows"))]
-            let _ = app;
+            startup::begin(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,7 +27,10 @@ pub fn run() {
             commands::get_cloud_status,
             commands::set_cloud_server_url,
             commands::test_cloud_connection,
+            commands::retry_startup,
+            commands::continue_startup_local,
             commands::cloud_register,
+            commands::cloud_register_application,
             commands::cloud_login,
             commands::cloud_logout,
             commands::cloud_sync_upload,

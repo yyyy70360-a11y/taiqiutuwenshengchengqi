@@ -42,5 +42,36 @@ cargo tauri build --debug --bundles app
 
 - 配置真实域名和 HTTPS 反向代理。
 - 在 `/etc/billiards-api/server.env` 配置服务器 AI Provider Key。
-- 通过客户端完成一次注册、登录、上传、下载和 AI 文案联调。
+- 通过客户端完成一次注册申请、后台批准、登录、上传、下载和 AI 文案联调。
 - 增加正式 release 包、升级保留数据和无网络回归记录。
+
+## 注册申请与审核同步
+
+Windows 和 macOS 共用同一套账号库与管理后台。macOS 客户端不要继续把“注册”理解为立即创建账号，应改为以下流程：
+
+1. 登录页提供“注册申请”入口，进入独立申请视图。
+2. 申请视图提交邮箱、密码和确认密码到 POST /api/v1/auth/register-application。
+3. 服务端返回 HTTP 202 后，客户端显示“注册申请已提交，请等待管理员审核。批准后可直接使用该邮箱和密码登录。”
+4. 管理员在 /admin/registration-applications 批准后，服务端才会创建正式账号。
+5. 用户返回登录页，用原申请邮箱和密码调用 POST /api/v1/auth/login。
+
+请求字段使用 camelCase：
+
+    {
+      "email": "name@example.com",
+      "password": "example-password",
+      "confirmPassword": "example-password"
+    }
+
+客户端需要按服务端 error 字段处理状态：
+
+| error | 客户端提示 |
+| --- | --- |
+| application_pending | 申请正在审核，请等待批准 |
+| application_rejected | 申请未通过，可重新提交 |
+| account_exists | 邮箱已注册，直接登录 |
+| too_many_requests | 提交过于频繁，稍后再试 |
+| invalid_credentials | 邮箱或密码不正确 |
+| account_disabled | 账号已停用，联系管理员 |
+
+兼容说明：旧的 POST /api/v1/auth/register 暂时保留，但行为已经改为提交申请并返回 HTTP 202，不再返回登录令牌。新版 macOS 客户端必须使用 register-application，不能依赖旧接口的响应结构。

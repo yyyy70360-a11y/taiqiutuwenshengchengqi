@@ -18,10 +18,8 @@ const EMBEDDED_KEY_FILE_NAME: &str = "billiards_tunnel_ed25519";
 const EMBEDDED_SSH_FILE_NAME: &str = "ssh.exe";
 const FALLBACK_KEY_FILE_NAMES: &[&str] = &["taiqiutuwen.pem", "tuwen.pem"];
 
-pub fn ensure_startup_tunnel(app: AppHandle) {
-    tauri::async_runtime::spawn(async move {
-        let _ = ensure_startup_tunnel_inner(&app).await;
-    });
+pub async fn ensure_startup_tunnel_now(app: &AppHandle) -> Result<(), String> {
+    ensure_startup_tunnel_inner(app).await
 }
 
 async fn ensure_startup_tunnel_inner(app: &AppHandle) -> Result<(), String> {

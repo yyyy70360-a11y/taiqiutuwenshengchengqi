@@ -14,7 +14,7 @@ curl http://127.0.0.1:38123/health
 
 ## 后台管理
 
-后台入口为 `GET /admin`，第一版包含管理首页、用户管理、AI 调用记录、封禁和解封。后台登录使用独立管理员邮箱和 Argon2id 密码哈希，不复用普通用户 Token。
+后台入口为 `GET /admin`，包含管理首页、注册申请审核、用户管理、AI 调用记录、封禁和解封。后台登录使用独立管理员邮箱和 Argon2id 密码哈希，不复用普通用户 Token。
 
 生成管理员密码哈希：
 
@@ -35,8 +35,10 @@ ADMIN_PASSWORD_HASH=$argon2id$...
 
 - `GET /health`
 - `GET /admin`
+- `GET /admin/registration-applications`
 - `GET /api/v1/version`
 - `POST /api/v1/auth/register`
+- `POST /api/v1/auth/register-application`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
@@ -47,6 +49,8 @@ ADMIN_PASSWORD_HASH=$argon2id$...
 - `POST /api/v1/ai/generate-batch-copy`
 
 用户数据接口和 AI 接口使用 `Authorization: Bearer <accessToken>`。access token 有效期 15 分钟，refresh token 有效期 30 天且只在数据库保存 SHA-256 哈希。密码使用 Argon2id 哈希。
+
+`POST /api/v1/auth/register-application` 只创建待审核申请，不签发 Token。管理员批准后才写入正式用户表，用户可使用申请时的邮箱和密码登录。旧的 `/api/v1/auth/register` 暂时保留为兼容入口，但同样只提交申请并返回 HTTP 202。
 
 ## 服务器部署原则
 

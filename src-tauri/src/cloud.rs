@@ -29,6 +29,14 @@ struct Credentials<'a> {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct RegisterApplicationRequest<'a> {
+    email: &'a str,
+    password: &'a str,
+    confirm_password: &'a str,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RefreshRequest<'a> {
     refresh_token: &'a str,
 }
@@ -41,7 +49,13 @@ struct AuthResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct RegisterApplicationResponse {
+    message: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct ErrorResponse {
+    error: Option<String>,
     message: String,
 }
 
@@ -145,7 +159,39 @@ pub async fn test_connection(app: &AppHandle) -> Result<String, String> {
 }
 
 pub async fn register(app: &AppHandle, email: &str, password: &str) -> Result<CloudStatus, String> {
-    authenticate(app, "/api/v1/auth/register", email, password).await
+    let _ = register_application(app, email, password, password).await?;
+    status(app).await
+}
+
+pub async fn register_application(
+    app: &AppHandle,
+    email: &str,
+    password: &str,
+    confirm_password: &str,
+) -> Result<String, String> {
+    let email = email.trim().to_lowercase();
+    if email.is_empty() || !email.contains('@') {
+        return Err("请输入有效邮箱".into());
+    }
+    if password.chars().count() < 8 {
+        return Err("密码至少需要 8 个字符".into());
+    }
+    if password != confirm_password {
+        return Err("两次输入的密码不一致".into());
+    }
+    let base = configured_base_url(app).await?;
+    let response = client()
+        .post(endpoint(&base, "/api/v1/auth/register-application"))
+        .json(&RegisterApplicationRequest {
+            email: &email,
+            password,
+            confirm_password,
+        })
+        .send()
+        .await
+        .map_err(network_error)?;
+    let result: RegisterApplicationResponse = parse_response(response).await?;
+    Ok(result.message)
 }
 
 pub async fn login(app: &AppHandle, email: &str, password: &str) -> Result<CloudStatus, String> {
@@ -481,9 +527,21 @@ async fn response_error(response: Response) -> String {
         .json::<ErrorResponse>()
         .await
         .ok()
-        .map(|error| error.message)
+        .map(|error| format_error_code(error.error.as_deref(), &error.message))
         .filter(|message| !message.trim().is_empty())
         .unwrap_or_else(|| format!("云服务请求失败（HTTP {}）", status.as_u16()))
+}
+
+fn format_error_code(code: Option<&str>, message: &str) -> String {
+    match code {
+        Some("application_pending") => "注册申请正在审核，请等待管理员批准后登录".into(),
+        Some("application_rejected") => "注册申请未通过，请重新提交申请".into(),
+        Some("account_exists") => "该邮箱已注册，请直接登录".into(),
+        Some("too_many_requests") => "申请提交过于频繁，请稍后再试".into(),
+        Some("account_disabled") => "账号已被停用，请联系管理员".into(),
+        Some("invalid_credentials") => "邮箱或密码不正确".into(),
+        _ => message.to_string(),
+    }
 }
 
 fn client() -> &'static Client {
@@ -679,5 +737,18 @@ mod tests {
             endpoint("https://example.com/", "/health"),
             "https://example.com/health"
         );
+    }
+
+    #[test]
+    fn maps_registration_and_login_error_codes() {
+        assert_eq!(
+            format_error_code(Some("application_pending"), "fallback"),
+            "注册申请正在审核，请等待管理员批准后登录"
+        );
+        assert_eq!(
+            format_error_code(Some("application_rejected"), "fallback"),
+            "注册申请未通过，请重新提交申请"
+        );
+        assert_eq!(format_error_code(Some("unknown"), "fallback"), "fallback");
     }
 }

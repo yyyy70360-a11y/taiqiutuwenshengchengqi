@@ -280,6 +280,27 @@ pub async fn cloud_register(
 }
 
 #[tauri::command]
+pub async fn retry_startup(app: AppHandle) -> Result<(), String> {
+    crate::startup::retry(&app).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn continue_startup_local(app: AppHandle) -> Result<(), String> {
+    crate::startup::continue_local(&app)
+}
+
+#[tauri::command]
+pub async fn cloud_register_application(
+    app: AppHandle,
+    email: String,
+    password: String,
+    confirm_password: String,
+) -> Result<String, String> {
+    cloud::register_application(&app, &email, &password, &confirm_password).await
+}
+
+#[tauri::command]
 pub async fn cloud_login(
     app: AppHandle,
     email: String,

@@ -6,6 +6,7 @@ use axum::{
         HeaderMap, HeaderValue, StatusCode,
     },
     response::{IntoResponse, Redirect, Response},
+    Json,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
@@ -30,6 +31,20 @@ pub struct LoginForm {
 #[derive(Debug, Deserialize)]
 pub struct CsrfForm {
     csrf: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApplicationReviewForm {
+    csrf: String,
+    #[serde(default)]
+    note: String,
+}
+
+#[derive(Default)]
+struct ApplicationRows {
+    pending: Vec<String>,
+    approved: Vec<String>,
+    rejected: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -154,6 +169,181 @@ pub async fn users(State(state): State<AppState>, headers: HeaderMap) -> Respons
     ))
 }
 
+pub async fn registration_applications(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    let csrf = match rotate_csrf(&state, &session).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let rows = match registration_application_rows(&state).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    html_response(layout(
+        "注册申请",
+        &state.config.admin_email,
+        "applications",
+        &registration_applications_html(&rows, &csrf),
+    ))
+}
+
+pub async fn registration_application_count(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if require_session(&state, &headers).await.is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    match sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::BIGINT FROM registration_applications WHERE status = 'pending'",
+    )
+    .fetch_one(&state.db)
+    .await
+    {
+        Ok(count) => Json(serde_json::json!({ "pending": count })).into_response(),
+        Err(error) => {
+            tracing::error!(error = %error, "registration application count failed");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+pub async fn approve_registration_application(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(application_id): Path<String>,
+    Form(input): Form<ApplicationReviewForm>,
+) -> Response {
+    review_registration_application(state, headers, application_id, input, true).await
+}
+
+pub async fn reject_registration_application(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(application_id): Path<String>,
+    Form(input): Form<ApplicationReviewForm>,
+) -> Response {
+    review_registration_application(state, headers, application_id, input, false).await
+}
+
+async fn review_registration_application(
+    state: AppState,
+    headers: HeaderMap,
+    application_id: String,
+    input: ApplicationReviewForm,
+    approve: bool,
+) -> Response {
+    let Some(session) = require_session(&state, &headers).await else {
+        return Redirect::to("/admin/login").into_response();
+    };
+    if !verify_csrf(&session, &input.csrf) {
+        return application_error_page(&state, "页面已过期，请返回注册申请页重试。");
+    }
+    let mut transaction = match state.db.begin().await {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!(error = %error, "registration review transaction failed");
+            return application_error_page(&state, "审核操作启动失败。");
+        }
+    };
+    let application = match sqlx::query_as::<_, (String, Option<String>, String)>(
+        "SELECT email, password_hash, status FROM registration_applications WHERE id = $1 FOR UPDATE",
+    )
+    .bind(&application_id)
+    .fetch_optional(&mut *transaction)
+    .await
+    {
+        Ok(Some(value)) => value,
+        Ok(None) => return application_error_page(&state, "注册申请不存在。"),
+        Err(error) => {
+            tracing::error!(error = %error, "registration application lock failed");
+            return application_error_page(&state, "读取注册申请失败。");
+        }
+    };
+    if application.2 != "pending" {
+        return Redirect::to("/admin/registration-applications").into_response();
+    }
+
+    let result = if approve {
+        let Some(password_hash) = application.1 else {
+            return application_error_page(&state, "申请凭据已清除，无法批准。");
+        };
+        let user_exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
+                .bind(&application.0)
+                .fetch_one(&mut *transaction)
+                .await;
+        match user_exists {
+            Ok(true) => Err("该邮箱已经是正式账号。".to_string()),
+            Ok(false) => {
+                let insert =
+                    sqlx::query("INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)")
+                        .bind(Uuid::new_v4().to_string())
+                        .bind(&application.0)
+                        .bind(password_hash)
+                        .execute(&mut *transaction)
+                        .await;
+                match insert {
+                    Ok(_) => sqlx::query(
+                        "UPDATE registration_applications SET status = 'approved', password_hash = NULL, reviewed_at = NOW(), reviewed_by = $1, review_note = $2 WHERE id = $3 AND status = 'pending'",
+                    )
+                    .bind(&state.config.admin_email)
+                    .bind(input.note.trim())
+                    .bind(&application_id)
+                    .execute(&mut *transaction)
+                    .await
+                    .map(|_| ()),
+                    Err(error) => Err(error),
+                }
+                .map_err(|error| {
+                    tracing::error!(error = %error, "registration approval failed");
+                    "批准注册申请失败。".to_string()
+                })
+            }
+            Err(error) => {
+                tracing::error!(error = %error, "registration approval user lookup failed");
+                Err("检查正式账号失败。".to_string())
+            }
+        }
+    } else {
+        sqlx::query(
+            "UPDATE registration_applications SET status = 'rejected', password_hash = NULL, reviewed_at = NOW(), reviewed_by = $1, review_note = $2 WHERE id = $3 AND status = 'pending'",
+        )
+        .bind(&state.config.admin_email)
+        .bind(input.note.trim())
+        .bind(&application_id)
+        .execute(&mut *transaction)
+        .await
+        .map(|_| ())
+        .map_err(|error| {
+            tracing::error!(error = %error, "registration rejection failed");
+            "拒绝注册申请失败。".to_string()
+        })
+    };
+    if let Err(message) = result {
+        return application_error_page(&state, &message);
+    }
+    if let Err(error) = transaction.commit().await {
+        tracing::error!(error = %error, "registration review commit failed");
+        return application_error_page(&state, "提交审核结果失败。");
+    }
+    Redirect::to("/admin/registration-applications").into_response()
+}
+
+fn application_error_page(state: &AppState, message: &str) -> Response {
+    html_response(layout(
+        "注册申请",
+        &state.config.admin_email,
+        "applications",
+        &format!("<p class=\"error\">{}</p>", escape_html(message)),
+    ))
+}
+
 pub async fn disable_user(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -206,10 +396,22 @@ async fn update_user_disabled(
             "<p class=\"error\">页面已过期，请返回用户管理页重试。</p>",
         ));
     }
+    let mut transaction = match state.db.begin().await {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!(error = %error, "admin user transaction failed");
+            return html_response(layout(
+                "用户管理",
+                &state.config.admin_email,
+                "users",
+                "<p class=\"error\">更新用户状态失败。</p>",
+            ));
+        }
+    };
     if let Err(error) = sqlx::query("UPDATE users SET disabled = $1 WHERE id = $2")
         .bind(disabled)
-        .bind(user_id)
-        .execute(&state.db)
+        .bind(&user_id)
+        .execute(&mut *transaction)
         .await
     {
         tracing::error!(error = %error, "admin user status update failed");
@@ -218,6 +420,32 @@ async fn update_user_disabled(
             &state.config.admin_email,
             "users",
             "<p class=\"error\">更新用户状态失败。</p>",
+        ));
+    }
+    if disabled {
+        if let Err(error) = sqlx::query(
+            "UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL",
+        )
+        .bind(&user_id)
+        .execute(&mut *transaction)
+        .await
+        {
+            tracing::error!(error = %error, "admin session revoke failed");
+            return html_response(layout(
+                "用户管理",
+                &state.config.admin_email,
+                "users",
+                "<p class=\"error\">撤销用户登录状态失败。</p>",
+            ));
+        }
+    }
+    if let Err(error) = transaction.commit().await {
+        tracing::error!(error = %error, "admin user transaction commit failed");
+        return html_response(layout(
+            "用户管理",
+            &state.config.admin_email,
+            "users",
+            "<p class=\"error\">提交用户状态失败。</p>",
         ));
     }
     Redirect::to("/admin/users").into_response()
@@ -348,6 +576,59 @@ async fn user_rows(state: &AppState) -> Result<Vec<String>, Response> {
         .collect())
 }
 
+async fn registration_application_rows(state: &AppState) -> Result<ApplicationRows, Response> {
+    let rows = sqlx::query(
+        "SELECT id, email, status, requested_at, reviewed_at, reviewed_by, review_note FROM registration_applications ORDER BY requested_at DESC LIMIT 500",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|error| internal_page(state, error, "读取注册申请失败"))?;
+    let mut output = ApplicationRows::default();
+    for row in rows {
+        let id: String = row.get("id");
+        let email: String = row.get("email");
+        let status: String = row.get("status");
+        let requested_at: DateTime<Utc> = row.get("requested_at");
+        let reviewed_at: Option<DateTime<Utc>> = row.get("reviewed_at");
+        let reviewed_by: Option<String> = row.get("reviewed_by");
+        let review_note: String = row.get("review_note");
+        if status == "pending" {
+            output.pending.push(format!(
+                "<tr><td>{}</td><td>{}</td><td><span class=\"badge pending\">待审核</span></td><td class=\"review-actions\"><form method=\"post\" action=\"/admin/registration-applications/{}/approve\"><input type=\"hidden\" name=\"csrf\" value=\"__CSRF__\"><button type=\"submit\">批准</button></form><form class=\"reject-form\" method=\"post\" action=\"/admin/registration-applications/{}/reject\"><input type=\"hidden\" name=\"csrf\" value=\"__CSRF__\"><input name=\"note\" maxlength=\"240\" placeholder=\"拒绝原因（选填）\"><button class=\"danger\" type=\"submit\">拒绝</button></form></td></tr>",
+                escape_html(&email),
+                escape_html(&format_time(requested_at)),
+                escape_html(&id),
+                escape_html(&id),
+            ));
+            continue;
+        }
+        let status_badge = if status == "approved" {
+            "<span class=\"badge ok\">已批准</span>"
+        } else {
+            "<span class=\"badge bad\">已拒绝</span>"
+        };
+        let history_row = format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            escape_html(&email),
+            status_badge,
+            escape_html(&format_time(requested_at)),
+            escape_html(&reviewed_at.map(format_time).unwrap_or_else(|| "-".into()),),
+            escape_html(reviewed_by.as_deref().unwrap_or("-")),
+            escape_html(if review_note.is_empty() {
+                "-"
+            } else {
+                &review_note
+            }),
+        );
+        if status == "approved" {
+            output.approved.push(history_row);
+        } else {
+            output.rejected.push(history_row);
+        }
+    }
+    Ok(output)
+}
+
 async fn ai_usage_rows(state: &AppState) -> Result<Vec<String>, Response> {
     let rows = sqlx::query(
         "SELECT u.email, r.operation, r.item_count, r.status, r.duration_ms, r.error_message, r.created_at FROM usage_records r JOIN users u ON u.id = r.user_id ORDER BY r.created_at DESC LIMIT 100",
@@ -424,6 +705,30 @@ fn users_html(rows: &[String], csrf: &str) -> String {
     )
 }
 
+fn registration_applications_html(rows: &ApplicationRows, csrf: &str) -> String {
+    let pending = if rows.pending.is_empty() {
+        "<tr><td colspan=\"4\" class=\"muted\">暂无待审核申请</td></tr>".into()
+    } else {
+        rows.pending
+            .join("")
+            .replace("__CSRF__", &escape_html(csrf))
+    };
+    let history = |items: &[String], empty: &str| {
+        if items.is_empty() {
+            format!("<tr><td colspan=\"6\" class=\"muted\">{}</td></tr>", empty)
+        } else {
+            items.join("")
+        }
+    };
+    format!(
+        "<div class=\"subnav\"><a href=\"#pending\">待审核 <b>{}</b></a><a href=\"#approved\">已批准</a><a href=\"#rejected\">已拒绝</a></div><section id=\"pending\"><h2>待审核申请</h2><table><tr><th>邮箱</th><th>申请时间</th><th>状态</th><th>操作</th></tr>{}</table></section><section id=\"approved\"><h2>已批准</h2><table><tr><th>邮箱</th><th>状态</th><th>申请时间</th><th>审核时间</th><th>审核人</th><th>备注</th></tr>{}</table></section><section id=\"rejected\"><h2>已拒绝</h2><table><tr><th>邮箱</th><th>状态</th><th>申请时间</th><th>审核时间</th><th>审核人</th><th>备注</th></tr>{}</table></section>",
+        rows.pending.len(),
+        pending,
+        history(&rows.approved, "暂无已批准申请"),
+        history(&rows.rejected, "暂无已拒绝申请"),
+    )
+}
+
 fn ai_usage_html(rows: &[String]) -> String {
     let body = if rows.is_empty() {
         "<tr><td colspan=\"7\" class=\"muted\">暂无调用记录</td></tr>".into()
@@ -452,11 +757,12 @@ fn login_html(error: &str, default_email: &str) -> String {
 
 fn layout(title: &str, admin_email: &str, active: &str, content: &str) -> String {
     format!(
-        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main></body></html>",
+        "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title>{}</head><body><header><div><strong>台球图文生成器后台</strong><span>{}</span></div><nav><a class=\"{}\" href=\"/admin\">首页</a><a class=\"{}\" href=\"/admin/registration-applications\">申请 <b id=\"pendingCount\" class=\"nav-count\" hidden></b></a><a class=\"{}\" href=\"/admin/users\">用户</a><a class=\"{}\" href=\"/admin/ai-usage\">AI 记录</a></nav></header><main>{}</main><script>fetch('/admin/registration-applications/count',{{credentials:'same-origin'}}).then(r=>r.ok?r.json():null).then(v=>{{if(v&&v.pending>0){{const e=document.getElementById('pendingCount');e.textContent=v.pending;e.hidden=false}}}}).catch(()=>{{}})</script></body></html>",
         escape_html(title),
         css(),
         escape_html(admin_email),
         active_class(active, "dashboard"),
+        active_class(active, "applications"),
         active_class(active, "users"),
         active_class(active, "ai"),
         content
@@ -548,7 +854,7 @@ fn escape_html(value: &str) -> String {
 }
 
 fn css() -> &'static str {
-    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}input{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}</style>"
+    "<style>:root{color-scheme:light;background:#f6f7f9;color:#1f2933;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#111827;color:white}header span{display:block;margin-top:4px;color:#aab2c0;font-size:13px}nav{display:flex;gap:8px}nav a{color:#cbd5e1;text-decoration:none;padding:8px 12px;border-radius:6px}nav a.active,nav a:hover{background:#263244;color:white}.nav-count{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:5px;border-radius:9px;background:#ef4444;color:white;font-size:11px}main{max-width:1180px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:18px;padding:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}h1,h2{margin:0 0 16px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle}th{background:#f8fafc;color:#475569;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:transparent;border:0;box-shadow:none;padding:0}.metric{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}.metric b{display:block;font-size:30px;margin-bottom:6px}.metric span,.muted{color:#64748b}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}.badge.pending{background:#fef3c7;color:#92400e}.subnav{display:flex;gap:8px;margin-bottom:18px}.subnav a{padding:8px 12px;border:1px solid #dbe2ea;border-radius:6px;background:white;color:#334155;text-decoration:none}.review-actions{min-width:430px}.review-actions form{display:inline-flex;align-items:center;gap:8px;margin-right:8px}.review-actions input{width:210px;margin:0;padding:8px 10px}button{appearance:none;border:0;border-radius:6px;background:#111827;color:white;padding:8px 12px;font-weight:700;cursor:pointer}.secondary{background:#475569}.danger{background:#b91c1c}.error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px}.login{display:grid;min-height:100vh;place-items:center;background:#eef2f7}.login-card{width:min(420px,calc(100vw - 32px));background:white;border:1px solid #e5e7eb;border-radius:8px;padding:26px;box-shadow:0 10px 30px rgba(15,23,42,.08)}label{display:block;margin:14px 0;color:#475569;font-weight:700}input{box-sizing:border-box;width:100%;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font:inherit}@media(max-width:760px){header{display:block}nav{margin-top:14px;flex-wrap:wrap}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}.review-actions{min-width:360px}}</style>"
 }
 
 #[cfg(test)]
