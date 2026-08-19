@@ -61,6 +61,17 @@ pub const TEMPLATE_IDS: &[&str] = &[
 ];
 static FONT_DATABASE: OnceLock<Arc<fontdb::Database>> = OnceLock::new();
 
+pub fn validate_embedded_resources() -> Result<(), String> {
+    if TEMPLATE_IDS.len() != 50 {
+        return Err(format!("模板资源数量异常: {}", TEMPLATE_IDS.len()));
+    }
+    let database = font_database();
+    if database.faces().count() < 2 {
+        return Err("内置字体资源不完整".into());
+    }
+    Ok(())
+}
+
 pub fn render_png(request: &RenderRequest) -> Result<Vec<u8>, String> {
     let svg = svg_for(request);
     let options = usvg::Options {

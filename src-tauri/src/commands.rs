@@ -2,7 +2,7 @@ use crate::{
     cloud,
     models::{
         Account, CloudStatus, CloudSyncResult, CopyItem, JobComplete, JobFailure, JobProgress,
-        PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo,
+        PresetInfo, RenderRequest, RenderResponse, SettingsInput, TemplateInfo, UiDiagnostics,
     },
     render, storage,
 };
@@ -277,6 +277,27 @@ pub async fn cloud_register(
     password: String,
 ) -> Result<CloudStatus, String> {
     cloud::register(&app, &email, &password).await
+}
+
+#[tauri::command]
+pub fn report_ui_ready(report: UiDiagnostics) -> Result<(), String> {
+    let ratio = report.preview_ratio.replace(' ', "");
+    let valid = report.section_count == 6
+        && report.open_section == "content"
+        && report.summaries_ready
+        && report.template_count == 50
+        && report.tone_count == 31
+        && ratio == "9/16"
+        && report.preview_fit == "contain"
+        && report.center_overflow == "hidden"
+        && matches!(report.left_overflow.as_str(), "auto" | "scroll")
+        && matches!(report.right_overflow.as_str(), "auto" | "scroll");
+    if !valid {
+        return Err(format!("UI 自检未通过: {report:?}"));
+    }
+    #[cfg(debug_assertions)]
+    eprintln!("UI readiness check passed: {report:?}");
+    Ok(())
 }
 
 #[tauri::command]

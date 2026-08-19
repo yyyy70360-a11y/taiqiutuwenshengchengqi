@@ -302,7 +302,18 @@ async fn issue_tokens(pool: &PgPool, user_id: &str) -> Result<AuthResponse, ApiE
 
 fn normalize_email(email: &str) -> Result<String, ApiError> {
     let value = email.trim().to_lowercase();
-    if value.is_empty() || value.len() > 254 || !value.contains('@') {
+    let valid = value
+        .rsplit_once('@')
+        .map(|(local, domain)| {
+            !local.is_empty()
+                && !domain.is_empty()
+                && domain.contains('.')
+                && !domain.starts_with('.')
+                && !domain.ends_with('.')
+                && !value.chars().any(char::is_whitespace)
+        })
+        .unwrap_or(false);
+    if value.is_empty() || value.len() > 254 || !valid {
         return Err(ApiError::bad_request("请输入有效邮箱"));
     }
     Ok(value)
@@ -311,6 +322,9 @@ fn normalize_email(email: &str) -> Result<String, ApiError> {
 fn validate_password(password: &str) -> Result<(), ApiError> {
     if password.chars().count() < 8 || password.len() > 256 {
         return Err(ApiError::bad_request("密码长度需为 8 至 256 个字符"));
+    }
+    if !password.chars().any(char::is_alphabetic) || !password.chars().any(char::is_numeric) {
+        return Err(ApiError::bad_request("密码需同时包含字母和数字"));
     }
     Ok(())
 }
@@ -351,7 +365,9 @@ mod tests {
             "user@example.com"
         );
         assert!(normalize_email("invalid").is_err());
-        assert!(validate_password("12345678").is_ok());
+        assert!(validate_password("password8").is_ok());
+        assert!(validate_password("12345678").is_err());
+        assert!(validate_password("password").is_err());
         assert!(validate_password("short").is_err());
     }
 

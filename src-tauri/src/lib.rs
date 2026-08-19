@@ -16,6 +16,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_templates,
+            commands::report_ui_ready,
             commands::get_presets,
             commands::render_preview,
             commands::render_save,

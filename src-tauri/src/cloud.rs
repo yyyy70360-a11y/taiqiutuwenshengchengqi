@@ -163,6 +163,31 @@ pub async fn register(app: &AppHandle, email: &str, password: &str) -> Result<Cl
     status(app).await
 }
 
+pub async fn validate_session(app: &AppHandle) -> Result<Option<bool>, String> {
+    if read_secret(REFRESH_TOKEN_ACCOUNT).await?.is_none() {
+        return Ok(None);
+    }
+    if read_secret(ACCESS_TOKEN_ACCOUNT).await?.is_none() {
+        let base = configured_base_url(app).await?;
+        if let Err(error) = refresh_session(&base).await {
+            if error.contains("无法连接云服务") {
+                return Err(error);
+            }
+            clear_tokens().await?;
+            return Ok(Some(false));
+        }
+    }
+    match authenticated_json::<RemoteSettings>(app, Method::GET, "/api/v1/me/settings", None).await
+    {
+        Ok(_) => Ok(Some(true)),
+        Err(error) if error.contains("无法连接云服务") => Err(error),
+        Err(_) => {
+            clear_tokens().await?;
+            Ok(Some(false))
+        }
+    }
+}
+
 pub async fn register_application(
     app: &AppHandle,
     email: &str,
@@ -175,6 +200,9 @@ pub async fn register_application(
     }
     if password.chars().count() < 8 {
         return Err("密码至少需要 8 个字符".into());
+    }
+    if !password.chars().any(char::is_alphabetic) || !password.chars().any(char::is_numeric) {
+        return Err("密码需同时包含字母和数字".into());
     }
     if password != confirm_password {
         return Err("两次输入的密码不一致".into());

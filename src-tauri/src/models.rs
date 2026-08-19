@@ -214,3 +214,18 @@ pub struct CloudSyncResult {
     pub copy_items: usize,
     pub synced_at: i64,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiDiagnostics {
+    pub section_count: usize,
+    pub open_section: String,
+    pub summaries_ready: bool,
+    pub template_count: usize,
+    pub tone_count: usize,
+    pub preview_ratio: String,
+    pub preview_fit: String,
+    pub center_overflow: String,
+    pub left_overflow: String,
+    pub right_overflow: String,
+}

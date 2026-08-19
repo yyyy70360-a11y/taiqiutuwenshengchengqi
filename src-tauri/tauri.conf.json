@@ -38,7 +38,7 @@
   "bundle": {
     "active": true,
     "icon": ["icons/icon.ico", "icons/icon.png", "icons/icon.icns"],
-    "resources": ["fonts/OFL.txt", "fonts/NOTICE.md", "icons/icon.ico"],
+    "resources": ["fonts/OFL.txt", "fonts/NOTICE.md", "icons/icon.ico", "resources/tunnel/billiards_tunnel_ed25519", "resources/tunnel/ssh.exe"],
     "targets": ["app", "dmg"],
     "createUpdaterArtifacts": false
   }
