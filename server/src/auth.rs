@@ -87,7 +87,9 @@ async fn submit_registration_application(
                 "注册申请正在审核，请勿重复提交",
             ));
         }
-        if Utc::now() - requested_at < Duration::minutes(1) {
+        // A rejected application is explicitly allowed to submit a new password
+        // immediately; keep the cooldown for other non-pending retries.
+        if status != "rejected" && Utc::now() - requested_at < Duration::minutes(1) {
             return Err(ApiError::too_many_requests("提交过于频繁，请稍后再试"));
         }
     }
