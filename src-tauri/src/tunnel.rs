@@ -5,7 +5,8 @@ use std::{
     collections::HashSet,
     fs,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
+    sync::{Mutex, OnceLock},
     time::Duration,
 };
 use tauri::{AppHandle, Manager};
@@ -18,8 +19,23 @@ const EMBEDDED_KEY_FILE_NAME: &str = "billiards_tunnel_ed25519";
 const EMBEDDED_SSH_FILE_NAME: &str = "ssh.exe";
 const FALLBACK_KEY_FILE_NAMES: &[&str] = &["taiqiutuwen.pem", "tuwen.pem"];
 
+static TUNNEL_CHILD: OnceLock<Mutex<Option<Child>>> = OnceLock::new();
+
 pub async fn ensure_startup_tunnel_now(app: &AppHandle) -> Result<(), String> {
     ensure_startup_tunnel_inner(app).await
+}
+
+pub fn shutdown() {
+    let Some(lock) = TUNNEL_CHILD.get() else {
+        return;
+    };
+    let Ok(mut guard) = lock.lock() else {
+        return;
+    };
+    if let Some(mut child) = guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 }
 
 async fn ensure_startup_tunnel_inner(app: &AppHandle) -> Result<(), String> {
@@ -216,10 +232,21 @@ fn spawn_tunnel(ssh_path: &Path, key_path: &Path) -> Result<(), String> {
 
     hide_window(&mut command);
 
-    command
+    let child = command
         .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("启动云服务 SSH 隧道失败: {error}"))
+        .map_err(|error| format!("启动云服务 SSH 隧道失败: {error}"))?;
+    let lock = TUNNEL_CHILD.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = lock.lock() else {
+        let mut child = child;
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("保存云服务 SSH 隧道状态失败".into());
+    };
+    if let Some(mut previous) = guard.replace(child) {
+        let _ = previous.kill();
+        let _ = previous.wait();
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]

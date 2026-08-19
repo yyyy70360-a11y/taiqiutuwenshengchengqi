@@ -49,8 +49,8 @@ cargo tauri build --bundles nsis,msi
 Windows 构建产物位于：
 
 ```text
-src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.1_x64-setup.exe
-src-tauri\target\release\bundle\msi\台球图文生成器_0.1.1_x64_zh-CN.msi
+src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.2_x64-setup.exe
+src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 ```
 
 ## 云服务隧道

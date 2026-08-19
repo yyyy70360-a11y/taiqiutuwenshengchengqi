@@ -1,6 +1,6 @@
 [package]
 name = "billiards_api"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.77"
 description = "台球图文生成器云端 API 原型"

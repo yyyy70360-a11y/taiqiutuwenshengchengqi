@@ -48,6 +48,15 @@ pub fn run() {
             commands::generate_copy,
             commands::generate_batch_copy
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running billiards matrix");
+        .build(tauri::generate_context!())
+        .expect("error while building billiards matrix")
+        .run(|_, event| {
+            #[cfg(target_os = "windows")]
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                tunnel::shutdown();
+            }
+        });
 }
