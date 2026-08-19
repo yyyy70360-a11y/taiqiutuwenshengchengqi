@@ -48,6 +48,17 @@ pub fn run() {
             commands::generate_copy,
             commands::generate_batch_copy
         ])
+        .on_window_event(|window, event| {
+            #[cfg(target_os = "windows")]
+            if window.label() == "main"
+                && matches!(
+                    event,
+                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
+                )
+            {
+                tunnel::shutdown();
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building billiards matrix")
         .run(|_, event| {
