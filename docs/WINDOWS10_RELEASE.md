@@ -45,11 +45,12 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 
 - 支线：`codex/registration-splash-ui`
 - 发布源码提交：`ffb009b`（后续仅有证据文档提交）
-- NSIS SHA256：`6B096D32828987618F2160A04DC9DF5F088FD5A943AB7FECEE290E84610EDD95`
-- MSI SHA256：`12AEBB80BA7E15BA3243EEE8FC2D73439A574A892C6B0D57526E926CC4380AA3`
+- NSIS SHA256：`065FA97E4C236916CD2B0DEAD05D0165CAC8AEE91C5D1D347CCD336AB71761D2`
+- MSI SHA256：`088A004D1E424EC161560E7F765A9CFCAE25CED6195E202CFB44DE2D259046B4`
 - 开发版 UI 自检已通过：6 组菜单、50 模板、31 语气、9:16 画布、中央区域 hidden、左右区域 auto。
 - 当前机器进程审计已通过：应用只保留 WebView2 与内置 `ssh.exe`，无 CMD 子进程。
 - 最新 release 关闭窗口回归已通过：`ssh.exe` 从 1 个回收到 0 个。
+- NSIS 同路径升级、静默卸载和重新安装已通过；卸载后程序目录清理，用户数据库保留。
 - 安装后可运行 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\verify-release.ps1` 做只读发布检查。
 - 隧道可用性可运行 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\verify-tunnel.ps1`，脚本会验证受限 SSH 转发、服务端健康响应和进程回收。
 - 干净 Windows 10 安装、同路径升级、卸载仍需在独立测试机执行并记录结果。
