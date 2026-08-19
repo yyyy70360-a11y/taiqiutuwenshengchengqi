@@ -49,6 +49,7 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 - MSI SHA256：`6489489913E275ED369F93C5EF7AB2B8E6FFCB84DB102754B4B04853EFE61A87`
 - 开发版 UI 自检已通过：6 组菜单、50 模板、31 语气、9:16 画布、中央区域 hidden、左右区域 auto。
 - 当前机器进程审计已通过：应用只保留 WebView2 与内置 `ssh.exe`，无 CMD 子进程。
+- 安装后可运行 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\verify-release.ps1` 做只读发布检查。
 - 干净 Windows 10 安装、同路径升级、卸载仍需在独立测试机执行并记录结果。
 
 ## 发布
