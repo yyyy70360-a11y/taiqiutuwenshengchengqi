@@ -8,6 +8,7 @@
 - [x] 已安装 release 关闭窗口回归：客户端退出后内置 ssh.exe 从 1 个回收到 0 个。
 - [x] NSIS 同路径升级、静默卸载和重新安装回归通过；卸载后程序目录清理，用户数据库哈希保持不变。
 - [x] 补充 NSIS 卸载 hook，清理 fix-shortcut-icons.ps1 生成的根目录 app.ico。
+- [x] 增加 Mac 只读验收脚本，统一检查 bundle、版本、Keychain、SQLite 和 DMG 哈希。
 
 ## 仍需独立设备验收
 

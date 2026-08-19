@@ -68,6 +68,17 @@ spctl --assess --type open --context context:primary-signature -vv \
 
 ## 发布验收清单
 
+在 Mac 上可先运行仓库内的只读检查脚本：
+
+```bash
+chmod +x scripts/macos/verify-release.sh
+scripts/macos/verify-release.sh \
+  "src-tauri/target/release/bundle/macos/台球图文生成器.app" \
+  "src-tauri/target/release/bundle/dmg/台球图文生成器_0.1.2_x64.dmg"
+```
+
+脚本不会输出 Keychain 秘密值；它只检查 bundle 元数据、可执行文件、SQLite 路径、Keychain 条目是否存在和 DMG SHA-256。安装、登录、注册审核、同步、升级和卸载仍需要 GUI 实机操作。
+
 - 在断网状态下完成 6 模板预览和保存。
 - 确认进程树中没有 Python、Chrome 或 localhost 服务。
 - 生成 100 张，确认文件名唯一、进度到达完成且失败数正确。
