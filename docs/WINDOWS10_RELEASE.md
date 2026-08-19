@@ -21,11 +21,11 @@ cargo tauri build --bundles nsis,msi
 npm run build:windows
 ```
 
-产物：
+当前产物（0.1.2）：
 
 ```text
-src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.0_x64-setup.exe
-src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_zh-CN.msi
+src-tauri\target\release\bundle\nsis\台球图文生成器_0.1.2_x64-setup.exe
+src-tauri\target\release\bundle\msi\台球图文生成器_0.1.2_x64_zh-CN.msi
 ```
 
 ## 验收清单
@@ -40,6 +40,16 @@ src-tauri\target\release\bundle\msi\台球图文生成器_0.1.0_x64_zh-CN.msi
 - 在没有开发工具的干净 Windows 10 机器上安装 NSIS 或 MSI，首次启动、同路径升级、卸载均成功。
 - 安装后桌面、开始菜单和任务栏图标均显示 `src-tauri\icons\icon.ico` 对应的台球图标；如系统缓存旧图标，运行 `.\scripts\windows\fix-shortcut-icons.ps1` 后重新验收。
 - 卸载应用后用户数据库、输出图片和系统凭据仍保留，除非用户明确要求清理数据。
+
+## 当前支线验收证据
+
+- 支线：`codex/registration-splash-ui`
+- 最新提交：`9755401`
+- NSIS SHA256：`EBD616CD9AD5814B66AEB537422AF0E233493B9965FDD1B7A8726E222F285873`
+- MSI SHA256：`6489489913E275ED369F93C5EF7AB2B8E6FFCB84DB102754B4B04853EFE61A87`
+- 开发版 UI 自检已通过：6 组菜单、50 模板、31 语气、9:16 画布、中央区域 hidden、左右区域 auto。
+- 当前机器进程审计已通过：应用只保留 WebView2 与内置 `ssh.exe`，无 CMD 子进程。
+- 干净 Windows 10 安装、同路径升级、卸载仍需在独立测试机执行并记录结果。
 
 ## 发布
 
