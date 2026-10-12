@@ -20,6 +20,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,6 +33,7 @@ jobs:
       - name: Install Tauri CLI
         run: npm install --global @tauri-apps/cli@2.12.2
       - name: Build installer
+        shell: cmd
         run: tauri build --ci -- --locked
       - name: Prepare download and checksum
         shell: pwsh
