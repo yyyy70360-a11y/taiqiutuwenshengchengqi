@@ -157,8 +157,8 @@ pub fn get_presets(app: &AppHandle) -> Result<Vec<PresetInfo>, String> {
 
 pub fn get_settings(app: &AppHandle) -> Result<Value, String> {
     let conn = connection(app)?;
-    let url = read_setting(&conn, "api_url")?
-        .unwrap_or_else(|| "https://api.deepseek.com/v1".into());
+    let url =
+        read_setting(&conn, "api_url")?.unwrap_or_else(|| "https://api.deepseek.com/v1".into());
     let model = read_setting(&conn, "api_model")?.unwrap_or_else(|| "deepseek-chat".into());
     let ai_mode = read_setting(&conn, "ai_mode")?.unwrap_or_else(|| "local".into());
     let api_key_configured =
@@ -744,6 +744,20 @@ fn write_setting(conn: &Connection, key: &str, value: &str) -> Result<(), String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_credentials_persist_across_entries() {
+        let account = format!("packaging-test-{}", uuid::Uuid::new_v4());
+        let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &account).unwrap();
+        entry.set_password("temporary-packaging-test").unwrap();
+        let read_result = keyring::Entry::new(KEYCHAIN_SERVICE, &account)
+            .unwrap()
+            .get_password();
+        entry.delete_credential().unwrap();
+        assert_eq!(read_result.unwrap(), "temporary-packaging-test");
+        assert!(matches!(entry.get_password(), Err(keyring::Error::NoEntry)));
+    }
 
     #[test]
     fn stored_api_key_status_rejects_unknown_values() {

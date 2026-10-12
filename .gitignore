@@ -28,3 +28,7 @@ output/
 *.dmg
 *.app/
 *.pkg
+
+# Windows release downloads
+dist/
+*.exe

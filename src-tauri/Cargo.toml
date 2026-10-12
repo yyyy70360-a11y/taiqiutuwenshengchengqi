@@ -17,7 +17,7 @@ tauri-build = { version = "2.0.0", features = [] }
 [dependencies]
 base64 = "0.22"
 fontdb = "0.23"
-keyring = { version = "3", features = ["apple-native"] }
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 resvg = "0.45"
 rusqlite = { version = "0.32", features = ["bundled"] }

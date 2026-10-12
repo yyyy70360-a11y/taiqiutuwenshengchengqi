@@ -207,9 +207,17 @@ pub fn open_output_folder(app: AppHandle, path: Option<String>) -> Result<(), St
             .map_err(|error| format!("打开目录失败: {error}"))?;
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        Err("当前版本只实现 macOS 打开目录".into())
+        std::process::Command::new("explorer.exe")
+            .arg(&directory)
+            .spawn()
+            .map_err(|error| format!("打开目录失败: {error}"))?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        Err("当前平台暂不支持打开目录".into())
     }
 }
 
@@ -418,7 +426,12 @@ pub async fn generate_copy(
         cloud::generate_copy(&app, &prompt, template.as_deref()).await
     } else {
         let has_key = storage::get_api_key_status(&app).unwrap_or(false);
-        if !has_key && cloud::status(&app).await.map(|s| s.logged_in).unwrap_or(false) {
+        if !has_key
+            && cloud::status(&app)
+                .await
+                .map(|s| s.logged_in)
+                .unwrap_or(false)
+        {
             cloud::generate_copy(&app, &prompt, template.as_deref()).await
         } else {
             local_ai::generate_copy(&app, &prompt, template.as_deref()).await
@@ -438,7 +451,12 @@ pub async fn generate_batch_copy(
         cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
     } else {
         let has_key = storage::get_api_key_status(&app).unwrap_or(false);
-        if !has_key && cloud::status(&app).await.map(|s| s.logged_in).unwrap_or(false) {
+        if !has_key
+            && cloud::status(&app)
+                .await
+                .map(|s| s.logged_in)
+                .unwrap_or(false)
+        {
             cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
         } else {
             local_ai::generate_batch(&app, &prompt, count, template.as_deref()).await

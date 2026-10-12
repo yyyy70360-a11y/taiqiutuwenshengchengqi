@@ -11,13 +11,15 @@
 - 批量渲染支持统一模板、随机模板，或按数量分配多套模板（例如 5/3/2）。
 - 批量进度、失败和完成事件。
 - SQLite 预设、设置、账号、文案库和渲染历史元数据。
-- macOS Keychain 保存云登录会话；旧版本地 API Key 仅作为迁移兼容保留。
+- 本地直连 AI 支持自定义 URL、模型和 API Key，无需云账号。
+- macOS Keychain / Windows 凭据管理器保存本地 API Key 和云登录会话。
 - 云端登录、注册、会话刷新、退出、设置同步、账号同步和文案库同步。
 - 服务端 AI 网关支持单条 / 批量文案，接收模板 ID 并按模板容量做最终兜底。
 - 服务端后台支持管理首页、用户管理、AI 配置和 AI 调用记录。
 - 旧版 `settings.json`、`accounts.json` 和可用的 JSON 文案库一次性迁移。
 - 旧输出目录原样保留；不导入旧版 base64 预览历史。
 - `.app` 与 `.dmg` 打包。
+- Windows x64 NSIS `.exe` 安装包，详见 [WINDOWS_EXE.md](docs/WINDOWS_EXE.md)。
 
 ## 工程结构
 
@@ -111,7 +113,7 @@ SQLite 数据库位于：
 ~/Library/Application Support/com.billiards.matrix/billiards.sqlite3
 ```
 
-云登录会话使用 Keychain service `com.billiards.matrix`，account 为 `cloud_access_token` 与 `cloud_refresh_token`。旧版本地 API Key 使用同一 service 下的 `api_key`，仅用于旧数据迁移和兼容；新的 AI Provider Key 配置在服务器，不下发到客户端。
+云登录会话使用系统凭据 service `com.billiards.matrix`，account 为 `cloud_access_token` 与 `cloud_refresh_token`。本地直连 AI 的 API Key 使用同一 service 下的 `api_key`；云端模式的 AI Provider Key 由服务器保存。Windows 使用凭据管理器，macOS 使用 Keychain。
 
 首次启动会查找旧版开发目录及 `~/Documents/台球图文生成器`，只补充尚未存在的数据。迁移完成或确认无旧数据后写入版本标记，后续启动不会重复扫描或覆盖新设置。只有旧配置真正包含 API Key 时才在迁移中访问 Keychain。旧输出图片不移动、不删除。
 

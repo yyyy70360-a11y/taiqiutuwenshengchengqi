@@ -339,13 +339,23 @@ pub async fn test_connection(
     let base_url = url
         .filter(|u| !u.trim().is_empty())
         .map(String::from)
-        .or_else(|| settings.get("api_url").and_then(Value::as_str).map(String::from))
+        .or_else(|| {
+            settings
+                .get("api_url")
+                .and_then(Value::as_str)
+                .map(String::from)
+        })
         .unwrap_or_else(|| "https://api.deepseek.com/v1".into());
 
     let model_name = model
         .filter(|m| !m.trim().is_empty())
         .map(String::from)
-        .or_else(|| settings.get("api_model").and_then(Value::as_str).map(String::from))
+        .or_else(|| {
+            settings
+                .get("api_model")
+                .and_then(Value::as_str)
+                .map(String::from)
+        })
         .unwrap_or_else(|| "deepseek-chat".into());
 
     let key = match api_key.filter(|k| !k.trim().is_empty()) {
@@ -537,4 +547,3 @@ mod tests {
         assert_eq!(fitted.tags.split_whitespace().count(), 3);
     }
 }
-
