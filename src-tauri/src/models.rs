@@ -193,6 +193,7 @@ pub struct SettingsInput {
     pub api_url: Option<String>,
     pub api_key: Option<String>,
     pub api_model: Option<String>,
+    pub ai_mode: Option<String>,
     pub output_dir: Option<String>,
 }
 

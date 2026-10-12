@@ -444,6 +444,7 @@ pub async fn sync_download(app: &AppHandle) -> Result<CloudSyncResult, String> {
                 api_url: nonempty(remote_settings.api_url),
                 api_model: nonempty(remote_settings.api_model),
                 api_key: None,
+                ai_mode: None,
                 output_dir: None,
             },
             accounts,

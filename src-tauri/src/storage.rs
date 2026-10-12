@@ -158,8 +158,9 @@ pub fn get_presets(app: &AppHandle) -> Result<Vec<PresetInfo>, String> {
 pub fn get_settings(app: &AppHandle) -> Result<Value, String> {
     let conn = connection(app)?;
     let url = read_setting(&conn, "api_url")?
-        .unwrap_or_else(|| "https://api.deepseek.com/v1/chat/completions".into());
+        .unwrap_or_else(|| "https://api.deepseek.com/v1".into());
     let model = read_setting(&conn, "api_model")?.unwrap_or_else(|| "deepseek-chat".into());
+    let ai_mode = read_setting(&conn, "ai_mode")?.unwrap_or_else(|| "local".into());
     let api_key_configured =
         read_setting(&conn, "api_key_configured")?.and_then(|value| stored_api_key_status(&value));
     let output_dir = read_setting(&conn, "output_dir")?.unwrap_or_else(|| {
@@ -173,9 +174,15 @@ pub fn get_settings(app: &AppHandle) -> Result<Value, String> {
     Ok(json!({
         "api_url": url,
         "api_model": model,
+        "ai_mode": ai_mode,
         "api_key_configured": api_key_configured,
         "output_dir": output_dir
     }))
+}
+
+pub fn get_ai_mode(app: &AppHandle) -> Result<String, String> {
+    let conn = connection(app)?;
+    Ok(read_setting(&conn, "ai_mode")?.unwrap_or_else(|| "local".into()))
 }
 
 pub fn get_api_key_status(app: &AppHandle) -> Result<bool, String> {
@@ -187,6 +194,15 @@ pub fn get_api_key_status(app: &AppHandle) -> Result<bool, String> {
         if configured { "true" } else { "false" },
     )?;
     Ok(configured)
+}
+
+pub fn clear_api_key(app: &AppHandle) -> Result<(), String> {
+    let conn = connection(app)?;
+    if let Ok(entry) = keychain_entry() {
+        let _ = entry.delete_credential();
+    }
+    write_setting(&conn, "api_key_configured", "false")?;
+    Ok(())
 }
 
 pub fn output_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -210,6 +226,9 @@ pub fn set_settings(app: &AppHandle, settings: SettingsInput) -> Result<(), Stri
     }
     if let Some(value) = settings.api_model.filter(|value| !value.trim().is_empty()) {
         write_setting(&conn, "api_model", &value)?;
+    }
+    if let Some(value) = settings.ai_mode.filter(|value| !value.trim().is_empty()) {
+        write_setting(&conn, "ai_mode", &value)?;
     }
     if let Some(value) = settings.output_dir.filter(|value| !value.trim().is_empty()) {
         validate_output_dir(&PathBuf::from(&value))?;
@@ -685,7 +704,7 @@ fn keychain_entry() -> Result<keyring::Entry, String> {
         .map_err(|error| format!("访问系统钥匙串失败: {error}"))
 }
 
-fn read_api_key() -> Result<Option<String>, String> {
+pub fn read_api_key() -> Result<Option<String>, String> {
     match keychain_entry()?.get_password() {
         Ok(value) if value.trim().is_empty() => Ok(None),
         Ok(value) => Ok(Some(value)),

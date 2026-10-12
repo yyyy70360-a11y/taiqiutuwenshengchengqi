@@ -1,5 +1,5 @@
 use crate::{
-    cloud,
+    cloud, local_ai,
     models::{
         Account, CloudStatus, CloudSyncResult, CopyFitLimits, CopyItem, JobComplete, JobFailure,
         JobProgress, PresetInfo, RenderRequest, RenderResponse, SettingsInput, StartupStatus,
@@ -393,12 +393,37 @@ pub fn migrate_copy_library(app: AppHandle, items: Vec<CopyItem>) -> Result<usiz
 }
 
 #[tauri::command]
+pub async fn test_local_ai(
+    app: AppHandle,
+    url: Option<String>,
+    model: Option<String>,
+    api_key: Option<String>,
+) -> Result<String, String> {
+    local_ai::test_connection(&app, url.as_deref(), model.as_deref(), api_key.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn clear_local_api_key(app: AppHandle) -> Result<(), String> {
+    storage::clear_api_key(&app)
+}
+
+#[tauri::command]
 pub async fn generate_copy(
     app: AppHandle,
     prompt: String,
     template: Option<String>,
 ) -> Result<CopyItem, String> {
-    cloud::generate_copy(&app, &prompt, template.as_deref()).await
+    let mode = storage::get_ai_mode(&app).unwrap_or_else(|_| "local".into());
+    if mode == "cloud" {
+        cloud::generate_copy(&app, &prompt, template.as_deref()).await
+    } else {
+        let has_key = storage::get_api_key_status(&app).unwrap_or(false);
+        if !has_key && cloud::status(&app).await.map(|s| s.logged_in).unwrap_or(false) {
+            cloud::generate_copy(&app, &prompt, template.as_deref()).await
+        } else {
+            local_ai::generate_copy(&app, &prompt, template.as_deref()).await
+        }
+    }
 }
 
 #[tauri::command]
@@ -408,7 +433,17 @@ pub async fn generate_batch_copy(
     count: usize,
     template: Option<String>,
 ) -> Result<Vec<CopyItem>, String> {
-    cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
+    let mode = storage::get_ai_mode(&app).unwrap_or_else(|_| "local".into());
+    if mode == "cloud" {
+        cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
+    } else {
+        let has_key = storage::get_api_key_status(&app).unwrap_or(false);
+        if !has_key && cloud::status(&app).await.map(|s| s.logged_in).unwrap_or(false) {
+            cloud::generate_batch(&app, &prompt, count, template.as_deref()).await
+        } else {
+            local_ai::generate_batch(&app, &prompt, count, template.as_deref()).await
+        }
+    }
 }
 
 fn response_for(request: &RenderRequest) -> Result<RenderResponse, String> {

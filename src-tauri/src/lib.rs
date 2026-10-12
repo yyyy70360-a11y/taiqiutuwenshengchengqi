@@ -1,5 +1,6 @@
 mod cloud;
 mod commands;
+mod local_ai;
 mod models;
 mod render;
 mod storage;
@@ -17,6 +18,8 @@ pub fn run() {
             commands::get_settings,
             commands::set_settings,
             commands::get_api_key_status,
+            commands::test_local_ai,
+            commands::clear_local_api_key,
             commands::get_cloud_status,
             commands::validate_cloud_session,
             commands::startup_check,
