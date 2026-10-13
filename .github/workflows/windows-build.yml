@@ -26,6 +26,8 @@ jobs:
           node-version: 22
       - name: Check formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Check prompt scripts
+        run: node --check frontend/match-prompts.js
       - name: Test Windows client
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Check Windows client
@@ -44,6 +46,7 @@ jobs:
           Copy-Item $installer.FullName dist/
           Copy-Item src-tauri/target/release/billiards_matrix.exe dist/
           Copy-Item docs/WINDOWS_EXE.md dist/README.md
+          Copy-Item docs/MATCH_BUDDY_PROMPTS.md dist/
           New-Item -ItemType Directory -Path dist/fonts -Force | Out-Null
           Copy-Item src-tauri/fonts/OFL.txt, src-tauri/fonts/NOTICE.md dist/fonts/
           Get-ChildItem dist/*.exe | ForEach-Object {

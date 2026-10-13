@@ -165,6 +165,12 @@ td textarea{min-height:48px;resize:vertical}
       <div class="field" style="margin:0"><label>性格</label><select id="gPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div>
     </div>
     <div class="field"><label>语气</label><select id="gTone"></select></div>
+    <div id="gMatchFields" class="field" hidden>
+      <label for="gMatchDetails">比赛条件（可修改）</label>
+      <textarea id="gMatchDetails" placeholder="如：限1–3档，免报名费，一天打完；败方结台费">限1–3档，免报名费，一天打完</textarea>
+      <div id="gMatchHint" style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:6px"></div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:4px">用比赛条件找同伴。只填已确认的条件，不需要赛事名称、电话或完整赛程。</div>
+    </div>
     <label class="inline-check"><input type="checkbox" id="useEmoji"> 文案含表情</label>
     <button id="generatePromptButton" type="button" class="sec" style="margin-bottom:8px" title="根据上方人设配置生成提示词" data-tip="根据上方人设配置生成创作方向">生成提示词</button>
     <div class="field"><label>提示词（可编辑）</label><textarea id="promptView" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:80px" data-tip="可直接编辑，发送给 AI 前会自动校验"></textarea></div>
@@ -194,6 +200,12 @@ td textarea{min-height:48px;resize:vertical}
     <div class="row"><div class="field"><label>区域</label><input id="bRegion" value="斗门"></div><div class="field"><label>性格</label><select id="bPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div></div>
     <div class="row"><div class="field"><label>语气</label><select id="bTone"></select></div><div class="field"><label>生成数量</label><input id="bCount" type="number" value="10" min="1" max="100"></div></div>
     <label class="inline-check"><input type="checkbox" id="bUseEmoji"> 文案含表情</label>
+    <div id="bMatchFields" class="field" hidden>
+      <label for="bMatchDetails">比赛条件（可修改）</label>
+      <textarea id="bMatchDetails" placeholder="如：限1–3档，免报名费，一天打完；败方结台费">限1–3档，免报名费，一天打完</textarea>
+      <div id="bMatchHint" style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:6px"></div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:4px">用比赛条件找同伴。只填已确认的条件，不需要赛事名称、电话或完整赛程。</div>
+    </div>
     <div class="row"><div class="field"><label>模板模式</label><select id="bTplMode"><option value="single" selected>统一模板</option><option value="random">随机模板</option><option value="mix">自定义分配</option></select></div><div class="field" id="bTplUniformWrap"><label>渲染模板</label><select id="bTpl"></select></div></div>
     <div id="bTplMixWrap" class="template-mix" hidden><label>模板数量分配</label><div id="bTplMix"></div><div id="bTplMixSummary" class="template-mix-summary">总计 0 张</div></div>
     <div id="batchFitHint" class="copy-fit-hint" aria-live="polite"></div>
@@ -308,6 +320,7 @@ td textarea{min-height:48px;resize:vertical}
   <div class="item" style="margin-left:auto">已渲染: <span id="statCnt" style="color:var(--accent)">0</span></div>
 </div>
 <div class="lightbox" id="lightbox"><span class="close" id="lightboxClose" role="button" aria-label="关闭预览" tabindex="0">&times;</span><img id="lbImg" alt="放大预览"></div>
+<script src="match-prompts.js"></script>
 <script>
 const tauriInvoke=window.__TAURI__?.core?.invoke;
 const tauriListen=window.__TAURI__?.event?.listen;
@@ -423,7 +436,9 @@ function syncTextColorInputs(prefix=""){const enabled=document.getElementById((p
 let tooltipEl=null;
 function initTooltips(){tooltipEl=document.createElement("div");tooltipEl.className="ui-tooltip";document.body.appendChild(tooltipEl);document.querySelectorAll("[data-tip]").forEach(el=>{const show=event=>{const tip=el.getAttribute("data-tip");if(!tip)return;tooltipEl.textContent=tip;tooltipEl.classList.add("show");move(event)};const move=event=>{if(!tooltipEl.classList.contains("show"))return;const pad=14,x=Math.min(window.innerWidth-300,Math.max(12,event.clientX+14)),y=Math.min(window.innerHeight-90,Math.max(12,event.clientY+16));tooltipEl.style.transform=`translate3d(${x}px,${y}px,0) scale(1)`};const hide=()=>tooltipEl.classList.remove("show");el.addEventListener("mouseenter",show);el.addEventListener("mousemove",move);el.addEventListener("mouseleave",hide)})}
 function typographyPayload(prefix=""){const custom=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;const family=document.getElementById((prefix?prefix+"FontFamily":"fontFamily"))?.value||"theme";return{fontFamily:family,titleWeight:parseInt(document.getElementById((prefix?prefix+"TitleWeight":"titleWeight"))?.value)||0,bodyWeight:parseInt(document.getElementById((prefix?prefix+"BodyWeight":"bodyWeight"))?.value)||0,titleColor:custom?(document.getElementById((prefix?prefix+"TitleColor":"titleColor"))?.value||""):"",bodyColor:custom?(document.getElementById((prefix?prefix+"BodyColor":"bodyColor"))?.value||""):"",tagColor:custom?(document.getElementById((prefix?prefix+"TagColor":"tagColor"))?.value||""):""}}
-function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",toneInfo=resolveTone(prefix),tone=toneInfo.tone,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${toneInfo.guide}\n\n【题材】\n${theme}\n\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
+function populateMatchThemes(){["g","b"].forEach(prefix=>{const group=document.createElement("optgroup");group.label="比赛找搭子";MatchPrompts.scenarios.forEach(scenario=>{const option=document.createElement("option");option.value=scenario.name;option.textContent=scenario.name;group.appendChild(option)});document.getElementById(prefix+"Theme").appendChild(group);updateMatchFields(prefix)})}
+function updateMatchFields(prefix){const scenario=MatchPrompts.findScenario(document.getElementById(prefix+"Theme").value);document.getElementById(prefix+"MatchFields").hidden=!scenario;document.getElementById(prefix+"MatchHint").textContent=scenario?"开头口吻参考："+scenario.opening:""}
+function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",toneInfo=resolveTone(prefix),tone=toneInfo.tone,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();const matchBrief=MatchPrompts.buildBrief(theme,document.getElementById(prefix+"MatchDetails").value);return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${toneInfo.guide}\n\n【题材】\n${theme}\n${matchBrief?"\n"+matchBrief+"\n":""}\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. ${matchBrief?"结尾自然问有没有一起的、评论聊聊或群里约着去，任选一种，不要机械要求每条都进群。":"结尾自然引导进约球群，可用“进群”“群里”。"}不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
 function setPromptValue(output,prompt){output.value=prompt;output.dispatchEvent(new Event("input",{bubbles:true}));output.classList.add("prompt-generated");window.setTimeout(()=>output.classList.remove("prompt-generated"),1200)}
 function writeGeneratedPrompt(outputId,prompt,button){const output=document.getElementById(outputId);setPromptValue(output,prompt);output.scrollIntoView({block:"nearest"});button.textContent="已生成";window.setTimeout(()=>button.textContent="生成提示词",1200)}
 function updPrompt(button=document.getElementById("generatePromptButton")){writeGeneratedPrompt("promptView",buildCopyPrompt("g"),button)}
@@ -551,8 +566,12 @@ function bindStaticEvents(){
   document.getElementById("batchGenerateCopyButton").addEventListener("click",event=>bGen(event.currentTarget));
   ["gTheme","gLevel","gPersona","gTone","useEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("g","promptView")));
   document.getElementById("gRegion").addEventListener("input",()=>refreshPromptFromConfig("g","promptView"));
+  document.getElementById("gTheme").addEventListener("change",()=>updateMatchFields("g"));
+  document.getElementById("gMatchDetails").addEventListener("input",()=>refreshPromptFromConfig("g","promptView"));
   ["bTheme","bLevel","bPersona","bTone","bUseEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("b","bPrompt")));
   document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
+  document.getElementById("bTheme").addEventListener("change",()=>updateMatchFields("b"));
+  document.getElementById("bMatchDetails").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);
   document.getElementById("bTpl").addEventListener("change",()=>{updateTemplateMixSummary();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")});
   document.getElementById("bCount").addEventListener("input",()=>{resetRandomTemplatePlan();updateTemplateMixSummary();updateBatchCapacityStatuses()});
@@ -586,6 +605,7 @@ function bindStaticEvents(){
   close.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();closeLightbox()}});
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
 }
+populateMatchThemes();
 populateToneSelects();
 syncTextColorInputs();
 syncTextColorInputs("b");
