@@ -21,6 +21,8 @@ pub struct RenderRequest {
     pub glow2: String,
     #[serde(default = "default_accent")]
     pub accent: String,
+    #[serde(default = "default_color_mode")]
+    pub color_mode: String,
     #[serde(default = "default_font_family")]
     pub font_family: String,
     #[serde(default)]
@@ -49,6 +51,7 @@ impl Default for RenderRequest {
             glow1: default_glow1(),
             glow2: default_glow2(),
             accent: default_accent(),
+            color_mode: "theme".into(),
             font_family: default_font_family(),
             title_weight: 0,
             body_weight: 0,
@@ -75,6 +78,11 @@ fn default_glow2() -> String {
 fn default_accent() -> String {
     "#FF5E62".into()
 }
+
+fn default_color_mode() -> String {
+    // Existing callers supplying colors keep their custom-color behavior.
+    "custom".into()
+}
 fn default_font_family() -> String {
     "theme".into()
 }
@@ -94,6 +102,16 @@ pub struct TemplateInfo {
     pub name: String,
     #[serde(rename = "copyLimits")]
     pub copy_limits: CopyFitLimits,
+    #[serde(rename = "themeColors")]
+    pub theme_colors: TemplateColors,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateColors {
+    pub glow1: String,
+    pub glow2: String,
+    pub accent: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]

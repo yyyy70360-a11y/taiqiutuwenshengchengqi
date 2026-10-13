@@ -126,8 +126,9 @@ fn font_database() -> Arc<fontdb::Database> {
         .get_or_init(|| {
             let mut database = fontdb::Database::new();
             database.load_font_data(include_bytes!("../fonts/NotoSansCJKsc-Regular.otf").to_vec());
-            database
-                .load_font_data(include_bytes!("../fonts/NotoSerifCJKsc-SemiBold.otf").to_vec());
+            database.load_font_data(include_bytes!("../fonts/NotoSerifCJKsc-Regular.otf").to_vec());
+            database.load_font_data(include_bytes!("../fonts/NotoSansMono-Regular.ttf").to_vec());
+            database.load_font_data(include_bytes!("../fonts/NotoEmoji-Variable.ttf").to_vec());
             Arc::new(database)
         })
         .clone()
@@ -187,7 +188,16 @@ fn generated_template_seed(template: &str) -> Option<usize> {
 }
 
 pub fn svg_for(request: &RenderRequest) -> String {
-    let svg = if let Some(seed) = generated_template_seed(request.template.as_str()) {
+    let svg = if request.template == "newspaper" {
+        newspaper(request)
+    } else if request.template == "vaporwave" {
+        vaporwave(request)
+    } else if matches!(
+        request.template.as_str(),
+        "arena_score" | "scoreboard_green" | "tournament_bracket"
+    ) {
+        match_board(request)
+    } else if let Some(seed) = generated_template_seed(request.template.as_str()) {
         designed_template(request, seed)
     } else {
         match request.template.as_str() {
@@ -224,7 +234,7 @@ fn magazine(request: &RenderRequest) -> String {
         content_x,
         570,
         &colors.text,
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         700,
         1.25,
     );
@@ -238,7 +248,7 @@ fn magazine(request: &RenderRequest) -> String {
         body_y,
         1370,
         &colors.body,
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.65,
     );
@@ -254,7 +264,7 @@ fn magazine(request: &RenderRequest) -> String {
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
         <defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><filter id='shadow'><feGaussianBlur stdDeviation='24'/></filter></defs>
         <rect width='100%' height='100%' fill='#0E0E14'/><circle cx='930' cy='90' r='420' fill='{g1}' opacity='.28' filter='url(#shadow)'/><circle cx='90' cy='1790' r='360' fill='{g2}' opacity='.24' filter='url(#shadow)'/>
-        <rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='40' fill='#FFFFFF' opacity='.98'/><text x='{content_x}' y='390' fill='{accent}' font-size='64' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text><line x1='260' y1='366' x2='600' y2='366' stroke='{accent}' stroke-width='2' opacity='.7'/><text x='{content_right}' y='390' text-anchor='end' fill='{accent}' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>
+        <rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='40' fill='#FFFFFF' opacity='.98'/><text x='{content_x}' y='390' fill='{accent}' font-size='64' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text><line x1='260' y1='366' x2='600' y2='366' stroke='{accent}' stroke-width='2' opacity='.7'/><text x='{content_right}' y='390' text-anchor='end' fill='{accent}' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>
         {title}<rect x='{content_x}' y='{divider_y}' width='120' height='6' rx='3' fill='{accent}'/>{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='#EEEEEE'/>{tags}
         </svg>",
         g1 = colors.g1, g2 = colors.g2, accent = colors.accent, num = xml(&request.num), tag = xml(&request.tag)
@@ -273,7 +283,7 @@ fn magazine_pro(request: &RenderRequest) -> String {
         content_x,
         560,
         "#1A1A1A",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         700,
         1.24,
     );
@@ -286,7 +296,7 @@ fn magazine_pro(request: &RenderRequest) -> String {
         body_y,
         1370,
         "#333333",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
@@ -302,7 +312,7 @@ fn magazine_pro(request: &RenderRequest) -> String {
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
         <defs><radialGradient id='g1'><stop stop-color='{g1}' stop-opacity='.9'/><stop offset='1' stop-color='{g1}' stop-opacity='0'/></radialGradient><radialGradient id='g2'><stop stop-color='{g2}' stop-opacity='.85'/><stop offset='1' stop-color='{g2}' stop-opacity='0'/></radialGradient><linearGradient id='card' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#FFFFFF'/><stop offset='1' stop-color='#F6F6FB'/></linearGradient></defs>
         <rect width='100%' height='100%' fill='#0A0A12'/><circle cx='940' cy='80' r='470' fill='url(#g1)'/><circle cx='90' cy='1780' r='430' fill='url(#g2)'/><circle cx='580' cy='980' r='260' fill='{accent}' opacity='.16'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36' fill='url(#card)'/><rect x='61' y='221' width='958' height='1478' rx='35' fill='none' stroke='{accent}' stroke-opacity='.35' stroke-width='2'/>
-        <text x='{content_x}' y='390' fill='{accent}' font-size='72' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text><line x1='260' y1='368' x2='610' y2='368' stroke='{accent}' stroke-opacity='.55'/><text x='{content_right}' y='390' text-anchor='end' fill='{accent}' font-size='26' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='#ECECF0'/>{tags}
+        <text x='{content_x}' y='390' fill='{accent}' font-size='72' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text><line x1='260' y1='368' x2='610' y2='368' stroke='{accent}' stroke-opacity='.55'/><text x='{content_right}' y='390' text-anchor='end' fill='{accent}' font-size='26' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='#ECECF0'/>{tags}
         </svg>",
         g1 = colors.g1, g2 = colors.g2, accent = colors.accent, num = xml(&request.num), tag = xml(&request.tag)
     )
@@ -320,7 +330,7 @@ fn fresh(request: &RenderRequest) -> String {
         content_x,
         540,
         "#1A1A1A",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         700,
         1.26,
     );
@@ -334,13 +344,13 @@ fn fresh(request: &RenderRequest) -> String {
         body_y,
         1370,
         "#333333",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
     let tags = tag_pills(&request.tags, &colors.g1, content_x, content_right, 1480);
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><clipPath id='fresh-card-clip'><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36'/></clipPath></defs><rect width='100%' height='100%' fill='url(#bg)'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36' fill='#FFFFFF'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='10' fill='{accent}' clip-path='url(#fresh-card-clip)'/>{pill}<text x='152' y='376' fill='#FFFFFF' font-size='34' font-weight='600' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<rect x='{content_x}' y='{divider_y}' width='96' height='6' rx='3' fill='{accent}'/>{body}{tags}</svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><clipPath id='fresh-card-clip'><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36'/></clipPath></defs><rect width='100%' height='100%' fill='url(#bg)'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36' fill='#FFFFFF'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='10' fill='{accent}' clip-path='url(#fresh-card-clip)'/>{pill}<text x='152' y='376' fill='#FFFFFF' font-size='34' font-weight='600' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<rect x='{content_x}' y='{divider_y}' width='96' height='6' rx='3' fill='{accent}'/>{body}{tags}</svg>",
         g1 = colors.g1, g2 = colors.g2, accent = colors.accent, tag = xml(&request.tag), pill = "<rect x='124' y='330' width='260' height='68' rx='30' fill='#1A1A1A' opacity='.9'/>"
     )
 }
@@ -357,7 +367,7 @@ fn minimal(request: &RenderRequest) -> String {
         content_x,
         500,
         "#111111",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         700,
         1.22,
     );
@@ -371,14 +381,14 @@ fn minimal(request: &RenderRequest) -> String {
         body_y,
         1490,
         "#333333",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.66,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1610, "#999999", 30);
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#FAFAF7'/><text x='{content_x}' y='330' fill='{accent}' font-size='28' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{divider_y}' x2='{content_right}' y2='{divider_y}' stroke='#DDDDDD'/>{body}{tags}</svg>",
-        accent = colors.accent, tag = xml(&request.tag)
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='minimal-accent' x2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient></defs><rect width='100%' height='100%' fill='#FAFAF7'/><text x='{content_x}' y='330' fill='{accent}' font-size='28' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{divider_y}' x2='{content_right}' y2='{divider_y}' stroke='url(#minimal-accent)' stroke-width='3'/>{body}{tags}</svg>",
+        g1 = colors.g1, g2 = colors.g2, accent = colors.accent, tag = xml(&request.tag)
     )
 }
 
@@ -394,7 +404,7 @@ fn poster(request: &RenderRequest) -> String {
         content_x,
         500,
         "#FFFFFF",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.18,
     );
@@ -408,14 +418,14 @@ fn poster(request: &RenderRequest) -> String {
         body_y,
         1490,
         "#F1F1F1",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1630, "#D7E7F0", 30);
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#bg)'/><circle cx='980' cy='420' r='260' fill='#FFFFFF' opacity='.12'/><text x='{content_x}' y='330' fill='#FFFFFF' fill-opacity='.8' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<rect x='{content_x}' y='{divider_y}' width='100' height='5' rx='2' fill='#FFFFFF' opacity='.8'/>{body}{tags}</svg>",
-        g1 = colors.g1, g2 = colors.g2, tag = xml(&request.tag)
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#bg)'/><circle cx='980' cy='420' r='260' fill='#FFFFFF' opacity='.12'/><text x='{content_x}' y='330' fill='{accent}' fill-opacity='.8' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<rect x='{content_x}' y='{divider_y}' width='100' height='5' rx='2' fill='{accent}' opacity='.8'/>{body}{tags}</svg>",
+        g1 = colors.g1, g2 = colors.g2, accent = colors.accent, tag = xml(&request.tag)
     )
 }
 
@@ -431,7 +441,7 @@ fn journal(request: &RenderRequest) -> String {
         content_x,
         540,
         "#3A2A10",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         700,
         1.26,
     );
@@ -444,14 +454,14 @@ fn journal(request: &RenderRequest) -> String {
         body_y,
         1380,
         "#4A3820",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1520, "#9A7A40", 30);
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#F5EFE0'/><path d='M0 500H1080M0 580H1080M0 660H1080M0 740H1080M0 820H1080M0 900H1080M0 980H1080M0 1060H1080M0 1140H1080M0 1220H1080M0 1300H1080M0 1380H1080' stroke='#8A6A3A' stroke-opacity='.08'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='28' fill='#FFFBF0'/><rect x='61' y='221' width='958' height='1478' rx='27' fill='none' stroke='{accent}' stroke-opacity='.2' stroke-width='2'/><rect x='460' y='200' width='160' height='44' rx='4' fill='{accent}' opacity='.35'/><text x='{content_x}' y='390' fill='{accent}' font-size='32' font-weight='600' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><line x1='{content_x}' y1='415' x2='360' y2='415' stroke='{accent}' stroke-width='3'/>{title}{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='{accent}' stroke-opacity='.18'/>{tags}</svg>",
-        accent = colors.accent, tag = xml(&request.tag)
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='journal-bg' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#journal-bg)'/><path d='M0 500H1080M0 580H1080M0 660H1080M0 740H1080M0 820H1080M0 900H1080M0 980H1080M0 1060H1080M0 1140H1080M0 1220H1080M0 1300H1080M0 1380H1080' stroke='#8A6A3A' stroke-opacity='.08'/><rect x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='28' fill='#FFFBF0'/><rect x='61' y='221' width='958' height='1478' rx='27' fill='none' stroke='{accent}' stroke-opacity='.2' stroke-width='2'/><rect x='460' y='200' width='160' height='44' rx='4' fill='{accent}' opacity='.35'/><text x='{content_x}' y='390' fill='{accent}' font-size='32' font-weight='600' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><line x1='{content_x}' y1='415' x2='360' y2='415' stroke='{accent}' stroke-width='3'/>{title}{body}<line x1='{content_x}' y1='1450' x2='{content_right}' y2='1450' stroke='{accent}' stroke-opacity='.18'/>{tags}</svg>",
+        g1 = colors.g1, g2 = colors.g2, accent = colors.accent, tag = xml(&request.tag)
     )
 }
 
@@ -467,7 +477,7 @@ fn neon(request: &RenderRequest) -> String {
         content_x,
         520,
         "#F7FBFF",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.2,
     );
@@ -480,7 +490,7 @@ fn neon(request: &RenderRequest) -> String {
         body_y,
         1400,
         "#D7F7FF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
@@ -491,8 +501,8 @@ fn neon(request: &RenderRequest) -> String {
         <rect width='100%' height='100%' fill='url(#neon-bg)'/>
         <path d='M0 320H1080M0 520H1080M0 720H1080M0 920H1080M0 1120H1080M0 1320H1080M0 1520H1080' stroke='{g1}' stroke-opacity='.12'/><path d='M120 0V1920M320 0V1920M520 0V1920M720 0V1920M920 0V1920' stroke='{g2}' stroke-opacity='.10'/>
         <rect x='70' y='230' width='940' height='1450' rx='34' fill='#0C1026' stroke='{g1}' stroke-width='3'/><rect x='72' y='232' width='936' height='1446' rx='32' fill='none' stroke='{g2}' stroke-width='2' opacity='.7' filter='url(#neon-glow)'/>
-        <text x='{content_x}' y='392' fill='{g2}' font-size='36' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='{g1}' font-size='70' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
-        {title}<line x1='{content_x}' y='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{g2}' stroke-width='2' opacity='.55'/>{body}{tags}
+        <text x='{content_x}' y='392' fill='{g2}' font-size='36' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='{g1}' font-size='70' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>
+        {title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{g2}' stroke-width='2' opacity='.55'/>{body}{tags}
         </svg>",
         g1 = colors.g1,
         g2 = colors.g2,
@@ -512,9 +522,9 @@ fn newspaper(request: &RenderRequest) -> String {
         3,
         72,
         content_x,
-        500,
+        520,
         "#1B1B18",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.18,
     );
@@ -527,17 +537,18 @@ fn newspaper(request: &RenderRequest) -> String {
         body_y,
         1450,
         "#2D2A24",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         400,
         1.58,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1585, "#686050", 28);
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>
-        <rect width='100%' height='100%' fill='#E7DDC8'/><path d='M0 0H1080V1920H0Z' fill='#F5EEDC'/><path d='M80 210H1000V1710H80Z' fill='none' stroke='#1B1B18' stroke-width='3'/><path d='M90 220H990V1700H90Z' fill='none' stroke='#1B1B18' stroke-width='1' opacity='.45'/>
-        <text x='92' y='345' fill='#1B1B18' font-size='30' font-weight='700' letter-spacing='5' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>BILLIARDS DAILY</text><text x='988' y='345' text-anchor='end' fill='{accent}' font-size='30' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{num}</text><line x1='92' y1='378' x2='988' y2='378' stroke='#1B1B18' stroke-width='4'/><line x1='92' y1='392' x2='988' y2='392' stroke='#1B1B18'/>
-        <text x='{content_x}' y='438' fill='{accent}' font-size='24' letter-spacing='4' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#1B1B18' stroke-width='2'/>{body}{tags}
+        <rect width='100%' height='100%' fill='{g1}'/><rect width='1080' height='1920' fill='{g2}' opacity='.45'/><rect id='content-surface' x='60' y='200' width='960' height='1520' rx='12' fill='#F5EEDC'/><path d='M80 210H1000V1710H80Z' fill='none' stroke='#1B1B18' stroke-width='3'/><path d='M90 220H990V1700H90Z' fill='none' stroke='#1B1B18' stroke-width='1' opacity='.45'/>
+        <text x='92' y='345' fill='#1B1B18' font-size='30' font-weight='700' letter-spacing='5' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>BILLIARDS DAILY</text><text x='988' y='345' text-anchor='end' fill='{accent}' font-size='30' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{num}</text><line x1='92' y1='378' x2='988' y2='378' stroke='#1B1B18' stroke-width='4'/><line x1='92' y1='392' x2='988' y2='392' stroke='#1B1B18'/>
+        <text x='{content_x}' y='438' fill='{accent}' font-size='24' letter-spacing='4' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#1B1B18' stroke-width='2'/>{body}{tags}
         </svg>",
+        g1 = colors.g1, g2 = colors.g2,
         accent = colors.accent,
         num = xml(&request.num),
         tag = xml(&request.tag),
@@ -556,7 +567,7 @@ fn blueprint(request: &RenderRequest) -> String {
         content_x,
         520,
         "#F3FEFF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         800,
         1.22,
     );
@@ -569,7 +580,7 @@ fn blueprint(request: &RenderRequest) -> String {
         body_y,
         1410,
         "#CDEEFF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.6,
     );
@@ -579,7 +590,7 @@ fn blueprint(request: &RenderRequest) -> String {
         <defs><pattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'><path d='M40 0H0V40' fill='none' stroke='#7CCFFF' stroke-opacity='.18' stroke-width='1'/></pattern><pattern id='grid-big' width='200' height='200' patternUnits='userSpaceOnUse'><path d='M200 0H0V200' fill='none' stroke='#7CCFFF' stroke-opacity='.35' stroke-width='2'/></pattern></defs>
         <rect width='100%' height='100%' fill='#06304B'/><rect width='100%' height='100%' fill='url(#grid)'/><rect width='100%' height='100%' fill='url(#grid-big)'/>
         <rect x='72' y='230' width='936' height='1450' fill='none' stroke='#BDEEFF' stroke-width='3'/><circle cx='900' cy='392' r='60' fill='none' stroke='#BDEEFF' stroke-opacity='.45'/><path d='M104 390H720M104 420H580' stroke='#BDEEFF' stroke-opacity='.7'/>
-        <text x='{content_x}' y='360' fill='#BDEEFF' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='390' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='800' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{num}</text>
+        <text x='{content_x}' y='360' fill='#BDEEFF' font-size='30' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='390' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='800' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{num}</text>
         {title}<path d='M{content_x} {line_y}H{content_right}' stroke='#BDEEFF' stroke-dasharray='18 12'/>{body}{tags}</svg>",
         num = xml(&request.num),
         tag = xml(&request.tag),
@@ -599,7 +610,7 @@ fn polaroid(request: &RenderRequest) -> String {
         content_x,
         580,
         "#222222",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         800,
         1.22,
     );
@@ -612,7 +623,7 @@ fn polaroid(request: &RenderRequest) -> String {
         body_y,
         1390,
         "#3D3D3D",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.64,
     );
@@ -622,7 +633,7 @@ fn polaroid(request: &RenderRequest) -> String {
         <defs><linearGradient id='photo-bg' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><filter id='paper-shadow'><feDropShadow dx='0' dy='20' stdDeviation='20' flood-opacity='.28'/></filter></defs>
         <rect width='100%' height='100%' fill='#201C22'/><circle cx='120' cy='180' r='330' fill='{g1}' opacity='.22'/><circle cx='980' cy='1740' r='380' fill='{g2}' opacity='.22'/>
         <g filter='url(#paper-shadow)'><rect x='82' y='260' width='916' height='1380' rx='18' fill='#FFFDF8'/><rect x='122' y='310' width='836' height='260' rx='14' fill='url(#photo-bg)'/><circle cx='810' cy='400' r='70' fill='#FFFFFF' opacity='.35'/><path d='M122 570L340 410L520 530L682 440L958 570Z' fill='#FFFFFF' opacity='.24'/></g>
-        <text x='{content_x}' y='438' fill='#FFFFFF' font-size='34' font-weight='700' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='1540' text-anchor='end' fill='{accent}' font-size='60' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
+        <text x='{content_x}' y='438' fill='#FFFFFF' font-size='34' font-weight='700' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='1540' text-anchor='end' fill='{accent}' font-size='60' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>
         {title}<rect x='{content_x}' y='{line_y}' width='120' height='5' rx='2' fill='{accent}'/>{body}{tags}</svg>",
         g1 = colors.g1,
         g2 = colors.g2,
@@ -645,7 +656,7 @@ fn scoreboard(request: &RenderRequest) -> String {
         content_x,
         545,
         "#F7FFF2",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         900,
         1.2,
     );
@@ -658,15 +669,15 @@ fn scoreboard(request: &RenderRequest) -> String {
         body_y,
         1415,
         "#DFFFE0",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#A8F5A1", 28);
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#07120A'/><rect x='62' y='220' width='956' height='1480' rx='30' fill='#0B2512' stroke='#71FF64' stroke-opacity='.45' stroke-width='3'/><rect x='92' y='300' width='896' height='150' rx='14' fill='#102F18' stroke='#71FF64' stroke-opacity='.35'/>
-        <text x='118' y='394' fill='#71FF64' font-size='40' font-weight='900' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>SCORE</text><text x='920' y='408' text-anchor='end' fill='{accent}' font-size='86' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>
-        <text x='{content_x}' y='492' fill='#71FF64' font-size='26' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#71FF64' stroke-opacity='.55'/>{body}{tags}</svg>",
+        <text x='118' y='394' fill='#71FF64' font-size='40' font-weight='900' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>SCORE</text><text x='920' y='408' text-anchor='end' fill='{accent}' font-size='86' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>
+        <text x='{content_x}' y='492' fill='#71FF64' font-size='26' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#71FF64' stroke-opacity='.55'/>{body}{tags}</svg>",
         accent = colors.accent,
         num = xml(&request.num),
         tag = xml(&request.tag),
@@ -675,6 +686,7 @@ fn scoreboard(request: &RenderRequest) -> String {
 }
 
 fn vaporwave(request: &RenderRequest) -> String {
+    let colors = colors(request);
     let content_x = 112;
     let content_right = 968;
     let (title, title_last_y) = text_lines(
@@ -685,7 +697,7 @@ fn vaporwave(request: &RenderRequest) -> String {
         content_x,
         565,
         "#FFFFFF",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.18,
     );
@@ -696,16 +708,23 @@ fn vaporwave(request: &RenderRequest) -> String {
         44,
         content_x,
         body_y,
-        1410,
+        1320,
         "#FFF2FF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
-    let tags = tag_pills(&request.tags, "#FF4FD8", content_x, content_right, 1510);
+    let tags = tag_pills(
+        &request.tags,
+        &colors.accent,
+        content_x,
+        content_right,
+        1440,
+    );
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='vap' x1='0' y1='0' x2='0' y2='1'><stop stop-color='#3A1C71'/><stop offset='.52' stop-color='#D76D77'/><stop offset='1' stop-color='#FFAF7B'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#vap)'/><circle cx='540' cy='410' r='190' fill='#FFD45E'/><path d='M350 365H730M330 420H750M360 475H720M410 530H670' stroke='#3A1C71' stroke-width='18' opacity='.48'/><path d='M0 1520L260 1180L420 1390L590 1120L1080 1520V1920H0Z' fill='#25104E' opacity='.68'/><path d='M0 1520H1080M0 1600H1080M0 1680H1080M0 1760H1080' stroke='#FFFFFF' stroke-opacity='.22'/>
-        <text x='{content_x}' y='392' fill='#FFFFFF' font-size='28' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='140' height='6' rx='3' fill='#00F5FF'/>{body}{tags}</svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='vap' x1='0' y1='0' x2='0' y2='1'><stop stop-color='{g1}'/><stop offset='.52' stop-color='{g2}'/><stop offset='1' stop-color='#FFAF7B'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#vap)'/><circle cx='540' cy='340' r='150' fill='#FFD45E'/><path d='M390 310H690M385 355H695M405 400H675M445 445H635' stroke='#3A1C71' stroke-width='18' opacity='.48'/><path d='M0 1520L260 1180L420 1390L590 1120L1080 1520V1920H0Z' fill='#25104E' opacity='.68'/><path d='M0 1520H1080M0 1600H1080M0 1680H1080M0 1760H1080' stroke='#FFFFFF' stroke-opacity='.22'/>
+        <rect id='content-surface' x='80' y='485' width='920' height='1170' rx='24' fill='#25104E' opacity='.88'/><text x='{content_x}' y='392' fill='#FFFFFF' font-size='28' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='392' text-anchor='end' fill='#FFFFFF' font-size='56' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='140' height='6' rx='3' fill='#00F5FF'/>{body}{tags}</svg>",
+        g1 = colors.g1, g2 = colors.g2,
         num = xml(&request.num),
         tag = xml(&request.tag),
         line_y = title_last_y + 44
@@ -724,7 +743,7 @@ fn classic(request: &RenderRequest) -> String {
         content_x,
         535,
         "#FFEBC0",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.2,
     );
@@ -737,14 +756,14 @@ fn classic(request: &RenderRequest) -> String {
         body_y,
         1405,
         "#F8E2B4",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         400,
         1.62,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1540, "#D8B46A", 28);
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#301014'/><rect x='72' y='228' width='936' height='1464' rx='28' fill='#4A151C' stroke='#D8B46A' stroke-width='4'/><rect x='96' y='252' width='888' height='1416' rx='20' fill='none' stroke='#D8B46A' stroke-opacity='.45' stroke-width='2'/><path d='M120 392H420M660 392H960' stroke='#D8B46A' stroke-width='3'/><circle cx='540' cy='392' r='56' fill='none' stroke='{accent}' stroke-width='4'/>
-        <text x='540' y='412' text-anchor='middle' fill='#FFEBC0' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text><text x='{content_x}' y='465' fill='#D8B46A' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#D8B46A' stroke-opacity='.55'/>{body}{tags}</svg>",
+        <text x='540' y='412' text-anchor='middle' fill='#FFEBC0' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text><text x='{content_x}' y='465' fill='#D8B46A' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#D8B46A' stroke-opacity='.55'/>{body}{tags}</svg>",
         accent = colors.accent,
         num = xml(&request.num),
         tag = xml(&request.tag),
@@ -763,7 +782,7 @@ fn mono(request: &RenderRequest) -> String {
         content_x,
         500,
         "#111111",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.18,
     );
@@ -776,13 +795,13 @@ fn mono(request: &RenderRequest) -> String {
         body_y,
         1485,
         "#222222",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.6,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1605, "#555555", 28);
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#F8F8F5'/><rect x='54' y='214' width='972' height='1492' fill='none' stroke='#111111' stroke-width='4'/><rect x='78' y='238' width='924' height='1444' fill='none' stroke='#111111' stroke-width='1'/><text x='{content_x}' y='350' fill='#111111' font-size='26' letter-spacing='10' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='350' text-anchor='end' fill='#111111' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#111111' stroke-width='3'/>{body}{tags}</svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#F8F8F5'/><rect x='54' y='214' width='972' height='1492' fill='none' stroke='#111111' stroke-width='4'/><rect x='78' y='238' width='924' height='1444' fill='none' stroke='#111111' stroke-width='1'/><text x='{content_x}' y='350' fill='#111111' font-size='26' letter-spacing='10' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='350' text-anchor='end' fill='#111111' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#111111' stroke-width='3'/>{body}{tags}</svg>",
         num = xml(&request.num),
         tag = xml(&request.tag),
         line_y = title_last_y + 48
@@ -801,7 +820,7 @@ fn club(request: &RenderRequest) -> String {
         content_x,
         545,
         "#F8F6E8",
-        "Noto Serif CJK SC, Noto Serif SC, serif",
+        "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
         900,
         1.2,
     );
@@ -814,14 +833,14 @@ fn club(request: &RenderRequest) -> String {
         body_y,
         1410,
         "#D6E8CF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         400,
         1.62,
     );
     let tags = tag_lines(&request.tags, content_x, content_right, 1545, "#BFD9A6", 28);
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><radialGradient id='felt'><stop stop-color='#1B6F3A'/><stop offset='1' stop-color='#053B20'/></radialGradient></defs><rect width='100%' height='100%' fill='#06160D'/><rect x='62' y='220' width='956' height='1480' rx='42' fill='url(#felt)' stroke='#C9A457' stroke-width='8'/><circle cx='132' cy='292' r='28' fill='#050505' opacity='.7'/><circle cx='948' cy='292' r='28' fill='#050505' opacity='.7'/><circle cx='132' cy='1628' r='28' fill='#050505' opacity='.7'/><circle cx='948' cy='1628' r='28' fill='#050505' opacity='.7'/><path d='M118 424H962' stroke='#F8F6E8' stroke-opacity='.35'/>
-        <text x='{content_x}' y='390' fill='#F8F6E8' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='395' text-anchor='end' fill='{accent}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#C9A457' stroke-width='3'/>{body}{tags}</svg>",
+        <text x='{content_x}' y='390' fill='#F8F6E8' font-size='28' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='395' text-anchor='end' fill='{accent}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>{title}<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='#C9A457' stroke-width='3'/>{body}{tags}</svg>",
         accent = colors.accent,
         num = xml(&request.num),
         tag = xml(&request.tag),
@@ -841,7 +860,7 @@ fn street(request: &RenderRequest) -> String {
         content_x,
         535,
         "#FFFFFF",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         900,
         1.18,
     );
@@ -854,14 +873,14 @@ fn street(request: &RenderRequest) -> String {
         body_y,
         1400,
         "#F5F5F5",
-        "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
         500,
         1.62,
     );
     let tags = tag_pills(&request.tags, &colors.g2, content_x, content_right, 1510);
     format!(
         "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><rect width='100%' height='100%' fill='#161616'/><rect x='0' y='0' width='1080' height='420' fill='{g1}' opacity='.85'/><rect x='0' y='1500' width='1080' height='420' fill='{g2}' opacity='.85'/><path d='M40 340L260 240L430 340L690 210L1040 360' fill='none' stroke='#FFFFFF' stroke-width='12' stroke-linecap='round' stroke-linejoin='round' opacity='.25'/><rect x='72' y='250' width='936' height='1410' rx='24' fill='#1F1F1F' stroke='#FFFFFF' stroke-opacity='.28' stroke-width='3'/><rect x='92' y='270' width='896' height='1370' rx='18' fill='none' stroke='{accent}' stroke-width='3' stroke-dasharray='18 12'/>
-        <text x='{content_x}' y='390' fill='#FFFFFF' font-size='32' font-weight='900' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='405' text-anchor='end' fill='#FFFFFF' font-size='72' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='180' height='8' rx='4' fill='{accent}'/>{body}{tags}</svg>",
+        <text x='{content_x}' y='390' fill='#FFFFFF' font-size='32' font-weight='900' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='405' text-anchor='end' fill='#FFFFFF' font-size='72' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>{title}<rect x='{content_x}' y='{line_y}' width='180' height='8' rx='4' fill='{accent}'/>{body}{tags}</svg>",
         g1 = colors.g1,
         g2 = colors.g2,
         accent = colors.accent,
@@ -893,8 +912,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#DBF8FF",
         muted: "#9ADFFF",
         accent: "#76FFD8",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#2A1710",
@@ -904,8 +923,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#4C3425",
         muted: "#9A6B45",
         accent: "#C98D4E",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#FF7A59",
@@ -915,8 +934,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#59314C",
         muted: "#95616D",
         accent: "#FF4E7A",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#06283D",
@@ -926,8 +945,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#17455E",
         muted: "#5E91A8",
         accent: "#00A8E8",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#083B25",
@@ -937,8 +956,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#29492F",
         muted: "#6B8A61",
         accent: "#E7B10A",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#111C17",
@@ -948,8 +967,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#DCEFCF",
         muted: "#A5C59A",
         accent: "#E5C07B",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#080808",
@@ -959,8 +978,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#E7D39A",
         muted: "#AA8848",
         accent: "#D6AF52",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#17112E",
@@ -970,8 +989,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#D8D2FF",
         muted: "#99F7FF",
         accent: "#FFBE0B",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#FCE761",
@@ -981,8 +1000,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#333333",
         muted: "#6F4A00",
         accent: "#1982C4",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#F6E7D8",
@@ -992,8 +1011,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#5E4840",
         muted: "#A5796B",
         accent: "#2F9C95",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#4E54C8",
@@ -1003,8 +1022,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#36395C",
         muted: "#7C80BA",
         accent: "#FF7A59",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#F6F3EA",
@@ -1014,8 +1033,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#33322C",
         muted: "#8B826D",
         accent: "#111111",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#031B2D",
@@ -1025,8 +1044,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#BDEAF5",
         muted: "#75C7D8",
         accent: "#94D2BD",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#F4B860",
@@ -1036,8 +1055,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#604322",
         muted: "#9C7B45",
         accent: "#E76F51",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#DFF7FF",
@@ -1047,8 +1066,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#21596B",
         muted: "#6A9BAD",
         accent: "#118AB2",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#FFB3C1",
@@ -1058,8 +1077,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#704355",
         muted: "#B36A82",
         accent: "#FF477E",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#0B0D10",
@@ -1069,8 +1088,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#C8D0D8",
         muted: "#8A94A0",
         accent: "#E63946",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#F8F4EA",
@@ -1080,8 +1099,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#544B3D",
         muted: "#9A8D78",
         accent: "#7A5C3A",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#06101F",
@@ -1091,8 +1110,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#DEE8F8",
         muted: "#98A8BF",
         accent: "#FBB13C",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#32213A",
@@ -1102,8 +1121,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#4F4157",
         muted: "#89788E",
         accent: "#A26769",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#0B132B",
@@ -1113,8 +1132,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#333D5B",
         muted: "#7A86A5",
         accent: "#FF5A5F",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#2D132C",
@@ -1124,8 +1143,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#F2C7BD",
         muted: "#C58E84",
         accent: "#EE4540",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#EFE7DA",
@@ -1135,8 +1154,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#515151",
         muted: "#8D8372",
         accent: "#6A994E",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#3A0CA3",
@@ -1146,8 +1165,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#513B72",
         muted: "#8E77AD",
         accent: "#4CC9F0",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#C97B45",
@@ -1157,8 +1176,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#5E3E27",
         muted: "#A87547",
         accent: "#9C6644",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#B7E4C7",
@@ -1168,8 +1187,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#2D533E",
         muted: "#68A681",
         accent: "#40916C",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#061A40",
@@ -1179,8 +1198,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#C9DAF8",
         muted: "#88A7D6",
         accent: "#E6B800",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#0C0B0B",
@@ -1190,8 +1209,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#D8CBBE",
         muted: "#9C8A7E",
         accent: "#C77D3A",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#02111B",
@@ -1201,8 +1220,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#B7DAEE",
         muted: "#6EA4C4",
         accent: "#F4D35E",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#FFCFD2",
@@ -1212,8 +1231,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#55515E",
         muted: "#948FA0",
         accent: "#FF6B6B",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#1B1F3B",
@@ -1223,8 +1242,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#3C3A54",
         muted: "#817A9E",
         accent: "#00B4D8",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#03120E",
@@ -1234,8 +1253,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#CEEED8",
         muted: "#8BC7A0",
         accent: "#B7E4C7",
-        title_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
     DesignerPalette {
         bg1: "#F2E8CF",
@@ -1245,8 +1264,8 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#4D3A2C",
         muted: "#9C7A58",
         accent: "#5F3DC4",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Serif CJK SC, Noto Serif SC, serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
     },
     DesignerPalette {
         bg1: "#F7F4EA",
@@ -1256,69 +1275,312 @@ const GENERATED_PALETTES: &[DesignerPalette] = &[
         body: "#4A5141",
         muted: "#84906E",
         accent: "#6C8A4D",
-        title_family: "Noto Serif CJK SC, Noto Serif SC, serif",
-        body_family: "Noto Sans CJK SC, Noto Sans SC, sans-serif",
+        title_family: "Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif",
+        body_family: "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
     },
 ];
 
+fn palette_for_template(template: &str, seed: usize) -> DesignerPalette {
+    let index = match template {
+        "neon_club" | "cyber_grid" => 0,
+        "chalkboard" | "arena_score" | "forest_match" => 5,
+        "retro_ticket" | "kraft_label" => 1,
+        "cream_note" | "pearl_lite" | "soft_shadow" | "classic_serif" => 11,
+        "sunset_gradient" | "orange_zine" => 2,
+        "ink_stamp" | "coffee_receipt" => 17,
+        "glass_card" | "ocean_wave" | "ice_blue" | "clean_blue" => 14,
+        "tactical_blue" | "bold_blocks" => 26,
+        "midnight_lux" | "purple_stage" => 7,
+        "candy_pop" | "comic_burst" => 8,
+        "steel_gray" | "silver_card" => 16,
+        "royal_gold" | "gradient_ring" => 30,
+        "lava_motion" | "red_warning" => 21,
+        "street_snap" | "black_gold" | "club_vip" => 6,
+        "vaporwave" => 23,
+        "newspaper" => 11,
+        "scoreboard_green" | "billiard_felt" | "tournament_bracket" | "matrix_code"
+        | "green_laser" => 31,
+        "mint_mono" => 25,
+        "pink_soda" => 15,
+        "desert_sand" => 24,
+        "street" => 18,
+        _ => seed % GENERATED_PALETTES.len(),
+    };
+    let mut palette = GENERATED_PALETTES[index];
+    match template {
+        "steel_gray" | "silver_card" => {
+            palette.bg1 = "#29323E";
+            palette.bg2 = "#8C98A7";
+            palette.surface = "#F5F7FA";
+            palette.text = "#17212C";
+            palette.body = "#33404C";
+            palette.muted = "#5B6772";
+            palette.accent = "#475D75";
+        }
+        "royal_gold" => {
+            palette.bg1 = "#251039";
+            palette.bg2 = "#652989";
+            palette.surface = "#1D122C";
+            palette.text = "#FFF4CC";
+            palette.body = "#E9DDF0";
+            palette.muted = "#D3B6E3";
+            palette.accent = "#F2D17A";
+        }
+        "red_warning" => {
+            palette.bg1 = "#310B0D";
+            palette.bg2 = "#9A1924";
+            palette.surface = "#20090C";
+            palette.text = "#FFF3F3";
+            palette.body = "#FFE4E4";
+            palette.muted = "#FFC7C7";
+            palette.accent = "#FF5A66";
+        }
+        "green_laser" => {
+            palette.accent = "#A3FF12";
+        }
+        _ => {}
+    }
+    palette
+}
+
+pub fn default_colors_for_template(template: &str) -> crate::models::TemplateColors {
+    let (g1, g2, accent) = match template {
+        "poster" => ("#0D111B", "#263A4E", "#8ADCE8"),
+        "fresh" => ("#6AC9B3", "#E4F6DE", "#227D6B"),
+        "minimal" => ("#C5D7C8", "#E7DED1", "#406D52"),
+        "journal" => ("#EFE4CD", "#DFCCA8", "#8B5B3C"),
+        "vaporwave" => ("#3A1C71", "#D76D77", "#C741AE"),
+        "newspaper" => ("#E7DDC8", "#E0CFAC", "#564132"),
+        _ => {
+            if let Some(seed) = generated_template_seed(template) {
+                let palette = palette_for_template(template, seed);
+                (palette.bg1, palette.bg2, palette.accent)
+            } else {
+                ("#FF8A5C", "#FF5E62", "#FF5E62")
+            }
+        }
+    };
+    crate::models::TemplateColors {
+        glow1: g1.into(),
+        glow2: g2.into(),
+        accent: accent.into(),
+    }
+}
+
+fn effective_colors(request: &RenderRequest) -> crate::models::TemplateColors {
+    let defaults = default_colors_for_template(&request.template);
+    if request.color_mode == "theme" {
+        defaults
+    } else {
+        crate::models::TemplateColors {
+            glow1: color(&request.glow1, &defaults.glow1),
+            glow2: color(&request.glow2, &defaults.glow2),
+            accent: color(&request.accent, &defaults.accent),
+        }
+    }
+}
+
+fn luminance(color: &str) -> f32 {
+    let raw = color.trim_start_matches('#');
+    let expanded = if raw.len() == 3 {
+        raw.chars().flat_map(|ch| [ch, ch]).collect::<String>()
+    } else {
+        raw.to_string()
+    };
+    let channels: Vec<f32> = (0..3)
+        .map(|i| {
+            let c = u8::from_str_radix(&expanded[i * 2..i * 2 + 2], 16).unwrap_or(0) as f32 / 255.0;
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        })
+        .collect();
+    channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+}
+
+fn contrast_ratio(a: &str, b: &str) -> f32 {
+    let (a, b) = (luminance(a), luminance(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+fn contrast_ink(background: &str) -> &'static str {
+    if contrast_ratio("#000000", background) >= contrast_ratio("#FFFFFF", background) {
+        "#000000"
+    } else {
+        "#FFFFFF"
+    }
+}
+
+fn legible_text<'a>(preferred: &'a str, background: &str) -> &'a str {
+    if contrast_ratio(preferred, background) >= 4.5 {
+        preferred
+    } else {
+        contrast_ink(background)
+    }
+}
+
+fn theme_motif(template: &str, accent: &str) -> String {
+    match template {
+        "billiard_felt" => format!("<rect x='42' y='202' width='996' height='1516' rx='48' fill='none' stroke='#674735' stroke-width='26'/><path d='M105 275H975M105 1645H975' stroke='{accent}' stroke-opacity='.20'/><g fill='#050B07'><circle cx='85' cy='245' r='20'/><circle cx='995' cy='245' r='20'/><circle cx='85' cy='1675' r='20'/><circle cx='995' cy='1675' r='20'/></g>"),
+        "neon_club" | "green_laser" => format!("<path d='M84 430V248H280M800 1672H996V1490' fill='none' stroke='{accent}' stroke-width='5'/><path d='M90 436V254H286M794 1666H990V1484' fill='none' stroke='{accent}' stroke-opacity='.25' stroke-width='12'/>"),
+        "tactical_blue" | "chalkboard" => format!("<g fill='none' stroke='{accent}' stroke-width='3' stroke-opacity='.45'><circle cx='858' cy='300' r='16'/><circle cx='928' cy='332' r='12'/><path d='M820 260L928 332L875 395' stroke-dasharray='7 8'/></g>"),
+        "matrix_code" => format!("<text x='86' y='1790' fill='{accent}' font-size='24' letter-spacing='10' font-family='Noto Sans Mono, monospace'>0101 0011 1000 1010</text>"),
+        _ => String::new(),
+    }
+}
+
+fn match_conditions(body: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    for segment in body.split(['，', ',', '。', '；', ';', '\n', '！', '？']) {
+        let mut text = segment.trim();
+        for prefix in ["这个比赛", "比赛", "参赛"] {
+            if let Some(rest) = text.strip_prefix(prefix) {
+                text = rest;
+                break;
+            }
+        }
+        let condition = (text.starts_with('限') && text.contains('档'))
+            || text == "免报名费"
+            || text.starts_with("报名费")
+            || matches!(
+                text,
+                "一天打完" | "一天完赛" | "当天打完" | "当天完赛" | "两天打完" | "两天完赛"
+            );
+        if condition && text.chars().count() <= 10 && !result.iter().any(|value| value == text) {
+            result.push(text.to_string());
+        }
+    }
+    result.truncate(3);
+    result
+}
+
+fn match_board(request: &RenderRequest) -> String {
+    let palette = palette_for_template(&request.template, 0);
+    let selected = effective_colors(request);
+    let conditions = match_conditions(&request.body);
+    let (title, last_y) = text_lines(
+        &request.title,
+        10,
+        3,
+        80,
+        132,
+        570,
+        palette.text,
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        700,
+        1.22,
+    );
+    let divider_y = last_y + 54;
+    let mut tiles = String::new();
+    if !conditions.is_empty() {
+        let width = (816 - (conditions.len() as u32 - 1) * 18) / conditions.len() as u32;
+        for (index, condition) in conditions.iter().enumerate() {
+            let x = 132 + index as u32 * (width + 18);
+            let size = if conditions.len() == 3 { 28 } else { 34 };
+            let (text, _) = text_lines(
+                condition,
+                chars_for_width(x + 20, x + width - 20, size),
+                2,
+                size,
+                x + 20,
+                divider_y + 72,
+                contrast_ink(&selected.accent),
+                "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+                700,
+                1.25,
+            );
+            tiles.push_str(&format!("<rect x='{x}' y='{tile_y}' width='{width}' height='110' rx='14' fill='{accent}'/>{text}",tile_y=divider_y+20,accent=selected.accent));
+        }
+    }
+    let body_y = divider_y + if conditions.is_empty() { 100 } else { 205 };
+    let body = body_lines(
+        &request.body,
+        18,
+        44,
+        132,
+        body_y,
+        1370,
+        palette.body,
+        "Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif",
+        400,
+        1.55,
+    );
+    let tags = tag_lines(
+        &request.tags,
+        132,
+        948,
+        1530,
+        legible_text(palette.muted, palette.surface),
+        32,
+    );
+    let connector = if request.template == "tournament_bracket" {
+        format!("<path d='M92 650H116V940H92M988 650H964V940H988M116 790H132M948 790H964' fill='none' stroke='{accent}' stroke-width='4' stroke-opacity='.65'/>",accent=selected.accent)
+    } else {
+        String::new()
+    };
+    format!("<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'><defs><linearGradient id='score-bg' x2='1' y2='1'><stop stop-color='{g1}'/><stop offset='1' stop-color='{g2}'/></linearGradient><pattern id='score-dots' width='24' height='24' patternUnits='userSpaceOnUse'><circle cx='5' cy='5' r='1.5' fill='{accent}' opacity='.20'/></pattern></defs><rect width='1080' height='1920' fill='url(#score-bg)'/><rect width='1080' height='1920' fill='url(#score-dots)'/><rect id='content-surface' x='60' y='220' width='960' height='1480' rx='32' fill='{surface}' stroke='{accent}' stroke-width='2'/><text x='132' y='370' fill='{accent}' font-size='30' letter-spacing='6' font-family='Noto Sans Mono, Noto Sans CJK SC, monospace'>{tag}</text><text x='948' y='390' text-anchor='end' fill='{accent}' font-size='72' font-weight='700' font-family='Noto Sans Mono, monospace'>{num}</text><path d='M132 440H948' stroke='{accent}' stroke-opacity='.35'/>{connector}{title}<path d='M132 {divider_y}H948' stroke='{accent}' stroke-opacity='.5'/>{tiles}{body}{tags}</svg>",g1=selected.glow1,g2=selected.glow2,accent=selected.accent,surface=palette.surface,tag=xml(&request.tag),num=xml(&request.num))
+}
+
 fn designed_template(request: &RenderRequest, seed: usize) -> String {
-    let palette = GENERATED_PALETTES[seed % GENERATED_PALETTES.len()];
-    let g1 = palette.bg1;
-    let g2 = palette.bg2;
-    let accent = palette.accent;
-    let content_x = [92, 108, 124, 140, 82, 118][seed % 6];
-    let content_right = 1080 - content_x;
-    let title_size = [68, 72, 76, 80, 74, 70][seed % 6];
-    let body_size = [42, 44, 46, 48, 43, 45][seed % 6];
-    let title_y = [500, 530, 560, 590, 515, 545][seed % 6];
-    let body_max_y = [1390, 1420, 1450, 1480, 1410, 1465][seed % 6];
-    let title_weight = if seed % 3 == 0 { 900 } else { 800 };
+    let palette = palette_for_template(&request.template, seed);
+    let selected = effective_colors(request);
+    let (g1, g2, accent) = (
+        selected.glow1.as_str(),
+        selected.glow2.as_str(),
+        selected.accent.as_str(),
+    );
+    let content_x = 132;
+    let content_right = 948;
+    let title_size = [76, 74, 78, 80, 74, 76][seed % 6];
+    let body_size = 46;
     let (title, title_last_y) = text_lines(
         &request.title,
         chars_for_width(content_x, content_right, title_size),
         3,
         title_size,
         content_x,
-        title_y,
+        530,
         palette.text,
         palette.title_family,
-        title_weight,
-        1.2,
+        700,
+        1.24,
     );
-    let line_y = title_last_y + [42, 48, 54, 60][seed % 4];
-    let body_y = line_y + [76, 88, 96, 108][seed % 4];
+    let line_y = title_last_y + 56;
+    let body_y = line_y + 94;
+    // All generated cards share the same safe area. Reserve three pill rows,
+    // including the worst case of three 12-character labels without hashtags.
     let body = body_lines(
         &request.body,
         chars_for_width(content_x, content_right, body_size),
         body_size,
         content_x,
         body_y,
-        body_max_y,
+        1360,
         palette.body,
         palette.body_family,
-        if seed % 5 == 0 { 500 } else { 400 },
-        [1.54, 1.58, 1.62, 1.66][seed % 4],
+        400,
+        1.58,
     );
-    let tag_y = body_max_y + [112, 126, 140, 154][seed % 4];
     let tags = if seed % 4 == 0 {
-        tag_pills(&request.tags, accent, content_x, content_right, tag_y)
+        tag_pills(&request.tags, accent, content_x, content_right, 1460)
     } else {
         tag_lines(
             &request.tags,
             content_x,
             content_right,
-            tag_y,
-            palette.muted,
-            28,
+            1510,
+            legible_text(palette.muted, palette.surface),
+            32,
         )
     };
     let background = designer_background(seed, g1, g2, accent);
+    let motif = theme_motif(&request.template, accent);
     let card = designer_card(seed, palette, accent);
     let header = designer_header(seed, request, content_x, content_right, palette, accent);
     let divider = designer_divider(seed, content_x, content_right, line_y, palette, accent);
-    format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>{background}{card}{header}{title}{divider}{body}{tags}</svg>"
-    )
+    format!("<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>{background}{card}{motif}{header}{title}{divider}{body}{tags}</svg>")
 }
 
 fn designer_background(seed: usize, g1: &str, g2: &str, accent: &str) -> String {
@@ -1341,16 +1603,18 @@ fn designer_background(seed: usize, g1: &str, g2: &str, accent: &str) -> String 
 }
 
 fn designer_card(seed: usize, palette: DesignerPalette, accent: &str) -> String {
-    match seed % 8 {
-        0 => format!("<rect x='66' y='230' width='948' height='1460' rx='42' fill='{surface}' opacity='.94'/><rect x='86' y='250' width='908' height='1420' rx='34' fill='none' stroke='{accent}' stroke-opacity='.36' stroke-width='3'/>", surface = palette.surface),
-        1 => format!("<rect x='88' y='250' width='904' height='1398' rx='20' fill='{surface}' opacity='.96'/><rect x='116' y='278' width='848' height='1342' rx='12' fill='none' stroke='{accent}' stroke-opacity='.22'/>", surface = palette.surface),
-        2 => format!("<rect x='56' y='216' width='968' height='1500' rx='0' fill='{surface}' opacity='.93'/><line x1='82' y1='242' x2='998' y2='242' stroke='{accent}' stroke-width='4'/><line x1='82' y1='1690' x2='998' y2='1690' stroke='{accent}' stroke-width='4'/>", surface = palette.surface),
-        3 => format!("<rect x='102' y='276' width='876' height='1330' rx='34' fill='{surface}' opacity='.95'/><rect x='74' y='248' width='876' height='1330' rx='34' fill='none' stroke='{accent}' stroke-width='3' stroke-opacity='.28'/>", surface = palette.surface),
-        4 => format!("<rect x='0' y='0' width='1080' height='1920' fill='{surface}' opacity='.90'/><rect x='70' y='230' width='940' height='1460' rx='26' fill='none' stroke='{accent}' stroke-opacity='.30' stroke-width='3'/>", surface = palette.surface),
-        5 => format!("<g transform='rotate(-2 540 960)'><rect x='92' y='262' width='896' height='1370' rx='28' fill='{surface}' opacity='.94'/></g><rect x='118' y='288' width='844' height='1318' rx='18' fill='none' stroke='{accent}' stroke-opacity='.26'/>", surface = palette.surface),
-        6 => format!("<rect x='60' y='220' width='960' height='1480' rx='44' fill='{surface}' opacity='.92'/><rect x='60' y='220' width='190' height='1480' rx='44' fill='{accent}' opacity='.16'/>", surface = palette.surface),
-        _ => format!("<rect x='76' y='238' width='928' height='1444' rx='18' fill='{surface}' opacity='.95'/><path d='M76 470H1004M76 1450H1004' stroke='{accent}' stroke-opacity='.22' stroke-width='2'/>", surface = palette.surface),
-    }
+    let surface = palette.surface;
+    let outline = match seed % 8 {
+        0 => format!("<rect x='78' y='238' width='924' height='1444' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-width='2'/>"),
+        1 => format!("<path d='M88 310V250H200M880 250H992V310M88 1610V1670H200M880 1670H992V1610' fill='none' stroke='{accent}' stroke-width='3'/>"),
+        2 => format!("<path d='M88 250H992M88 1670H992' fill='none' stroke='{accent}' stroke-width='4'/>"),
+        3 => format!("<rect x='80' y='240' width='920' height='1440' rx='24' fill='none' stroke='{accent}' stroke-opacity='.28' stroke-width='2'/>"),
+        4 => format!("<rect x='78' y='238' width='924' height='1444' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-dasharray='8 12'/>"),
+        5 => format!("<path d='M88 310V250H250M830 1670H992V1610' fill='none' stroke='{accent}' stroke-width='4'/>"),
+        6 => format!("<rect x='60' y='220' width='18' height='1480' rx='9' fill='{accent}' opacity='.65'/>"),
+        _ => format!("<path d='M88 440H992' stroke='{accent}' stroke-opacity='.22' stroke-width='2'/>"),
+    };
+    format!("<rect id='content-surface' x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36' fill='{surface}'/>{outline}")
 }
 
 fn designer_header(
@@ -1364,12 +1628,12 @@ fn designer_header(
     let num = xml(&request.num);
     let tag = xml(&request.tag);
     match seed % 6 {
-        0 => format!("<text x='{content_x}' y='370' fill='{accent}' font-size='30' font-weight='700' letter-spacing='7' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='382' text-anchor='end' fill='{text}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", text = palette.text),
-        1 => format!("<rect x='{content_x}' y='326' width='260' height='62' rx='31' fill='{accent}' opacity='.92'/><text x='{label_x}' y='367' fill='{surface}' font-size='26' font-weight='700' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='374' text-anchor='end' fill='{accent}' font-size='46' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", label_x = content_x + 28, surface = palette.surface),
-        2 => format!("<text x='540' y='356' text-anchor='middle' fill='{accent}' font-size='28' font-weight='700' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='540' y='430' text-anchor='middle' fill='{text}' font-size='58' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", text = palette.text),
-        3 => format!("<text x='{content_x}' y='360' fill='{muted}' font-size='26' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><circle cx='{circle_x}' cy='354' r='42' fill='none' stroke='{accent}' stroke-width='4'/><text x='{circle_x}' y='372' text-anchor='middle' fill='{accent}' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", circle_x = content_right - 42, muted = palette.muted),
-        4 => format!("<line x1='{content_x}' y1='350' x2='{line_end}' y2='350' stroke='{accent}' stroke-width='4'/><text x='{content_x}' y='400' fill='{muted}' font-size='24' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><text x='{content_right}' y='400' text-anchor='end' fill='{accent}' font-size='48' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", line_end = content_x + 260, muted = palette.muted),
-        _ => format!("<text x='{content_x}' y='365' fill='{accent}' font-size='24' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{tag}</text><rect x='{rect_x}' y='320' width='112' height='76' rx='16' fill='{accent}' opacity='.18'/><text x='{content_right}' y='374' text-anchor='end' fill='{text}' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, serif'>{num}</text>", rect_x = content_right - 112, text = palette.text),
+        0 => format!("<text x='{content_x}' y='370' fill='{accent}' font-size='30' font-weight='700' letter-spacing='7' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='382' text-anchor='end' fill='{text}' font-size='66' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", text = palette.text),
+        1 => format!("<rect x='{content_x}' y='326' width='260' height='62' rx='31' fill='{accent}' opacity='.92'/><text x='{label_x}' y='367' fill='{surface}' font-size='26' font-weight='700' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='374' text-anchor='end' fill='{accent}' font-size='46' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", label_x = content_x + 28, surface = contrast_ink(accent)),
+        2 => format!("<text x='540' y='356' text-anchor='middle' fill='{accent}' font-size='28' font-weight='700' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='540' y='430' text-anchor='middle' fill='{text}' font-size='58' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", text = palette.text),
+        3 => format!("<text x='{content_x}' y='360' fill='{muted}' font-size='26' letter-spacing='6' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><circle cx='{circle_x}' cy='354' r='42' fill='none' stroke='{accent}' stroke-width='4'/><text x='{circle_x}' y='372' text-anchor='middle' fill='{accent}' font-size='38' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", circle_x = content_right - 42, muted = legible_text(palette.muted, palette.surface)),
+        4 => format!("<line x1='{content_x}' y1='350' x2='{line_end}' y2='350' stroke='{accent}' stroke-width='4'/><text x='{content_x}' y='400' fill='{muted}' font-size='24' letter-spacing='5' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><text x='{content_right}' y='400' text-anchor='end' fill='{accent}' font-size='48' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", line_end = content_x + 260, muted = legible_text(palette.muted, palette.surface)),
+        _ => format!("<text x='{content_x}' y='365' fill='{accent}' font-size='24' letter-spacing='8' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{tag}</text><rect x='{rect_x}' y='320' width='112' height='76' rx='16' fill='{accent}' opacity='.18'/><text x='{content_right}' y='374' text-anchor='end' fill='{text}' font-size='44' font-weight='900' font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'>{num}</text>", rect_x = content_right - 112, text = palette.text),
     }
 }
 
@@ -1384,9 +1648,9 @@ fn designer_divider(
     match seed % 5 {
         0 => format!("<rect x='{content_x}' y='{line_y}' width='150' height='7' rx='3' fill='{accent}'/>"),
         1 => format!("<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{accent}' stroke-opacity='.42' stroke-width='2' stroke-dasharray='16 12'/>"),
-        2 => format!("<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{muted}' stroke-opacity='.42'/><circle cx='{content_x}' cy='{line_y}' r='6' fill='{accent}'/><circle cx='{content_right}' cy='{line_y}' r='6' fill='{accent}'/>", muted = palette.muted),
+        2 => format!("<line x1='{content_x}' y1='{line_y}' x2='{content_right}' y2='{line_y}' stroke='{muted}' stroke-opacity='.42'/><circle cx='{content_x}' cy='{line_y}' r='6' fill='{accent}'/><circle cx='{content_right}' cy='{line_y}' r='6' fill='{accent}'/>", muted = legible_text(palette.muted, palette.surface)),
         3 => format!("<path d='M{content_x} {line_y}H{mid}L{mid2} {line_y}H{content_right}' stroke='{accent}' stroke-width='4' fill='none'/>", mid = content_x + 180, mid2 = content_x + 240),
-        _ => format!("<rect x='{content_x}' y='{line_y}' width='{width}' height='2' fill='{muted}' opacity='.42'/><rect x='{content_x}' y='{bar_y}' width='90' height='8' rx='4' fill='{accent}'/>", width = content_right - content_x, bar_y = line_y - 3, muted = palette.muted),
+        _ => format!("<rect x='{content_x}' y='{line_y}' width='{width}' height='2' fill='{muted}' opacity='.42'/><rect x='{content_x}' y='{bar_y}' width='90' height='8' rx='4' fill='{accent}'/>", width = content_right - content_x, bar_y = line_y - 3, muted = legible_text(palette.muted, palette.surface)),
     }
 }
 
@@ -1400,13 +1664,14 @@ struct Colors {
 }
 
 fn colors(request: &RenderRequest) -> Colors {
+    let selected = effective_colors(request);
     Colors {
-        g1: color(&request.glow1, "#FF8A5C"),
-        g2: color(&request.glow2, "#FF5E62"),
-        accent: color(&request.accent, "#FF5E62"),
+        g1: selected.glow1,
+        g2: selected.glow2,
+        accent: selected.accent,
         text: "#1A1A1A".into(),
         body: "#333333".into(),
-        muted: "#999999".into(),
+        muted: "#666666".into(),
     }
 }
 
@@ -1415,9 +1680,9 @@ fn colors(request: &RenderRequest) -> Colors {
 /// without duplicating style plumbing in each design function.
 fn apply_typography(mut svg: String, request: &RenderRequest) -> String {
     let family = match request.font_family.as_str() {
-        "sans" | "system" => Some("Noto Sans CJK SC, Noto Sans SC, sans-serif"),
-        "serif" => Some("Noto Serif CJK SC, Noto Serif SC, serif"),
-        "mono" => Some("Noto Sans Mono, Noto Sans CJK SC, sans-serif"),
+        "sans" | "system" => Some("Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif"),
+        "serif" => Some("Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif"),
+        "mono" => Some("Noto Sans Mono, Noto Sans CJK SC, Noto Emoji, monospace"),
         _ => None,
     };
     let title_color = color_option(&request.title_color);
@@ -1481,6 +1746,24 @@ fn apply_typography(mut svg: String, request: &RenderRequest) -> String {
                 replace_svg_attribute(&mut rewritten, "fill", selected_color);
             }
         }
+        // Font selection alone cannot create missing weight masters. Apply an
+        // explicit outline to the embedded regular face, so requested weights
+        // change the actual PNG consistently on every platform.
+        let weight = svg_attribute(&rewritten, "font-weight")
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(400)
+            .clamp(400, 900);
+        let size = svg_attribute(&rewritten, "font-size")
+            .and_then(|value| value.parse::<f32>().ok())
+            .unwrap_or(32.0);
+        if weight > 400 {
+            let fill = svg_attribute(&rewritten, "fill")
+                .unwrap_or("#111111")
+                .to_string();
+            let stroke = size * (weight - 400) as f32 / 10000.0;
+            rewritten.insert_str(rewritten.len() - 1,
+                &format!(" stroke='{fill}' stroke-width='{stroke:.3}' stroke-linejoin='round' paint-order='stroke fill'"));
+        }
         if customized {
             rewritten = strip_role_marker(&rewritten);
         }
@@ -1506,6 +1789,13 @@ fn color_option(value: &str) -> Option<&str> {
         && value.starts_with('#')
         && value.chars().skip(1).all(|ch| ch.is_ascii_hexdigit());
     valid.then_some(value)
+}
+
+fn svg_attribute<'a>(opening: &'a str, name: &str) -> Option<&'a str> {
+    let needle = format!("{name}='");
+    let start = opening.find(&needle)? + needle.len();
+    let end = opening[start..].find('\'')? + start;
+    Some(&opening[start..end])
 }
 
 fn replace_svg_attribute(opening: &mut String, name: &str, value: &str) {
@@ -1551,7 +1841,15 @@ fn text_lines(
     weight: u32,
     line_height: f32,
 ) -> (String, u32) {
-    let lines = limited_lines(text, max_chars, max_lines);
+    let mut size = size;
+    let mut columns = max_chars;
+    let width = max_chars as u32 * size;
+    let minimum = size.saturating_sub(14).max(56);
+    while wrap_text(text, columns).len() > max_lines && size > minimum {
+        size = size.saturating_sub(2);
+        columns = (width / size).max(1) as usize;
+    }
+    let lines = limited_lines(text, columns, max_lines);
     let line_step = (size as f32 * line_height) as u32;
     let last_baseline = y + (lines.len().saturating_sub(1) as u32 * line_step);
     let svg = lines
@@ -1690,56 +1988,145 @@ fn tag_lines(tags: &str, x: u32, right: u32, y: u32, fill: &str, size: u32) -> S
         .enumerate()
         .map(|(index, line)| {
             let baseline = y + (index as u32 * line_step);
-            format!("<text data-role='tag' x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", xml(line))
+            format!("<text data-role='tag' x='{x}' y='{baseline}' fill='{fill}' font-size='{size}' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{}</text>", xml(line))
         })
         .collect::<Vec<_>>()
         .join("")
 }
 
 fn tag_pills(tags: &str, fill: &str, x: u32, right: u32, y: u32) -> String {
-    let parts: Vec<&str> = tags.split_whitespace().collect();
     let mut result = String::new();
     let mut cursor = x;
     let mut row_y = y;
-    let max_chars = ((right.saturating_sub(x).saturating_sub(40)) / 26).max(2) as usize;
-    for part in parts.iter().take(5) {
-        let label = if part.chars().count() > max_chars {
-            format!(
-                "{}…",
-                part.chars()
-                    .take(max_chars.saturating_sub(1))
-                    .collect::<String>()
-            )
-        } else {
-            (*part).to_string()
-        };
-        let width = 40 + (label.chars().count() as u32 * 26);
+    let size = 30;
+    let ink = contrast_ink(fill);
+    let max_units = (right.saturating_sub(x).saturating_sub(44)) as f32 / size as f32;
+    for part in tags.split_whitespace().take(3) {
+        let mut label = part.to_string();
+        if measure_units(&label) > max_units {
+            while measure_units(&label) + 1.0 > max_units {
+                if label.pop().is_none() {
+                    break;
+                }
+            }
+            label.push('…');
+        }
+        let width = 44 + (measure_units(&label) * size as f32).ceil() as u32;
         if cursor > x && cursor + width > right {
             cursor = x;
-            row_y += 66;
+            row_y += 70;
         }
-        result.push_str(&format!("<rect x='{cursor}' y='{row_y}' width='{width}' height='52' rx='20' fill='{fill}'/><text data-role='tag' x='{}' y='{}' fill='#FFFFFF' font-size='26' font-family='Noto Sans CJK SC, Noto Sans SC, sans-serif'>{}</text>", cursor + 20, row_y + 35, xml(&label)));
+        result.push_str(&format!("<rect x='{cursor}' y='{row_y}' width='{width}' height='58' rx='20' fill='{fill}'/><text data-role='tag' x='{text_x}' y='{baseline}' fill='{ink}' font-size='{size}' font-family='Noto Sans CJK SC, Noto Sans SC, Noto Emoji, sans-serif'>{label}</text>",text_x=cursor+22,baseline=row_y+39,label=xml(&label)));
         cursor += width + 14;
     }
     result
 }
 
+fn measure_units(text: &str) -> f32 {
+    static FACES: OnceLock<Vec<ttf_parser::Face<'static>>> = OnceLock::new();
+    let faces = FACES.get_or_init(|| {
+        [
+            include_bytes!("../fonts/NotoSansCJKsc-Regular.otf").as_slice(),
+            include_bytes!("../fonts/NotoSerifCJKsc-Regular.otf").as_slice(),
+            include_bytes!("../fonts/NotoSansMono-Regular.ttf").as_slice(),
+            include_bytes!("../fonts/NotoEmoji-Variable.ttf").as_slice(),
+        ]
+        .into_iter()
+        .map(|bytes| ttf_parser::Face::parse(bytes, 0).expect("embedded font"))
+        .collect()
+    });
+    text.chars()
+        .map(|ch| {
+            if matches!(ch, '\u{fe0f}' | '\u{fe0e}' | '\u{200d}') {
+                return 0.0;
+            }
+            let advance = |face: &ttf_parser::Face<'_>| {
+                face.glyph_index(ch)
+                    .and_then(|glyph| face.glyph_hor_advance(glyph))
+                    .map(|width| width as f32 / face.units_per_em() as f32)
+            };
+            // Emoji includes keycap ASCII/space glyphs. Those are not used when the
+            // selected text face already supports the character.
+            faces[..3]
+                .iter()
+                .filter_map(advance)
+                .reduce(f32::max)
+                .or_else(|| advance(&faces[3]))
+                .unwrap_or(1.0)
+        })
+        .sum()
+}
+
 fn wrap_text(text: &str, max_chars: usize) -> Vec<String> {
-    if text.is_empty() {
-        return Vec::new();
-    }
     let mut lines = Vec::new();
+    let capacity = max_chars.max(1) as f32;
     for raw in text.lines() {
         if raw.is_empty() {
             lines.push(String::new());
             continue;
         }
-        let mut current = String::new();
+        let mut tokens = Vec::<String>::new();
+        let mut word = String::new();
         for ch in raw.chars() {
-            current.push(ch);
-            if current.chars().count() >= max_chars {
-                lines.push(std::mem::take(&mut current));
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '–' | '_' | '.' | '/') {
+                word.push(ch);
+            } else if !word.is_empty()
+                && ("，。！？：；）】》、,.!?;:%".contains(ch)
+                    || ("档元人局点分".contains(ch)
+                        && word
+                            .chars()
+                            .last()
+                            .is_some_and(|last| last.is_ascii_digit())))
+            {
+                word.push(ch);
+                tokens.push(std::mem::take(&mut word));
+            } else {
+                if !word.is_empty() {
+                    tokens.push(std::mem::take(&mut word));
+                }
+                tokens.push(ch.to_string());
             }
+        }
+        if !word.is_empty() {
+            tokens.push(word);
+        }
+        let mut current = String::new();
+        for token in tokens {
+            let width = measure_units(&token);
+            if width > capacity {
+                for ch in token.chars() {
+                    if !current.is_empty()
+                        && measure_units(&current) + measure_units(&ch.to_string()) > capacity
+                    {
+                        lines.push(std::mem::take(&mut current));
+                    }
+                    current.push(ch);
+                }
+                continue;
+            }
+            if !current.is_empty() && measure_units(&current) + width > capacity {
+                let closing = token
+                    .chars()
+                    .next()
+                    .is_some_and(|ch| "，。！？：；）】》、,.!?;:%".contains(ch));
+                let moved = if closing
+                    && current
+                        .chars()
+                        .last()
+                        .is_some_and(|ch| !ch.is_ascii_alphanumeric())
+                {
+                    current.pop()
+                } else {
+                    None
+                };
+                if !current.is_empty() {
+                    lines.push(std::mem::take(&mut current));
+                }
+                if let Some(ch) = moved {
+                    current.push(ch);
+                }
+            }
+            current.push_str(&token);
         }
         if !current.is_empty() {
             lines.push(current);
@@ -1755,7 +2142,7 @@ fn limited_lines(text: &str, max_chars: usize, max_lines: usize) -> Vec<String> 
     }
     lines.truncate(max_lines);
     if let Some(last) = lines.last_mut() {
-        while last.chars().count() >= max_chars {
+        while measure_units(last) + measure_units("…") > max_chars as f32 {
             last.pop();
         }
         last.push('…');
@@ -1767,19 +2154,26 @@ fn limited_word_lines(text: &str, max_chars: usize, max_lines: usize) -> Vec<Str
     let mut lines = Vec::new();
     let mut current = String::new();
     for word in text.split_whitespace() {
-        let word = if word.chars().count() > max_chars {
-            format!(
-                "{}…",
-                word.chars()
-                    .take(max_chars.saturating_sub(1))
-                    .collect::<String>()
-            )
+        let word = if measure_units(word) > max_chars as f32 {
+            let mut shortened = word.to_string();
+            while measure_units(&shortened) + measure_units("…") > max_chars as f32 {
+                if shortened.pop().is_none() {
+                    break;
+                }
+            }
+            shortened.push('…');
+            shortened
         } else {
             word.to_string()
         };
-        let candidate_len =
-            current.chars().count() + usize::from(!current.is_empty()) + word.chars().count();
-        if !current.is_empty() && candidate_len > max_chars {
+        let candidate_len = measure_units(&current)
+            + if current.is_empty() {
+                0.0
+            } else {
+                measure_units(" ")
+            }
+            + measure_units(&word);
+        if !current.is_empty() && candidate_len > max_chars as f32 {
             lines.push(std::mem::take(&mut current));
         }
         if !current.is_empty() {
@@ -1795,7 +2189,7 @@ fn limited_word_lines(text: &str, max_chars: usize, max_lines: usize) -> Vec<Str
     }
     lines.truncate(max_lines);
     if let Some(last) = lines.last_mut() {
-        while last.chars().count() >= max_chars {
+        while measure_units(last) + measure_units("…") > max_chars as f32 {
             last.pop();
         }
         last.push('…');
@@ -1823,6 +2217,193 @@ mod tests {
         bytes.iter().fold(0xcbf29ce484222325_u64, |hash, byte| {
             (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
         })
+    }
+
+    fn collect_text(group: &usvg::Group, output: &mut String) {
+        for node in group.children() {
+            match node {
+                usvg::Node::Group(child) => collect_text(child, output),
+                usvg::Node::Text(text) => text
+                    .chunks()
+                    .iter()
+                    .for_each(|chunk| output.push_str(chunk.text())),
+                _ => {}
+            }
+        }
+    }
+
+    fn assert_copy_bounds(group: &usvg::Group, template: &str) {
+        for node in group.children() {
+            match node {
+                usvg::Node::Group(child) => assert_copy_bounds(child, template),
+                usvg::Node::Text(text) => {
+                    let content: String = text.chunks().iter().map(|chunk| chunk.text()).collect();
+                    if content.contains(['甲', '乙', '丙']) {
+                        let bounds = text.flattened().abs_stroke_bounding_box();
+                        assert!(
+                            bounds.x() >= 60.0
+                                && bounds.right() <= 1020.0
+                                && bounds.y() >= 220.0
+                                && bounds.bottom() <= 1690.0,
+                            "{template}: {content} outside card safety area: {bounds:?}"
+                        );
+                        assert!(
+                            !content.contains('…'),
+                            "{template}: legal copy was truncated: {content}"
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn legal_copy_stays_inside_all_template_cards() {
+        let options = usvg::Options {
+            fontdb: font_database(),
+            ..Default::default()
+        };
+        for template in TEMPLATE_IDS {
+            let cap = copy_limits_for_template(template);
+            let columns = (cap.body_chars - cap.body_lines + 1) / cap.body_lines;
+            let request = RenderRequest {
+                template: (*template).into(),
+                title: "甲".repeat(30),
+                body: vec!["乙".repeat(columns); cap.body_lines].join("\n"),
+                tags: vec!["丙".repeat(12); 3].join(" "),
+                title_weight: 900,
+                body_weight: 700,
+                ..Default::default()
+            };
+            let tree = usvg::Tree::from_str(&svg_for(&request), &options).unwrap();
+            assert_copy_bounds(tree.root(), template);
+        }
+    }
+
+    #[test]
+    fn each_custom_color_changes_every_template() {
+        for template in TEMPLATE_IDS {
+            let request = RenderRequest {
+                template: (*template).into(),
+                title: "配色测试".into(),
+                body: "限1–3档，免报名费，一天打完".into(),
+                tags: "#台球".into(),
+                color_mode: "custom".into(),
+                ..Default::default()
+            };
+            let original = svg_for(&request);
+            for field in 0..3 {
+                let mut changed = request.clone();
+                match field {
+                    0 => changed.glow1 = "#234567".into(),
+                    1 => changed.glow2 = "#456789".into(),
+                    _ => changed.accent = "#6789AB".into(),
+                }
+                assert_ne!(
+                    original,
+                    svg_for(&changed),
+                    "{template}: custom color {field} ignored"
+                );
+            }
+            let mut themed = request.clone();
+            themed.color_mode = "theme".into();
+            let baseline = svg_for(&themed);
+            themed.glow1 = "#101010".into();
+            themed.glow2 = "#202020".into();
+            assert_eq!(
+                baseline,
+                svg_for(&themed),
+                "{template}: theme colors drifted"
+            );
+        }
+    }
+
+    #[test]
+    fn light_tag_pills_use_readable_ink() {
+        for fill in [
+            "#76FFD8", "#F4D35E", "#94D2BD", "#E7B10A", "#D6AF52", "#FF8A5C",
+        ] {
+            assert!(contrast_ratio(contrast_ink(fill), fill) >= 4.5, "{fill}");
+        }
+    }
+
+    #[test]
+    fn match_tiles_do_not_invent_or_reverse_fees() {
+        assert_eq!(
+            match_conditions("限1–3档，免报名费，一天打完"),
+            vec!["限1–3档", "免报名费", "一天打完"]
+        );
+        assert!(!match_conditions("比赛不免报名费，败方结台费")
+            .iter()
+            .any(|v| v == "免报名费"));
+        assert!(match_conditions("有没有想一起参加比赛的球搭子？").is_empty());
+        let request = RenderRequest {
+            template: "arena_score".into(),
+            title: "找比赛搭子".into(),
+            body: "限1–3档，免报名费，一天打完；败方结台费".into(),
+            ..Default::default()
+        };
+        let options = usvg::Options {
+            fontdb: font_database(),
+            ..Default::default()
+        };
+        let tree = usvg::Tree::from_str(&svg_for(&request), &options).unwrap();
+        let mut text = String::new();
+        collect_text(tree.root(), &mut text);
+        assert!(
+            text.contains("败方结台费"),
+            "table fee disappeared from rendered text"
+        );
+    }
+
+    #[test]
+    fn emoji_font_contains_requested_symbols() {
+        let face =
+            ttf_parser::Face::parse(include_bytes!("../fonts/NotoEmoji-Variable.ttf"), 0).unwrap();
+        for symbol in ['🎱', '🔥', '🏆', '🤝', '💪', '🎯'] {
+            assert!(face.glyph_index(symbol).is_some(), "{symbol}");
+        }
+    }
+
+    #[test]
+    fn font_and_weight_controls_change_actual_pixels() {
+        let mut request = RenderRequest {
+            template: "minimal".into(),
+            title: "ill WWW 123".into(),
+            body: "🎱 一起参赛 🔥".into(),
+            font_family: "sans".into(),
+            title_weight: 400,
+            body_weight: 400,
+            ..Default::default()
+        };
+        let regular = render_png(&request).unwrap();
+        request.title_weight = 900;
+        request.body_weight = 900;
+        assert_ne!(
+            regular,
+            render_png(&request).unwrap(),
+            "bold pixels must differ"
+        );
+        request.title_weight = 400;
+        request.body_weight = 400;
+        request.font_family = "mono".into();
+        assert_ne!(
+            regular,
+            render_png(&request).unwrap(),
+            "monospace pixels must differ"
+        );
+    }
+
+    #[test]
+    fn wrap_preserves_words_ranges_and_closing_punctuation() {
+        let lines = wrap_text("一起参赛 MATCH 1–3档", 8);
+        assert!(lines.iter().any(|line| line.contains("MATCH")));
+        assert!(lines.iter().any(|line| line.contains("1–3")));
+        assert_eq!(lines.join(""), "一起参赛 MATCH 1–3档");
+        assert!(wrap_text("一二三四五六七八九，十", 9)
+            .iter()
+            .all(|line| !line.starts_with('，')));
     }
 
     #[test]
@@ -1912,10 +2493,10 @@ mod tests {
 
         let pills = tag_pills("#一二三四 #五六七八 #九十十一", "#000000", 100, 500, 200);
         assert!(!pills.contains("x='500'"));
-        assert!(pills.contains("y='266'"), "overflowing pills should wrap");
+        assert!(pills.contains("y='270'"), "overflowing pills should wrap");
         assert_eq!(
             limited_word_lines("#珠海台球 #约球日常 #新手入门", 10, 2),
-            vec!["#珠海台球", "#约球日常…"]
+            vec!["#珠海台球 #约球日常", "#新手入门"]
         );
     }
 
@@ -1929,58 +2510,8 @@ mod tests {
             tags: "#珠海台球 #约球日常".into(),
             ..Default::default()
         };
-        let _expected: &[u64] = &[
-            4_370_394_096_670_118_294,
-            2_915_345_514_686_357_144,
-            16_951_864_457_228_097_559,
-            12_331_733_539_329_250_638,
-            1_902_716_855_967_025_275,
-            12_621_961_104_212_921_327,
-            11_180_669_618_038_991_886,
-            4_903_366_455_419_328_711,
-            2_606_950_486_791_333_417,
-            8_051_477_551_424_268_749,
-            5_231_298_719_142_288_172,
-            10_728_926_279_769_676_032,
-            664_092_054_982_800_083,
-            405_228_027_209_619_123,
-            13_636_155_439_905_564_751,
-            10_651_597_118_353_426_562,
-            13_047_415_745_521_056_090,
-            425_179_590_397_066_224,
-            18_253_373_370_898_788_892,
-            11_216_347_276_862_073_211,
-            13_730_218_183_808_770_834,
-            6_430_787_066_683_608_935,
-            3_234_824_405_208_935_073,
-            18_187_517_618_597_569_123,
-            1_805_943_929_175_856_004,
-            12_996_206_187_188_395_826,
-            5_569_554_980_941_469_596,
-            13_162_614_678_469_734_302,
-            15_852_542_926_123_123_017,
-            18_339_905_956_085_081_110,
-            8_775_783_983_319_563_219,
-            11_199_509_825_177_981_171,
-            4_356_646_044_146_357_423,
-            16_321_755_061_417_390_432,
-            18_372_474_689_725_090_887,
-            6_741_746_859_477_128_882,
-            14_859_183_518_072_843_950,
-            10_117_094_781_850_269_608,
-            4_824_968_417_762_490_383,
-            12_074_108_589_338_291_216,
-            14_523_749_511_889_669_713,
-            4_440_718_292_068_059_524,
-            16_069_936_373_001_067_402,
-            2_272_785_499_300_880_258,
-            4_293_071_393_310_320_814,
-            849_866_747_646_345_396,
-            5_244_810_571_438_347_945,
-            11_113_663_352_077_584_739,
-            15_611_396_146_798_677_209,
-            9_296_320_271_288_400_569,
-        ];
+        let expected: Vec<u64> = serde_json::from_str(include_str!("snapshots/templates.json"))
+            .expect("valid committed template snapshots");
         let actual = TEMPLATE_IDS
             .iter()
             .map(|template| {
@@ -1990,14 +2521,30 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(
-            actual.len(),
-            TEMPLATE_IDS.len(),
-            "template snapshot count changed"
+            actual, expected,
+            "template SVG changed; inspect all sample renders before updating the fixture"
         );
-        assert!(
-            actual.iter().all(|hash| *hash != 0),
-            "template snapshot contains an empty render"
-        );
+    }
+
+    #[test]
+    fn separator_lines_have_both_endpoint_coordinates() {
+        for template in TEMPLATE_IDS {
+            let request = RenderRequest {
+                template: (*template).into(),
+                title: "有没有一起参赛的球搭子？".into(),
+                ..Default::default()
+            };
+            let svg = svg_for(&request);
+            for opening in svg.split("<line ").skip(1) {
+                let attributes = opening.split('>').next().unwrap();
+                for name in ["x1", "y1", "x2", "y2"] {
+                    assert!(
+                        svg_attribute(attributes, name).is_some(),
+                        "{template}: missing {name}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -2039,7 +2586,7 @@ mod tests {
         };
         let svg = svg_for(&request);
         assert!(!svg.contains("data-role="));
-        assert!(svg.contains("font-family='Noto Serif CJK SC, Noto Serif SC, serif'"));
+        assert!(svg.contains("font-family='Noto Serif CJK SC, Noto Serif SC, Noto Emoji, serif'"));
         assert!(svg.contains("fill='#112233' font-size"));
         assert!(svg.contains("fill='#223344' font-size"));
         assert!(svg.contains("fill='#334455' font-size"));

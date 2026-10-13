@@ -46,9 +46,9 @@ jobs:
           Copy-Item $installer.FullName dist/
           Copy-Item src-tauri/target/release/billiards_matrix.exe dist/
           Copy-Item docs/WINDOWS_EXE.md dist/README.md
-          Copy-Item docs/MATCH_BUDDY_PROMPTS.md dist/
+          Copy-Item docs/MATCH_BUDDY_PROMPTS.md, docs/RENDER_FIXES.md dist/
           New-Item -ItemType Directory -Path dist/fonts -Force | Out-Null
-          Copy-Item src-tauri/fonts/OFL.txt, src-tauri/fonts/NOTICE.md dist/fonts/
+          Copy-Item src-tauri/fonts/OFL*.txt, src-tauri/fonts/NOTICE.md dist/fonts/
           Get-ChildItem dist/*.exe | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)"
@@ -57,5 +57,17 @@ jobs:
         with:
           name: billiards-windows-x64
           path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: billiards-installer-x64
+          path: |
+            dist/*-setup.exe
+            dist/README.md
+            dist/RENDER_FIXES.md
+            dist/MATCH_BUDDY_PROMPTS.md
+            dist/SHA256SUMS.txt
+            dist/fonts/
           if-no-files-found: error
           retention-days: 30

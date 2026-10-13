@@ -85,6 +85,7 @@ pub fn get_templates() -> Vec<TemplateInfo> {
             id: (*id).into(),
             name: (*name).into(),
             copy_limits: copy_limits_for_template(id),
+            theme_colors: render::default_colors_for_template(id),
         })
         .collect()
 }

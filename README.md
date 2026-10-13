@@ -5,6 +5,7 @@
 ## 已实现
 
 - 50 套 SVG 模板输出固定 `1080 x 1920` PNG。
+- 模板默认配色、自定义配色、三行话题安全区和离线表情字体，详见 [0.1.4 渲染修复](docs/RENDER_FIXES.md)。
 - `resvg + usvg + tiny-skia + fontdb` 原生渲染。
 - 内置 Noto Sans/Serif CJK 字体，不读取系统字体。
 - 单条预览、单条保存、AI 文案、批量文案和最多 100 张批量渲染。
