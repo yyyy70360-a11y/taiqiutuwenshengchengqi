@@ -5,19 +5,24 @@
 ## 已实现
 
 - 50 套 SVG 模板输出固定 `1080 x 1920` PNG。
+- 0.1.5 支持文案保留条件改写、分组补齐与去重、批量取消与失败重试、模板缩略图、自动草稿、常用配置和文案库管理，详见 [工作流优化说明](docs/WORKFLOW_IMPROVEMENTS.md)。
+- 模板默认配色、自定义配色、三行话题安全区和离线表情字体，详见 [0.1.4 渲染修复](docs/RENDER_FIXES.md)。
 - `resvg + usvg + tiny-skia + fontdb` 原生渲染。
 - 内置 Noto Sans/Serif CJK 字体，不读取系统字体。
 - 单条预览、单条保存、AI 文案、批量文案和最多 100 张批量渲染。
 - 批量渲染支持统一模板、随机模板，或按数量分配多套模板（例如 5/3/2）。
 - 批量进度、失败和完成事件。
 - SQLite 预设、设置、账号、文案库和渲染历史元数据。
-- macOS Keychain 保存云登录会话；旧版本地 API Key 仅作为迁移兼容保留。
+- 本地直连 AI 支持自定义 URL、模型和 API Key，无需云账号。
+- 单条与批量 AI 新增 12 个比赛找搭子题材，支持填写档位、报名费用、赛程等条件，详见 [比赛找搭子文案](docs/MATCH_BUDDY_PROMPTS.md)。
+- macOS Keychain / Windows 凭据管理器保存本地 API Key 和云登录会话。
 - 云端登录、注册、会话刷新、退出、设置同步、账号同步和文案库同步。
 - 服务端 AI 网关支持单条 / 批量文案，接收模板 ID 并按模板容量做最终兜底。
 - 服务端后台支持管理首页、用户管理、AI 配置和 AI 调用记录。
 - 旧版 `settings.json`、`accounts.json` 和可用的 JSON 文案库一次性迁移。
 - 旧输出目录原样保留；不导入旧版 base64 预览历史。
 - `.app` 与 `.dmg` 打包。
+- Windows x64 NSIS `.exe` 安装包，详见 [WINDOWS_EXE.md](docs/WINDOWS_EXE.md)。
 
 ## 工程结构
 
@@ -111,7 +116,7 @@ SQLite 数据库位于：
 ~/Library/Application Support/com.billiards.matrix/billiards.sqlite3
 ```
 
-云登录会话使用 Keychain service `com.billiards.matrix`，account 为 `cloud_access_token` 与 `cloud_refresh_token`。旧版本地 API Key 使用同一 service 下的 `api_key`，仅用于旧数据迁移和兼容；新的 AI Provider Key 配置在服务器，不下发到客户端。
+云登录会话使用系统凭据 service `com.billiards.matrix`，account 为 `cloud_access_token` 与 `cloud_refresh_token`。本地直连 AI 的 API Key 使用同一 service 下的 `api_key`；云端模式的 AI Provider Key 由服务器保存。Windows 使用凭据管理器，macOS 使用 Keychain。
 
 首次启动会查找旧版开发目录及 `~/Documents/台球图文生成器`，只补充尚未存在的数据。迁移完成或确认无旧数据后写入版本标记，后续启动不会重复扫描或覆盖新设置。只有旧配置真正包含 API Key 时才在迁移中访问 Keychain。旧输出图片不移动、不删除。
 

@@ -112,13 +112,13 @@ td textarea{min-height:48px;resize:vertical}
 .statusbar .item{display:flex;align-items:center;gap:5px}
 .statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--t3)}
 .statusbar .dot.on{background:#4ADE80}
-.col-l,.col-r,.left{height:calc(100vh - 71px)!important}
+.col-l,.col-r,.left{height:calc(100vh - 120px)!important}
 .lightbox{position:fixed;inset:0;background:rgba(15,15,15,.97);display:none;align-items:center;justify-content:center;z-index:999;cursor:zoom-out}
 .lightbox.show{display:flex}
 .lightbox img{max-width:94vw;max-height:94vh;border-radius:4px;box-shadow:0 12px 48px rgba(0,0,0,.7)}
 .lightbox .close{position:fixed;top:16px;right:24px;color:#fff;font-size:36px;cursor:pointer;z-index:1000;opacity:.6}
 .lightbox .close:hover{opacity:1}
-</style></head><body>
+</style><link rel="stylesheet" href="workbench.css"></head><body>
 <div class="tabs" role="tablist" aria-label="功能页面">
   <div class="tab active" id="tab0" role="tab" aria-controls="p0" aria-selected="true" tabindex="0" data-tab-index="0" title="单条图文实时预览编辑">单条生成</div>
   <div class="tab" id="tab1" role="tab" aria-controls="p1" aria-selected="false" tabindex="-1" data-tab-index="1" title="一次生成N条差异化文案批量渲染">批量生成</div>
@@ -130,8 +130,11 @@ td textarea{min-height:48px;resize:vertical}
     <h1>单条生成</h1>
     <div class="sect">模板与配色</div>
     <div class="field"><label>模板风格</label><select id="tpl"></select></div>
+    <button type="button" id="openTemplatePicker" class="sec">浏览模板缩略图 / 收藏</button>
+    <div class="field"><label>短文案排版</label><select id="layoutMode"><option value="auto">自动紧凑（通用卡片）</option><option value="classic">经典留白排版</option></select></div>
     <div class="field"><label>题材预设（自动填充）</label><select id="preset"></select></div>
-    <div class="field"><label>配色方案</label>
+    <div class="field"><label for="colorMode">配色方式</label><select id="colorMode"><option value="theme" selected>模板默认配色</option><option value="custom">自定义配色</option></select></div>
+    <div class="field"><label>主色与辅色（修改后使用自定义配色）</label>
     <div style="display:flex;gap:12px;align-items:center">
       <input type="color" id="color1" value="#FF8A5C" title="主色：点击拾色器选择渐变起始色">
       <div style="flex:1;height:44px;border-radius:22px;background:linear-gradient(90deg,#FF8A5C,#FF5E62);border:1px solid var(--border);transition:all .15s" id="gradPreview" title="渐变预览：实时显示主辅色渐变效果"></div>
@@ -139,8 +142,8 @@ td textarea{min-height:48px;resize:vertical}
     </div></div>
     <details class="type-panel">
       <summary class="sect">字体样式</summary>
-      <div class="field"><label>字体</label><select id="fontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
-      <div class="row"><div class="field"><label>标题粗细</label><select id="titleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <div class="field"><label>字体</label><select id="fontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="mono">等宽英文 / 数字</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="titleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bodyWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
       <label class="inline-check"><input type="checkbox" id="customTextColors"> 启用文字颜色覆盖</label>
       <div class="type-colors"><label class="type-color">标题<input type="color" id="titleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="tagColor" value="#2680EB" disabled></label></div>
     </details>
@@ -165,6 +168,12 @@ td textarea{min-height:48px;resize:vertical}
       <div class="field" style="margin:0"><label>性格</label><select id="gPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div>
     </div>
     <div class="field"><label>语气</label><select id="gTone"></select></div>
+    <div id="gMatchFields" class="field" hidden>
+      <label for="gMatchDetails">比赛条件（可修改）</label>
+      <textarea id="gMatchDetails" placeholder="如：限1–3档，免报名费，一天打完；败方结台费">限1–3档，免报名费，一天打完</textarea>
+      <div id="gMatchHint" style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:6px"></div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:4px">用比赛条件找同伴。只填已确认的条件，不需要赛事名称、电话或完整赛程。</div>
+    </div>
     <label class="inline-check"><input type="checkbox" id="useEmoji"> 文案含表情</label>
     <button id="generatePromptButton" type="button" class="sec" style="margin-bottom:8px" title="根据上方人设配置生成提示词" data-tip="根据上方人设配置生成创作方向">生成提示词</button>
     <div class="field"><label>提示词（可编辑）</label><textarea id="promptView" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:80px" data-tip="可直接编辑，发送给 AI 前会自动校验"></textarea></div>
@@ -194,22 +203,32 @@ td textarea{min-height:48px;resize:vertical}
     <div class="row"><div class="field"><label>区域</label><input id="bRegion" value="斗门"></div><div class="field"><label>性格</label><select id="bPersona"><option selected>热情约球型</option><option>技术宅</option><option>吐槽役</option><option>新手求带</option><option>老炮带人</option></select></div></div>
     <div class="row"><div class="field"><label>语气</label><select id="bTone"></select></div><div class="field"><label>生成数量</label><input id="bCount" type="number" value="10" min="1" max="100"></div></div>
     <label class="inline-check"><input type="checkbox" id="bUseEmoji"> 文案含表情</label>
+    <div id="bMatchFields" class="field" hidden>
+      <label for="bMatchDetails">比赛条件（可修改）</label>
+      <textarea id="bMatchDetails" placeholder="如：限1–3档，免报名费，一天打完；败方结台费">限1–3档，免报名费，一天打完</textarea>
+      <div id="bMatchHint" style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:6px"></div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:4px">用比赛条件找同伴。只填已确认的条件，不需要赛事名称、电话或完整赛程。</div>
+    </div>
     <div class="row"><div class="field"><label>模板模式</label><select id="bTplMode"><option value="single" selected>统一模板</option><option value="random">随机模板</option><option value="mix">自定义分配</option></select></div><div class="field" id="bTplUniformWrap"><label>渲染模板</label><select id="bTpl"></select></div></div>
     <div id="bTplMixWrap" class="template-mix" hidden><label>模板数量分配</label><div id="bTplMix"></div><div id="bTplMixSummary" class="template-mix-summary">总计 0 张</div></div>
     <div id="batchFitHint" class="copy-fit-hint" aria-live="polite"></div>
     <details class="type-panel">
       <summary class="sect">字体样式</summary>
-      <div class="field"><label>字体</label><select id="bFontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="system">系统字体</option><option value="mono">等宽风格</option></select></div>
-      <div class="row"><div class="field"><label>标题粗细</label><select id="bTitleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bBodyWeight"><option value="0" selected>跟随模板</option><option value="300">细</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
+      <div class="field"><label>字体</label><select id="bFontFamily"><option value="theme" selected>跟随模板</option><option value="sans">黑体 / 无衬线</option><option value="serif">宋体 / 衬线</option><option value="mono">等宽英文 / 数字</option></select></div>
+      <div class="row"><div class="field"><label>标题粗细</label><select id="bTitleWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="600">半粗</option><option value="700">加粗</option><option value="900">特粗</option></select></div><div class="field"><label>正文粗细</label><select id="bBodyWeight"><option value="0" selected>跟随模板</option><option value="400">常规</option><option value="500">中等</option><option value="700">加粗</option></select></div></div>
       <label class="inline-check"><input type="checkbox" id="bCustomTextColors"> 启用文字颜色覆盖</label>
       <div class="type-colors"><label class="type-color">标题<input type="color" id="bTitleColor" value="#111111" disabled></label><label class="type-color">正文<input type="color" id="bBodyColor" value="#333333" disabled></label><label class="type-color">话题<input type="color" id="bTagColor" value="#2680EB" disabled></label></div>
     </details>
-    <div class="field"><label>配色</label><select id="bColor"><option value="-1">随机轮换</option><option value="0">暖橙</option><option value="1">薄荷</option><option value="2">天蓝</option><option value="3">紫粉</option><option value="4">深蓝</option></select></div>
+    <div class="field"><label>配色</label><select id="bColor"><option value="-2" selected>跟随每张模板默认配色</option><option value="-1">随机轮换（自定义）</option><option value="0">暖橙</option><option value="1">薄荷</option><option value="2">天蓝</option><option value="3">紫粉</option><option value="4">深蓝</option></select></div>
     <div class="field"><label>保存到子文件夹（可选）</label><input id="bSubfolder" placeholder="如：斗门约球0815"></div>
     <button id="batchGeneratePromptButton" type="button" class="sec" style="margin-top:10px" title="根据人设配置生成提示词" data-tip="根据当前配置整理批量创作方向">生成提示词</button>
     <div class="field" style="margin-top:8px"><label>提示词（可编辑）</label><textarea id="bPrompt" style="background:var(--bg);color:#7c9;font-family:monospace;font-size:11px;min-height:90px" data-tip="可编辑，批量生成前会自动校验"></textarea></div>
     <button id="batchGenerateCopyButton" type="button" style="background:var(--purple);border-color:var(--purple)" title="一次生成N条差异化文案避免雷同" data-tip="一次生成多条差异化文案，降低重复感">AI生成N条文案</button>
     <div id="batchAiStatus" class="action-status" aria-live="polite"></div>
+    <div class="field"><label>短文案排版</label><select id="bLayoutMode"><option value="auto">自动紧凑（通用卡片）</option><option value="classic">经典留白排版</option></select></div>
+    <button id="openBatchTemplatePicker" type="button" class="sec">浏览 / 选择批量模板</button>
+    <div class="task-actions"><button id="batchCancelButton" type="button" class="sec" hidden>取消当前任务</button><button id="batchFillButton" type="button" class="sec" hidden>补齐缺少的文案</button><button id="batchRetryButton" type="button" class="sec" hidden>继续未完成 / 重试失败项</button></div>
+    <div id="batchTaskStatus" class="action-status" aria-live="polite"></div>
     <button id="batchRenderButton" type="button" style="margin-top:8px">批量渲染出图</button>
   </div>
   <div style="flex:1;overflow-y:auto;padding:24px"><div id="bList"></div><div class="batch-grid" id="batchGrid" style="padding:0;margin-top:20px"></div></div>
@@ -218,6 +237,58 @@ td textarea{min-height:48px;resize:vertical}
 <div class="page" id="p2" role="tabpanel" aria-labelledby="tab2">
   <div class="left">
     <h1>系统设置</h1>
+    <div class="sect">AI 文案引擎</div>
+    <div class="cloud-panel" id="aiConfigPanel">
+      <div class="cloud-head">
+        <div><div class="cloud-title">AI 服务方式</div><div class="cloud-subtitle">支持本地直连大模型或云端网关服务</div></div>
+        <div class="cloud-chip on" id="aiModeChip">本地直连</div>
+      </div>
+      <div class="field">
+        <label>调用模式</label>
+        <div style="display:flex;gap:16px;margin:4px 0 10px 0;font-size:12px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--t1)">
+            <input type="radio" name="aiMode" value="local" id="aiModeLocal" checked style="width:auto"> 本地直连 (自定义 Key)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--t1)">
+            <input type="radio" name="aiMode" value="cloud" id="aiModeCloud" style="width:auto"> 云端服务 (账号登录)
+          </label>
+        </div>
+      </div>
+      <div id="localAiSection">
+        <div class="field">
+          <label>接口地址 (Base URL)</label>
+          <div class="input-action-row">
+            <input id="localAiUrl" placeholder="https://api.deepseek.com/v1" style="font-family:monospace">
+            <select id="localAiPreset" style="height:34px;padding:4px 6px;font-size:11px;background:var(--bg3);color:var(--t1);border:1px solid var(--border)">
+              <option value="">快速预设</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="qwen">阿里百炼</option>
+              <option value="moonshot">Kimi</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <div class="cloud-helper">兼容 OpenAI 规范的 Base URL，将自动请求 /chat/completions</div>
+        </div>
+        <div class="field">
+          <label>模型名称 (Model)</label>
+          <input id="localAiModel" placeholder="deepseek-chat" style="font-family:monospace">
+        </div>
+        <div class="field">
+          <label>API Key</label>
+          <div class="password-row">
+            <input id="localAiKey" type="password" autocomplete="off" placeholder="sk-...">
+            <button id="localAiKeyToggle" type="button" class="sec">显示</button>
+          </div>
+          <div class="cloud-helper" id="localAiKeyHint">密钥仅保存在系统钥匙串中，不经过云服务器。</div>
+        </div>
+        <div class="cloud-actions" style="margin-bottom:8px">
+          <button id="saveLocalAiButton" type="button">保存 AI 配置</button>
+          <button id="testLocalAiButton" type="button" class="sec">测试连接</button>
+          <button id="clearLocalAiKeyButton" type="button" class="sec" title="清除已保存的 API Key">清空 Key</button>
+        </div>
+        <div id="localAiStatus" class="action-status" aria-live="polite"></div>
+      </div>
+    </div>
     <div class="sect">云服务</div>
     <div class="cloud-panel" id="cloudPanel">
       <div class="cloud-head">
@@ -249,6 +320,7 @@ td textarea{min-height:48px;resize:vertical}
   <div class="col-c"><div class="cloud-summary"><div id="cloudSummaryTitle" style="font-size:14px;color:var(--t1);font-weight:600">未登录云服务</div><div id="cloudSummaryDetail">本地渲染与图片存储不受影响</div><div id="cloudSummarySync"></div></div></div>
 </div>
 
+<div id="workspaceBar" class="workspace-bar"><span id="draftStatus" aria-live="polite">草稿自动保存</span><select id="workspacePreset" aria-label="常用配置"><option value="">选择常用配置</option></select><button id="saveWorkspacePreset" type="button" class="sec">保存常用配置</button><button id="deleteWorkspacePreset" type="button" class="sec">删除配置</button></div>
 <div class="statusbar">
   <div class="item"><span class="dot" id="apiDot"></span><span id="apiStat">云服务未登录</span></div>
   <div class="item">模板: <span id="statTpl" style="color:var(--t2)">-</span></div>
@@ -256,6 +328,8 @@ td textarea{min-height:48px;resize:vertical}
   <div class="item" style="margin-left:auto">已渲染: <span id="statCnt" style="color:var(--accent)">0</span></div>
 </div>
 <div class="lightbox" id="lightbox"><span class="close" id="lightboxClose" role="button" aria-label="关闭预览" tabindex="0">&times;</span><img id="lbImg" alt="放大预览"></div>
+<script src="template-catalog.js"></script>
+<script src="match-prompts.js"></script>
 <script>
 const tauriInvoke=window.__TAURI__?.core?.invoke;
 const tauriListen=window.__TAURI__?.event?.listen;
@@ -265,25 +339,27 @@ const nativeListen=typeof tauriListen==="function"?tauriListen.bind(window.__TAU
 const LOCAL_CLOUD_SERVER="http://127.0.0.1:38123";
 const $=id=>document.getElementById(id);
 const SC=[{n:"暖橙",g1:"#FF8A5C",g2:"#FF5E62",a:"#FF5E62"},{n:"薄荷",g1:"#43E97B",g2:"#38F9D7",a:"#0FB9B1"},{n:"天蓝",g1:"#4FACFE",g2:"#00C6FB",a:"#1E90FF"},{n:"紫粉",g1:"#A18CD1",g2:"#FBC2EB",a:"#8E44AD"},{n:"深蓝",g1:"#2C3E50",g2:"#4CA1AF",a:"#3A6E8F"}];
-let cur=SC[0],presets=[],tpls=[],templateMixCounts={},randomTemplatePlan={count:0,templates:[]},lastFile="",histArr=[],renderTimer=null,renderCnt=0,renderBusy=false,renderQueued=false,cloudLoggedIn=false;
+let cur=SC[0],presets=[],tpls=[],templateMixCounts={},randomTemplatePlan={count:0,templates:[]},lastFile="",histArr=[],renderTimer=null,renderCnt=0,renderBusy=false,renderQueued=false,cloudLoggedIn=false,localAiConfigured=false,currentAiMode="local";
 function showTab(i){document.querySelectorAll('.tab').forEach((tab,index)=>{const active=index===i;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});document.querySelectorAll('.page').forEach((page,index)=>page.classList.toggle('active',index===i))}
 function openLightbox(src){document.getElementById("lbImg").src=src;document.getElementById("lightbox").classList.add("show")}
 function closeLightbox(){document.getElementById("lightbox").classList.remove("show")}
 
 // 配色
+function singleColorPayload(){const mode=document.getElementById("colorMode").value;return{colorMode:mode,glow1:cur.g1,glow2:cur.g2,accent:cur.a}}
+function refreshThemeColors(){if(document.getElementById("colorMode").value!=="theme")return;const colors=tpls.find(t=>t.id===document.getElementById("tpl").value)?.themeColors;if(colors){cur={...cur,g1:colors.glow1,g2:colors.glow2,a:colors.accent};document.getElementById("color1").value=cur.g1;document.getElementById("color2").value=cur.g2;updateGrad()}}
 function updateGrad(){document.getElementById("gradPreview").style.background=`linear-gradient(90deg,${document.getElementById("color1").value},${document.getElementById("color2").value})`}
 if(nativeReady){
-  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});renderTemplateMix();updateSingleCapacity();updateSingleFitStates();populateToneSelects();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
-  nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});loadPreset()}).catch(e=>alert("预设读取失败："+e));
+  nativeInvoke("get_templates").then(d=>{tpls=d;["tpl","bTpl"].forEach(id=>{const sel=document.getElementById(id);if(sel)d.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o)})});refreshThemeColors();if(window.Workbench)Workbench.onTemplates();renderTemplateMix();updateSingleCapacity();updateSingleFitStates();populateToneSelects();if(document.getElementById("title").value.trim())scheduleRender()}).catch(e=>alert("模板读取失败："+e));
+  nativeInvoke("get_presets").then(d=>{presets=d;const sel=document.getElementById("preset");d.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name;sel.appendChild(o)});if(window.Workbench?.restored)Workbench.onTemplates();else loadPreset()}).catch(e=>alert("预设读取失败："+e));
 }
-function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}updateSingleCapacity();updateSingleFitStates();scheduleRender()}
+function loadPreset(){const p=presets[document.getElementById("preset").value];if(!p)return;document.getElementById("num").value=String(parseInt(document.getElementById("preset").value)+1).padStart(2,"0");document.getElementById("tag").value=p.tag;document.getElementById("title").value=p.title;document.getElementById("bodytxt").value=p.body;document.getElementById("tags").value=p.tags;const i=SC.findIndex(s=>s.a===p.accent);if(i>=0){cur=SC[i];document.getElementById("color1").value=SC[i].g1;document.getElementById("color2").value=SC[i].g2;updateGrad()}refreshThemeColors();updateSingleCapacity();updateSingleFitStates();scheduleRender()}
 
 // 实时预览
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(autoRender,600)}
-async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload("")};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
+async function autoRender(){if(renderBusy){renderQueued=true;return}const b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,...singleColorPayload(),...typographyPayload("")};if(!b.title||!b.template)return;renderBusy=true;const badge=document.getElementById("renderBadge"),hint=document.getElementById("hint0");badge.style.display="block";hint.style.display="none";try{const result=await nativeInvoke("render_preview",{request:b});document.getElementById("preview0").src="data:image/png;base64,"+result.imageBase64;document.getElementById("preview0").style.display="block";renderCnt++;document.getElementById("statCnt").textContent=renderCnt;document.getElementById("statTpl").textContent=document.getElementById("tpl").selectedOptions[0]?.text||"-"}catch(e){hint.textContent="渲染失败："+String(e);hint.style.display="block"}finally{renderBusy=false;badge.style.display="none";if(renderQueued){renderQueued=false;scheduleRender()}}}
 async function loadHistory(){const h=document.getElementById("histList");if(!nativeReady){h.innerHTML="<div class='hist-empty'>历史仅在桌面应用中可用</div>";return}try{histArr=await nativeInvoke("get_render_history");h.innerHTML="";let shown=0;for(const item of histArr){if(shown>=20)break;try{const img=await nativeInvoke("read_history_image",{historyId:item.id});const src="data:image/png;base64,"+img,d=document.createElement("div"),im=document.createElement("img");d.className="hist-item";d.title=item.fileName;im.src=src;d.appendChild(im);d.addEventListener("click",()=>openLightbox(src));h.appendChild(d);shown++}catch(_){}}if(!shown)h.innerHTML="<div class='hist-empty'>暂无已保存图片</div>"}catch(e){h.innerHTML="<div class='hist-empty'>历史读取失败</div>"}}
 async function clearHist(){const status=document.getElementById("historyStatus"),button=document.getElementById("clearHistoryButton"),list=document.getElementById("histList");if(!nativeReady){if(status){status.textContent="请在桌面应用中清空历史";status.className="hist-status error"}return}if(button.disabled)return;if(status){status.textContent="正在清空历史...";status.className="hist-status"}button.disabled=true;try{try{await nativeInvoke("clear_render_history")}catch(firstError){await nativeInvoke("clearRenderHistory").catch(()=>{throw firstError})}histArr=[];if(list)list.innerHTML="<div class='hist-empty'>暂无历史<br>改参数自动预览</div>";if(status){status.textContent="历史已清空，图片文件不会删除";status.className="hist-status success"}}catch(e){if(status){status.textContent="清空历史失败："+String(e);status.className="hist-status error"}else alert("清空历史失败："+e)}finally{button.disabled=false}}
-async function saveRender(btn){const readyText=btn.dataset.readyText||btn.textContent||"保存到文件夹",b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,glow1:cur.g1,glow2:cur.g2,accent:cur.a,...typographyPayload("")};if(!b.title.trim()){alert("请先生成或填写标题");return}btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent=readyText},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent=readyText}}
+async function saveRender(btn){const readyText=btn.dataset.readyText||btn.textContent||"保存到文件夹",b={template:document.getElementById("tpl").value,num:document.getElementById("num").value,tag:document.getElementById("tag").value,title:document.getElementById("title").value,body:document.getElementById("bodytxt").value,tags:document.getElementById("tags").value,...singleColorPayload(),...typographyPayload("")};if(!b.title.trim()){alert("请先生成或填写标题");return}btn.textContent="保存中...";btn.disabled=true;try{const result=await nativeInvoke("render_save",{request:b,outputDir:null});lastFile=result.fileName;btn.textContent="已保存";await loadHistory();setTimeout(()=>{btn.textContent=readyText},1500)}catch(e){alert("保存失败："+String(e))}finally{btn.disabled=false;if(btn.textContent==="保存中...")btn.textContent=readyText}}
 
 // AI生成
 const PERSONA_GUIDES={
@@ -331,25 +407,7 @@ const TONE_GUIDES={
   "轻奢种草":"语气精致、推荐感强，突出环境、体验和质感，但避免虚假高端和过度营销。"
 };
 const FONT_FAMILIES={theme:"theme",sans:'"Noto Sans CJK SC", "Noto Sans SC", sans-serif',serif:'"Noto Serif CJK SC", "Noto Serif SC", serif',system:'-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',mono:'"Cascadia Mono", "Consolas", monospace'};
-const TEMPLATE_CAPACITY={
-  magazine:{title:30,body:96,bodyLines:6,tags:3,tag:12},
-  magazine_pro:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  fresh:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  minimal:{title:30,body:136,bodyLines:8,tags:3,tag:12},
-  poster:{title:30,body:144,bodyLines:8,tags:3,tag:12},
-  journal:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  neon:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  newspaper:{title:30,body:136,bodyLines:8,tags:3,tag:12},
-  blueprint:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  polaroid:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  scoreboard:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  vaporwave:{title:30,body:136,bodyLines:8,tags:3,tag:12},
-  classic:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  mono:{title:30,body:136,bodyLines:8,tags:3,tag:12},
-  club:{title:30,body:112,bodyLines:7,tags:3,tag:12},
-  street:{title:30,body:112,bodyLines:7,tags:3,tag:12}
-};
-["aurora","espresso","sunset","ocean","rainforest","chalkboard","luxury","arcade","comic","paper_cut","gradient_card","ink_brush","tech_hud","warm_note","ice","candy","carbon","ceramic","matchday","lounge","diagonal","retro_tv","terrazzo","silk","desert","mint","royal_blue","darkroom","data_panel","sticker_bomb","prism","stadium","typewriter","zen"].forEach(id=>TEMPLATE_CAPACITY[id]={title:30,body:112,bodyLines:7,tags:3,tag:12});
+const TEMPLATE_CAPACITY=Object.fromEntries(TemplateCatalog.map(t=>[t.id,{title:t.capacity.title,body:t.capacity.body,bodyLines:t.capacity.body_lines,tags:t.capacity.tags,tag:t.capacity.tag}]));
 function templateCapacity(id){return tpls.find(t=>t.id===id)?.copyLimits||TEMPLATE_CAPACITY[id]||TEMPLATE_CAPACITY.magazine}
 function templateName(id){return tpls.find(t=>t.id===id)?.name||id||"默认模板"}
 function normalizeCapacity(cap){return{title:cap.titleChars??cap.title??30,body:cap.bodyChars??cap.body??96,bodyLines:cap.bodyLines??6,tags:cap.tagsCount??cap.tags??3,tag:cap.tagChars??cap.tag??12}}
@@ -367,11 +425,13 @@ function selectedBatchAiTemplate(){const mode=document.getElementById("bTplMode"
 function templateCapacityPrompt(templateId){const cap=normalizeCapacity(templateCapacity(templateId));return `当前模板：${templateName(templateId)}\n标题≤${cap.title}字；正文≤${cap.body}字且最多${cap.bodyLines}行；话题最多${cap.tags}个，每个≤${cap.tag}字。\n宁可短一点，不要撑满或超出模板。`}
 function resolveTone(prefix){const value=document.getElementById(prefix+"Tone")?.value||"口语化";const tone=value==="__random_tone__"?Object.keys(TONE_GUIDES)[Math.floor(Math.random()*Object.keys(TONE_GUIDES).length)]:value;return{tone,guide:TONE_GUIDES[tone]||TONE_GUIDES["口语化"]}}
 function populateToneSelects(){const options=[{value:"口语化",label:"口语化"},{value:"略专业",label:"略专业"},{value:"搞笑自嘲",label:"搞笑自嘲"},{value:"热血鼓励",label:"热血鼓励"},{value:"克制高级",label:"克制高级"},{value:"朋友聊天",label:"朋友聊天"},{value:"老板推荐",label:"老板推荐"},{value:"新手求助",label:"新手求助"},{value:"老炮点评",label:"老炮点评"},{value:"技术分析",label:"技术分析"},{value:"轻松吐槽",label:"轻松吐槽"},{value:"反差幽默",label:"反差幽默"},{value:"温柔陪练",label:"温柔陪练"},{value:"赛事解说",label:"赛事解说"},{value:"探店测评",label:"探店测评"},{value:"避坑提醒",label:"避坑提醒"},{value:"挑战宣言",label:"挑战宣言"},{value:"沉浸故事",label:"沉浸故事"},{value:"干货清单",label:"干货清单"},{value:"犀利短评",label:"犀利短评"},{value:"悬念开场",label:"悬念开场"},{value:"社群召集",label:"社群召集"},{value:"深夜碎碎念",label:"深夜碎碎念"},{value:"高级冷淡",label:"高级冷淡"},{value:"俏皮可爱",label:"俏皮可爱"},{value:"硬核训练",label:"硬核训练"},{value:"佛系随缘",label:"佛系随缘"},{value:"本地烟火气",label:"本地烟火气"},{value:"复盘总结",label:"复盘总结"},{value:"轻奢种草",label:"轻奢种草"}];["gTone","bTone"].forEach(id=>{const sel=document.getElementById(id);if(!sel||sel.dataset.ready==="1")return;sel.innerHTML="<option value='__random_tone__'>随机语气（起稿时抽取）</option>";options.forEach(({value,label})=>{const o=document.createElement("option");o.value=value;o.textContent=label;sel.appendChild(o)});sel.value="口语化";sel.dataset.ready="1"})}
-function syncTextColorInputs(prefix=""){const enabled=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;["TitleColor","BodyColor","TagColor"].forEach(name=>{const input=document.getElementById(prefix+name);if(input)input.disabled=!enabled})}
+function syncTextColorInputs(prefix=""){const enabled=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;["TitleColor","BodyColor","TagColor"].forEach(name=>{const input=document.getElementById(prefix?prefix+name:name[0].toLowerCase()+name.slice(1));if(input)input.disabled=!enabled})}
 let tooltipEl=null;
 function initTooltips(){tooltipEl=document.createElement("div");tooltipEl.className="ui-tooltip";document.body.appendChild(tooltipEl);document.querySelectorAll("[data-tip]").forEach(el=>{const show=event=>{const tip=el.getAttribute("data-tip");if(!tip)return;tooltipEl.textContent=tip;tooltipEl.classList.add("show");move(event)};const move=event=>{if(!tooltipEl.classList.contains("show"))return;const pad=14,x=Math.min(window.innerWidth-300,Math.max(12,event.clientX+14)),y=Math.min(window.innerHeight-90,Math.max(12,event.clientY+16));tooltipEl.style.transform=`translate3d(${x}px,${y}px,0) scale(1)`};const hide=()=>tooltipEl.classList.remove("show");el.addEventListener("mouseenter",show);el.addEventListener("mousemove",move);el.addEventListener("mouseleave",hide)})}
-function typographyPayload(prefix=""){const custom=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;const family=document.getElementById((prefix?prefix+"FontFamily":"fontFamily"))?.value||"theme";return{fontFamily:family,titleWeight:parseInt(document.getElementById((prefix?prefix+"TitleWeight":"titleWeight"))?.value)||0,bodyWeight:parseInt(document.getElementById((prefix?prefix+"BodyWeight":"bodyWeight"))?.value)||0,titleColor:custom?(document.getElementById((prefix?prefix+"TitleColor":"titleColor"))?.value||""):"",bodyColor:custom?(document.getElementById((prefix?prefix+"BodyColor":"bodyColor"))?.value||""):"",tagColor:custom?(document.getElementById((prefix?prefix+"TagColor":"tagColor"))?.value||""):""}}
-function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",toneInfo=resolveTone(prefix),tone=toneInfo.tone,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${toneInfo.guide}\n\n【题材】\n${theme}\n\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. 结尾自然引导进约球群，可用“进群”“群里”，不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
+function typographyPayload(prefix=""){const custom=document.getElementById((prefix?prefix+"CustomTextColors":"customTextColors"))?.checked===true;const family=document.getElementById((prefix?prefix+"FontFamily":"fontFamily"))?.value||"theme";return{layoutMode:document.getElementById(prefix?"bLayoutMode":"layoutMode")?.value||"auto",fontFamily:family,titleWeight:parseInt(document.getElementById((prefix?prefix+"TitleWeight":"titleWeight"))?.value)||0,bodyWeight:parseInt(document.getElementById((prefix?prefix+"BodyWeight":"bodyWeight"))?.value)||0,titleColor:custom?(document.getElementById((prefix?prefix+"TitleColor":"titleColor"))?.value||""):"",bodyColor:custom?(document.getElementById((prefix?prefix+"BodyColor":"bodyColor"))?.value||""):"",tagColor:custom?(document.getElementById((prefix?prefix+"TagColor":"tagColor"))?.value||""):""}}
+function populateMatchThemes(){["g","b"].forEach(prefix=>{const group=document.createElement("optgroup");group.label="比赛找搭子";MatchPrompts.scenarios.forEach(scenario=>{const option=document.createElement("option");option.value=scenario.name;option.textContent=scenario.name;group.appendChild(option)});document.getElementById(prefix+"Theme").appendChild(group);updateMatchFields(prefix)})}
+function updateMatchFields(prefix){const scenario=MatchPrompts.findScenario(document.getElementById(prefix+"Theme").value);document.getElementById(prefix+"MatchFields").hidden=!scenario;document.getElementById(prefix+"MatchHint").textContent=scenario?"开头口吻参考："+scenario.opening:""}
+function buildCopyPrompt(prefix){const emojiId=prefix==="g"?"useEmoji":prefix+"UseEmoji",emoji=document.getElementById(emojiId).checked?"可适当使用1-2个emoji增加生动感":"不要使用任何emoji",persona=document.getElementById(prefix+"Persona").value,level=document.getElementById(prefix+"Level").value,region=document.getElementById(prefix+"Region").value.trim()||"未指定地区",toneInfo=resolveTone(prefix),tone=toneInfo.tone,theme=document.getElementById(prefix+"Theme").value,templateId=prefix==="g"?(document.getElementById("tpl").value||"magazine"):selectedBatchAiTemplate();const matchBrief=MatchPrompts.buildBrief(theme,document.getElementById(prefix+"MatchDetails").value);return `你是抖音同城台球约球博主，请以固定账号人设生成图文内容。\n\n【账号人设】\n区域：${region}\n档位：${level}\n档位表现：${LEVEL_GUIDES[level]}\n性格：${persona}\n性格表现：${PERSONA_GUIDES[persona]}\n语气：${tone}\n语气表现：${toneInfo.guide}\n\n【题材】\n${theme}\n${matchBrief?"\n"+matchBrief+"\n":""}\n【模板承载】\n${templateCapacityPrompt(templateId)}\n\n【硬性要求】\n1. 必须通过开头视角、关注点、措辞和结尾动作体现“${persona}”，不要只写一句自我标签。\n2. 正文像真人发的，有具体场景、个人情绪和观点，别写广告腔或模板腔。\n3. 带相关话题标签，但必须遵守模板承载限制。\n4. ${matchBrief?"结尾自然问有没有一起的、评论聊聊或群里约着去，任选一种，不要机械要求每条都进群。":"结尾自然引导进约球群，可用“进群”“群里”。"}不要出现微信号、二维码、加V等导流词。\n5. ${emoji}。`}
 function setPromptValue(output,prompt){output.value=prompt;output.dispatchEvent(new Event("input",{bubbles:true}));output.classList.add("prompt-generated");window.setTimeout(()=>output.classList.remove("prompt-generated"),1200)}
 function writeGeneratedPrompt(outputId,prompt,button){const output=document.getElementById(outputId);setPromptValue(output,prompt);output.scrollIntoView({block:"nearest"});button.textContent="已生成";window.setTimeout(()=>button.textContent="生成提示词",1200)}
 function updPrompt(button=document.getElementById("generatePromptButton")){writeGeneratedPrompt("promptView",buildCopyPrompt("g"),button)}
@@ -380,7 +440,7 @@ function setActionStatus(id,message,state=""){const status=document.getElementBy
 let uiReadyAttempts=0;
 function reportUiReady(){if(!nativeReady)return;if(tpls.length!==50||((document.getElementById("gTone")?.options.length||0)<31)){uiReadyAttempts++;if(uiReadyAttempts<25)window.setTimeout(reportUiReady,200);else document.body.dataset.uiReady="false";return}const preview=document.getElementById("preview0"),center=document.querySelector("#p0 .col-c"),left=document.querySelector("#p0 .col-l"),right=document.querySelector("#p0 .col-r"),report={templateCount:tpls.length,toneCount:document.getElementById("gTone")?.options.length||0,previewRatio:"9/16",previewFit:getComputedStyle(preview).objectFit,centerOverflow:getComputedStyle(center).overflow,leftOverflow:getComputedStyle(left).overflowY,rightOverflow:getComputedStyle(right).overflowY};nativeInvoke("report_ui_ready",{report}).then(() => document.body.dataset.uiReady="true").catch(error => {document.body.dataset.uiReady="false";console.error("UI 自检失败",error)})}
 window.addEventListener("load",() => window.setTimeout(reportUiReady,0));
-async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim(),template=document.getElementById("tpl").value||"magazine";if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(!cloudLoggedIn){setActionStatus("singleAiStatus","请先在设置页登录云服务","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt,template,...typographyPayload("")});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";updateSingleCapacity();updateSingleFitStates();await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，可点上方“保存当前图文”出图","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
+async function aiGen(btn=document.getElementById("singleGenerateCopyButton")){const promptField=document.getElementById("promptView"),prompt=promptField.value.trim(),template=document.getElementById("tpl").value||"magazine";if(!prompt){setActionStatus("singleAiStatus","请先生成提示词","error");promptField.focus();return}if(!nativeReady){setActionStatus("singleAiStatus","请在桌面应用中使用 AI 生成","error");return}if(currentAiMode==="cloud"&&!cloudLoggedIn){setActionStatus("singleAiStatus","云端模式下请先在设置页登录云服务，或切换为本地直连模式","error");return}if(currentAiMode==="local"&&!localAiConfigured&&!document.getElementById("localAiKey")?.value.trim()){setActionStatus("singleAiStatus","本地直连模式下请先在设置页配置 API Key","error");return}btn.textContent="生成中...";btn.disabled=true;setActionStatus("singleAiStatus","AI 正在生成文案，请稍候");try{const item=await nativeInvoke("generate_copy",{prompt,template,...typographyPayload("")});document.getElementById("title").value=item.title;document.getElementById("bodytxt").value=item.body;document.getElementById("tags").value=item.tags;const theme=document.getElementById("gTheme").value;document.getElementById("tag").value=({找搭子:"BILLIARDS",球房测评:"REVIEW",新手避坑:"GUIDE",约球吐槽:"RANT",球杆科普:"PRO TIP",技术段位:"RANK",球友日常:"DAILY",赛事战报:"MATCH"})[theme]||"BILLIARDS";updateSingleCapacity();updateSingleFitStates();await addLib(item.title,item.body,item.tags);scheduleRender();setActionStatus("singleAiStatus","生成完成，可点上方“保存当前图文”出图","success");document.getElementById("title").scrollIntoView({block:"center"})}catch(e){setActionStatus("singleAiStatus","生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}finally{btn.textContent="用提示词生成文案";btn.disabled=false}}
 
 // 批量
 const TAGMAP={"找搭子":"BILLIARDS","球房测评":"REVIEW","新手避坑":"GUIDE","约球吐槽":"RANT","球杆科普":"PRO TIP","技术段位":"RANK","球友日常":"DAILY","赛事战报":"MATCH"};
@@ -397,59 +457,23 @@ function batchTemplatePlan(itemCount){const mode=document.getElementById("bTplMo
 function batchCapacityTemplateFor(index,count){const plan=batchTemplatePlan(count);return plan.templates?plan.templates[index]:selectedBatchAiTemplate()}
 function batchOverfitCount(){const items=[...document.querySelectorAll("#bList .bi-item")];return{items,over:items.filter(item=>item.dataset.fitOver==="1")}}
 function setFitHint(id,report,prefix,detail){const el=document.getElementById(id);if(!el)return;el.className="copy-fit-hint "+(report.over?"error":"ok");el.innerHTML="";const head=document.createElement("div"),title=document.createElement("span"),badge=document.createElement("span"),metrics=document.createElement("div");head.className="copy-fit-head";title.className="copy-fit-title";badge.className="copy-fit-badge";metrics.className="copy-fit-metrics";title.textContent=prefix;badge.textContent=report.over?"需处理":"适配";const cap=report.cap;const chip=(label,value,over)=>{const span=document.createElement("span");span.className="copy-fit-chip"+(over?" over":"");span.textContent=`${label} ${value}`;return span};metrics.append(chip("标题",`${report.titleLen}/${cap.title}`,report.titleLen>cap.title),chip("正文",`${report.bodyLen}/${cap.body}字`,report.bodyLen>cap.body),chip("行数",`${report.bodyLines}/${cap.bodyLines}`,report.bodyLines>cap.bodyLines),chip("话题",`${report.tagCount}/${cap.tags}`,report.tagCount>cap.tags||report.tagOver));head.append(title,badge);el.append(head,metrics);if(detail){const note=document.createElement("div");note.className="copy-fit-detail";note.textContent=detail;el.appendChild(note)}}
-function updateBatchFitHint(){const mode=document.getElementById("bTplMode").value,template=selectedBatchAiTemplate(),summary=batchOverfitCount(),cap=normalizeCapacity(templateCapacity(template)),report={cap,titleLen:0,bodyLen:0,bodyLines:0,tagCount:0,tagOver:false,over:summary.over.length>0};const prefix=mode==="random"?"随机模板（按最保守容量）":mode==="mix"?"混合模板（按最保守容量）":templateName(template);const detail=summary.items.length?`${summary.items.length-summary.over.length}/${summary.items.length} 条适配${summary.over.length?`，${summary.over.length} 条建议缩短后再渲染。`:"。"}`:(mode==="random"?"AI 生成按最保守模板容量收口；渲染时每条自动抽取模板。":mode==="mix"?"AI 生成按自定义分配中的最保守模板估算。":"AI 生成会按此模板容量收口。");setFitHint("batchFitHint",report,prefix,detail)}
+function updateBatchFitHint(){const mode=document.getElementById("bTplMode").value,template=selectedBatchAiTemplate(),summary=batchOverfitCount(),cap=normalizeCapacity(templateCapacity(template)),report={cap,titleLen:0,bodyLen:0,bodyLines:0,tagCount:0,tagOver:false,over:summary.over.length>0};const prefix=mode==="random"?"随机模板（按最保守容量）":mode==="mix"?"混合模板（按最保守容量）":templateName(template);const detail=summary.items.length?`${summary.items.length-summary.over.length}/${summary.items.length} 条适配${summary.over.length?`，${summary.over.length} 条建议缩短后再渲染。`:"。"}`:(mode==="random"?"AI 生成按最保守模板容量收口；渲染时每条自动抽取模板。":mode==="mix"?"AI 生成按自定义分配中的最保守模板估算。":"AI 会改写到此模板容量内，并保留关键条件。");setFitHint("batchFitHint",report,prefix,detail)}
 function refreshBatchItemFits(){const template=selectedBatchAiTemplate();document.querySelectorAll("#bList .bi-item").forEach(item=>item.refreshFit?.(template));updateBatchFitHint()}
-function attachBatchFit(card,template,titleInput,bodyInput,tagsInput){const fit=document.createElement("div");fit.className="bi-fit";const refresh=(nextTemplate=template,updateSummary=true)=>{const cap=templateCapacity(nextTemplate),titleLen=countChars(titleInput.value),bodyLen=countChars(bodyInput.value),bodyLines=bodyLineCount(bodyInput.value,cap),tagList=tagParts(tagsInput.value),tagOver=tagList.some(tag=>countChars(tag)>cap.tag),over=titleLen>cap.title||bodyLen>cap.body||bodyLines>cap.bodyLines||tagList.length>cap.tags||tagOver;card.dataset.fitOver=over?"1":"0";card.dataset.fitTemplate=nextTemplate;card.classList.toggle("overfit",over);fit.textContent=`标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${bodyLines}/${cap.bodyLines} 行，话题 ${tagList.length}/${cap.tags}${tagOver?`，单个话题≤${cap.tag}字`:""}`;fit.className="bi-fit "+(over?"error":"ok");if(updateSummary)updateBatchFitHint()};card.refreshFit=nextTemplate=>refresh(nextTemplate,false);[titleInput,bodyInput,tagsInput].forEach(input=>input.addEventListener("input",()=>refresh()));refresh();return fit}
+function attachBatchFit(card,template,titleInput,bodyInput,tagsInput){const fit=document.createElement("div");fit.className="bi-fit";const refresh=(nextTemplate=template,updateSummary=true)=>{const cap=normalizeCapacity(templateCapacity(nextTemplate)),titleLen=countChars(titleInput.value),bodyLen=countChars(bodyInput.value),bodyLines=bodyLineCount(bodyInput.value,cap),tagList=tagParts(tagsInput.value),tagOver=tagList.some(tag=>countChars(tag)>cap.tag),over=titleLen>cap.title||bodyLen>cap.body||bodyLines>cap.bodyLines||tagList.length>cap.tags||tagOver;card.dataset.fitOver=over?"1":"0";card.dataset.fitTemplate=nextTemplate;card.classList.toggle("overfit",over);fit.textContent=`标题 ${titleLen}/${cap.title}，正文 ${bodyLen}/${cap.body} 字、${bodyLines}/${cap.bodyLines} 行，话题 ${tagList.length}/${cap.tags}${tagOver?`，单个话题≤${cap.tag}字`:""}`;fit.className="bi-fit "+(over?"error":"ok");if(updateSummary)updateBatchFitHint()};card.refreshFit=nextTemplate=>refresh(nextTemplate,false);[titleInput,bodyInput,tagsInput].forEach(input=>input.addEventListener("input",()=>refresh()));refresh();return fit}
 function updateBatchCapacityStatuses(){const items=[...document.querySelectorAll("#bList .bi-item")],count=items.length;if(!count){updateBatchFitHint();return}items.forEach((item,index)=>setCapacityStatus(item.querySelector(".bi-capacity"),item.querySelector(".bi-title")?.value||"",item.querySelector(".bi-body")?.value||"",item.querySelector(".bi-tags")?.value||"",batchCapacityTemplateFor(index,count)));updateBatchFitHint()}
 function bGenPrompt(button=document.getElementById("batchGeneratePromptButton")){writeGeneratedPrompt("bPrompt",buildCopyPrompt("b"),button)}
-async function bGen(btn=document.getElementById("batchGenerateCopyButton")){
-  const promptField=document.getElementById("bPrompt"),prompt=promptField.value.trim(),template=selectedBatchAiTemplate();
-  if(!prompt){setActionStatus("batchAiStatus","请先生成提示词","error");promptField.focus();return}
-  if(!nativeReady){setActionStatus("batchAiStatus","请在桌面应用中使用 AI 生成","error");return}
-  if(!cloudLoggedIn){setActionStatus("batchAiStatus","请先在设置页登录云服务","error");return}
-  const count=Math.min(100,Math.max(1,parseInt(document.getElementById("bCount").value)||10));
-  btn.textContent="生成中...";btn.disabled=true;setActionStatus("batchAiStatus","AI 正在生成 "+count+" 条文案，请稍候");
-  const list=document.getElementById("bList");list.innerHTML="<div class='hint'>AI生成"+count+"条中...</div>";
-  try{
-    const items=await nativeInvoke("generate_batch_copy",{prompt,count,template,...typographyPayload("b")});
-    list.innerHTML="<div style='color:var(--accent);font-size:12px;margin-bottom:10px'>生成"+items.length+"条，可编辑后批量渲染</div>";
-    items.forEach((it,i)=>{
-      const d=document.createElement("div"),h=document.createElement("div"),cap=document.createElement("div"),t=document.createElement("input"),b=document.createElement("textarea"),g=document.createElement("input");
-      d.className="bi-item";d.style.cssText="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:10px";
-      h.style.cssText="font-size:11px;color:var(--accent);margin-bottom:6px";h.textContent="第"+(i+1)+"条";
-      cap.className="capacity-status bi-capacity";
-      t.className="bi-title";t.value=it.title;t.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;margin-bottom:6px";
-      b.className="bi-body";b.value=it.body;b.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px;min-height:60px;margin-bottom:6px;resize:vertical";
-      g.className="bi-tags";g.value=it.tags;g.style.cssText="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--t1);padding:6px;border-radius:3px;font-size:12px";
-      [t,b,g].forEach(input=>input.addEventListener("input",updateBatchCapacityStatuses));
-      d.appendChild(h);d.appendChild(cap);d.appendChild(t);d.appendChild(b);d.appendChild(g);d.appendChild(attachBatchFit(d,template,t,b,g));list.appendChild(d)
-    });
-    resetRandomTemplatePlan();updateTemplateMixSummary();updateBatchCapacityStatuses();setActionStatus("batchAiStatus","已生成 "+items.length+" 条文案","success")
-  }catch(e){list.innerHTML="";setActionStatus("batchAiStatus","批量生成失败："+String(e),"error");if(String(e).includes("重新登录"))await loadCloudStatus()}
-  finally{btn.textContent="AI生成N条文案";btn.disabled=false}
-}
-async function bRender(){
-  const items=[...document.querySelectorAll("#bList .bi-item")];
-  if(!items.length){alert("请先生成文案");return}
-  if(!nativeReady){alert("批量渲染仅在桌面应用中可用");return}
-  const sourceItems=items.filter(item=>item.querySelector(".bi-title").value.trim()).slice(0,100),plan=batchTemplatePlan(sourceItems.length);
-  if(plan.error){setActionStatus("batchAiStatus",plan.error,"error");alert(plan.error);return}
-  const overItems=sourceItems.filter(item=>item.dataset.fitOver==="1");
-  if(overItems.length&&!confirm(`有 ${overItems.length} 条文案超过当前模板容量，渲染时会先缩小正文，仍放不下才省略。仍继续渲染？`)){setActionStatus("batchAiStatus",`已暂停：${overItems.length} 条文案建议先缩短`,"error");return}
-  const ci=parseInt(document.getElementById("bColor").value),theme=document.getElementById("bTheme").value;
-  const reqs=sourceItems.map((d,i)=>{const c=ci>=0?ci:i%5;return{template:plan.templates[i],num:String(i+1).padStart(2,"0"),tag:TAGMAP[theme]||"BILLIARDS",title:d.querySelector(".bi-title").value,body:d.querySelector(".bi-body").value,tags:d.querySelector(".bi-tags").value,glow1:SC[c].g1,glow2:SC[c].g2,accent:SC[c].a,subfolder:document.getElementById("bSubfolder").value.trim(),...typographyPayload("b")}});
-  if(!reqs.length){alert("请至少保留一条有标题的文案");return}
-  const g=document.getElementById("batchGrid");g.innerHTML="";const bar=document.createElement("div");bar.style.cssText="width:100%;background:var(--bg3);border-radius:4px;height:28px;margin-bottom:16px;overflow:hidden;position:relative;position:sticky;top:0;z-index:9";const fill=document.createElement("div");fill.style.cssText="height:100%;background:var(--accent);width:0%;transition:width .3s";const txt=document.createElement("div");txt.style.cssText="position:absolute;top:0;left:0;right:0;text-align:center;line-height:28px;font-size:11px;color:#fff;font-weight:600";txt.textContent=`渲染中 0/${reqs.length}`;bar.appendChild(fill);bar.appendChild(txt);g.appendChild(bar);const removers=[];let failures=[];try{if(nativeListen){removers.push(await nativeListen("job-progress",e=>{const p=e.payload;fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`渲染中 ${p.completed}/${p.total}`}),await nativeListen("job-failed",e=>{const p=e.payload;failures.push(`第${p.completed}张：${p.error}`);fill.style.width=Math.round(p.completed/p.total*100)+"%";txt.textContent=`已处理 ${p.completed}/${p.total}，失败 ${failures.length}`}),await nativeListen("job-complete",e=>{const p=e.payload;txt.textContent=`完成 ${p.succeeded}/${p.total}`}))}const results=await nativeInvoke("render_batch",{requests:reqs,outputDir:null}),recent=await nativeInvoke("get_render_history");for(const item of recent.slice(0,Math.min(results.length,24))){try{const data=await nativeInvoke("read_history_image",{historyId:item.id});const card=document.createElement("div"),img=document.createElement("img"),open=document.createElement("a");card.className="batch-item";img.src="data:image/png;base64,"+data;img.addEventListener("click",()=>openLightbox(img.src));open.className="dl";open.textContent="目录";open.addEventListener("click",event=>{event.preventDefault();openFolder()});card.appendChild(img);card.appendChild(open);g.appendChild(card)}catch(_){}}fill.style.width="100%";txt.textContent=`完成 ${results.length}/${reqs.length}`;if(failures.length)alert("部分图片渲染失败：\n"+failures.slice(0,5).join("\n"));await loadHistory()}catch(e){txt.textContent="批量渲染失败";alert("批量渲染失败："+e)}finally{removers.forEach(remove=>remove())}}
+function bGen(btn=document.getElementById("batchGenerateCopyButton")){return Workbench.generate(btn)}
+function bRender(){return Workbench.render()}
 
 // 设置
 async function addLib(title,body,tags){try{await nativeInvoke("save_copy_library",{item:{title,body,tags}});await renderLib()}catch(e){alert("文案保存失败："+e)}}
-async function renderLib(){let arr=[];try{arr=await nativeInvoke("get_copy_library")}catch(e){document.getElementById("libList").innerHTML="<div class='hist-empty'>文案库读取失败</div>";return}const el=document.getElementById("libList");if(!arr.length){el.innerHTML="<div class='hist-empty'>AI生成的文案<br>存这里可复用</div>";return}el.innerHTML="";arr.forEach(it=>{const d=document.createElement("div"),title=document.createElement("div"),body=document.createElement("div");d.style.cssText="padding:8px;border:1px solid var(--border);border-radius:4px;margin-bottom:5px;cursor:pointer;font-size:11px;transition:all .15s";title.style.cssText="color:var(--t1);margin-bottom:3px;font-weight:500";body.style.cssText="color:var(--t3);font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis";title.textContent=it.title;body.textContent=it.body;d.appendChild(title);d.appendChild(body);d.addEventListener("mouseenter",()=>d.style.borderColor="var(--accent)");d.addEventListener("mouseleave",()=>d.style.borderColor="var(--border)");d.addEventListener("click",()=>{document.getElementById("title").value=it.title;document.getElementById("bodytxt").value=it.body;document.getElementById("tags").value=it.tags;scheduleRender()});el.appendChild(d)})}
+async function renderLib(){if(window.Workbench)return Workbench.library()}
 function cloudTime(value){if(!value)return "尚未同步";try{return "上次同步："+new Date(value*1000).toLocaleString()}catch(_){return "尚未同步"}}
 function setButtonBusy(button,busy,busyText,readyText){if(!button)return;button.disabled=busy;button.textContent=busy?busyText:readyText}
 function setCloudButtonsForState(){["cloudUploadButton","cloudDownloadButton","cloudLogoutButton"].forEach(id=>{const el=$(id);if(el)el.disabled=!cloudLoggedIn});["saveCloudServerButton","testCloudButton","cloudLoginButton","cloudRegisterButton","cloudLocalServerButton"].forEach(id=>{const el=$(id);if(el)el.disabled=!nativeReady})}
 async function loadStartupStatus(){if(!nativeReady)return;try{const status=await nativeInvoke("startup_check");if(!status.localReady||!status.resourcesReady)setActionStatus("cloudStatus","本地资源检查未通过，请重启应用重试","error");else if(status.sessionValid===false)setActionStatus("cloudStatus","登录已失效，请重新登录","error")}catch(e){setActionStatus("cloudStatus","启动检查失败："+String(e),"error")}}
 function applyNativeUnavailable(){cloudLoggedIn=false;const chip=$("cloudStateChip");if(chip){chip.textContent="桌面未连接";chip.className="cloud-chip off"}$("apiDot")?.classList.remove("on");if($("apiStat"))$("apiStat").textContent="桌面服务不可用";if($("cloudSummaryTitle"))$("cloudSummaryTitle").textContent="请从桌面应用打开";if($("cloudSummaryDetail"))$("cloudSummaryDetail").textContent="浏览器预览能看界面，但不能登录、同步或调用 AI。";if($("cloudSummarySync"))$("cloudSummarySync").textContent="";setCloudButtonsForState();setActionStatus("cloudStatus","请从桌面应用打开，浏览器预览不能连接云服务","error")}
-function applyCloudStatus(status){cloudLoggedIn=status.loggedIn===true;const dot=$("apiDot"),stat=$("apiStat"),title=$("cloudSummaryTitle"),detail=$("cloudSummaryDetail"),sync=$("cloudSummarySync"),chip=$("cloudStateChip"),loginForm=$("cloudLoginForm"),loggedBanner=$("cloudLoggedBanner"),loggedEmail=$("cloudLoggedEmail"),serverInput=$("cloudServerUrl"),emailInput=$("cloudEmail");dot?.classList.toggle("on",cloudLoggedIn);if(stat)stat.textContent=cloudLoggedIn?"云服务已登录":"云服务未登录";if(serverInput)serverInput.value=status.serverUrl||LOCAL_CLOUD_SERVER;if(status.email&&emailInput)emailInput.value=status.email;if(chip){chip.textContent=cloudLoggedIn?"已登录":(status.serverConfigured?"待登录":"未配置");chip.className="cloud-chip "+(cloudLoggedIn?"on":"off")}if(loginForm)loginForm.hidden=cloudLoggedIn;if(loggedBanner)loggedBanner.hidden=!cloudLoggedIn;if(loggedEmail)loggedEmail.textContent=status.email||"已登录云服务";if(title)title.textContent=cloudLoggedIn?(status.email||"已登录云服务"):"未登录云服务";if(detail)detail.textContent=status.serverConfigured?(status.serverUrl+(cloudLoggedIn?"":"，等待登录")):"请配置服务器地址";if(sync)sync.textContent=cloudTime(status.lastSyncAt);setCloudButtonsForState()}
+function applyCloudStatus(status){cloudLoggedIn=status.loggedIn===true;const dot=$("apiDot"),stat=$("apiStat"),title=$("cloudSummaryTitle"),detail=$("cloudSummaryDetail"),sync=$("cloudSummarySync"),chip=$("cloudStateChip"),loginForm=$("cloudLoginForm"),loggedBanner=$("cloudLoggedBanner"),loggedEmail=$("cloudLoggedEmail"),serverInput=$("cloudServerUrl"),emailInput=$("cloudEmail");dot?.classList.toggle("on",cloudLoggedIn);if(stat)stat.textContent=cloudLoggedIn?"云服务已登录":"云服务未登录";if(serverInput)serverInput.value=status.serverUrl||LOCAL_CLOUD_SERVER;if(status.email&&emailInput)emailInput.value=status.email;if(chip){chip.textContent=cloudLoggedIn?"已登录":(status.serverConfigured?"待登录":"未配置");chip.className="cloud-chip "+(cloudLoggedIn?"on":"off")}if(loginForm)loginForm.hidden=cloudLoggedIn;if(loggedBanner)loggedBanner.hidden=!cloudLoggedIn;if(loggedEmail)loggedEmail.textContent=status.email||"已登录云服务";if(title)title.textContent=cloudLoggedIn?(status.email||"已登录云服务"):"未登录云服务";if(detail)detail.textContent=status.serverConfigured?(status.serverUrl+(cloudLoggedIn?"":"，等待登录")):"请配置服务器地址";if(sync)sync.textContent=cloudTime(status.lastSyncAt);setCloudButtonsForState();updateStatusBarAi()}
 async function loadCloudStatus(){if(!nativeReady){applyNativeUnavailable();return}try{const session=await nativeInvoke("validate_cloud_session");if(session===false)setActionStatus("cloudStatus","登录已失效，请重新登录","error");const status=await nativeInvoke("get_cloud_status");applyCloudStatus(status);setActionStatus("cloudStatus",cloudLoggedIn?"云端功能可用":"请登录后使用 AI 文案和云同步")}catch(e){setActionStatus("cloudStatus","云服务状态读取失败："+String(e),"error")}}
 async function saveCloudServer(showMessage=true){if(!nativeReady){applyNativeUnavailable();return false}const value=$("cloudServerUrl").value.trim();if(!value){setActionStatus("cloudStatus","请填写服务器地址","error");$("cloudServerUrl").focus();return false}try{const status=await nativeInvoke("set_cloud_server_url",{serverUrl:value});applyCloudStatus(status);if(showMessage)setActionStatus("cloudStatus","服务器地址已保存","success");return true}catch(e){setActionStatus("cloudStatus",String(e),"error");return false}}
 async function testCloud(){const button=$("testCloudButton");setButtonBusy(button,true,"测试中...","测试连接");try{if(!await saveCloudServer(false))return;const message=await nativeInvoke("test_cloud_connection");setActionStatus("cloudStatus",message,"success")}catch(e){setActionStatus("cloudStatus",String(e),"error")}finally{setButtonBusy(button,false,"测试中...","测试连接");setCloudButtonsForState()}}
@@ -465,7 +489,15 @@ async function cloudUpload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus
 async function cloudDownload(){if(!cloudLoggedIn){setActionStatus("cloudSyncStatus","请先登录云服务","error");return}if(!confirm("下载云端数据会替换本机账号和文案库，图片历史与输出目录不受影响。继续？"))return;const button=$("cloudDownloadButton");setButtonBusy(button,true,"下载中...","下载云端数据");try{const result=await nativeInvoke("cloud_sync_download");setActionStatus("cloudSyncStatus",`已下载 ${result.accounts} 个账号、${result.copyItems} 条文案`,"success");await Promise.all([loadSettings(),loadAccounts(),renderLib(),loadCloudStatus()])}catch(e){setActionStatus("cloudSyncStatus","下载失败："+String(e),"error")}finally{setButtonBusy(button,false,"下载中...","下载云端数据");setCloudButtonsForState()}}
 async function saveDir(){const outputDir=document.getElementById("outDir").value.trim();if(!outputDir){alert("请输入路径");return}try{await nativeInvoke("set_settings",{settings:{output_dir:outputDir}});await loadSettings();alert("路径已保存")}catch(e){alert("目录不可用："+e)}}
 async function openFolder(){try{await nativeInvoke("open_output_folder",{path:null})}catch(e){alert("打开目录失败："+e)}}
-async function loadSettings(){try{const s=await nativeInvoke("get_settings");document.getElementById("statDir").textContent=(s.output_dir||"output").split("/").pop();if(s.output_dir)document.getElementById("outDir").value=s.output_dir}catch(e){setActionStatus("cloudStatus","设置读取失败："+String(e),"error")}}
+const AI_PRESETS={deepseek:{url:"https://api.deepseek.com/v1",model:"deepseek-chat"},qwen:{url:"https://dashscope.aliyuncs.com/compatible-mode/v1",model:"qwen-plus"},moonshot:{url:"https://api.moonshot.cn/v1",model:"moonshot-v1-8k"},openai:{url:"https://api.openai.com/v1",model:"gpt-4o-mini"}};
+function updateLocalAiKeyStatus(){const keyInput=$("localAiKey"),hint=$("localAiKeyHint");if(localAiConfigured){if(keyInput)keyInput.placeholder="已保存 Key (留空表示不修改)";if(hint)hint.textContent="已在系统钥匙串中保存 API Key。如需更换直接输入新 Key 并保存。"}else{if(keyInput)keyInput.placeholder="sk-...";if(hint)hint.textContent="密钥仅保存在系统钥匙串中，不经过云服务器。"}updateStatusBarAi()}
+function updateStatusBarAi(){const dot=$("apiDot"),stat=$("apiStat");if(!dot||!stat)return;if(currentAiMode==="local"){const model=$("localAiModel")?.value||"DeepSeek";if(localAiConfigured){dot.className="dot on";stat.textContent="本地 AI: "+model}else{dot.className="dot";stat.textContent="本地 AI: 未配 Key"}}else{dot.className="dot"+(cloudLoggedIn?" on":"");stat.textContent=cloudLoggedIn?"云服务已登录":"云服务未登录"}}
+function toggleAiModeDisplay(){const isLocal=currentAiMode==="local",chip=$("aiModeChip"),sec=$("localAiSection");if(chip){chip.textContent=isLocal?(localAiConfigured?"本地已就绪":"本地待配Key"):(cloudLoggedIn?"云端已登录":"云端待登录");chip.className="cloud-chip "+((isLocal?localAiConfigured:cloudLoggedIn)?"on":"off")}if(sec){sec.style.opacity=isLocal?"1":"0.5"}updateStatusBarAi()}
+async function saveLocalAiConfig(){if(!nativeReady){applyNativeUnavailable();return}const url=$("localAiUrl").value.trim()||"https://api.deepseek.com/v1",model=$("localAiModel").value.trim()||"deepseek-chat",key=$("localAiKey").value.trim(),btn=$("saveLocalAiButton");setButtonBusy(btn,true,"保存中...","保存 AI 配置");try{const payload={api_url:url,api_model:model,ai_mode:currentAiMode};if(key)payload.api_key=key;await nativeInvoke("set_settings",{settings:payload});if(key){localAiConfigured=true;$("localAiKey").value=""}updateLocalAiKeyStatus();toggleAiModeDisplay();setActionStatus("localAiStatus","本地 AI 配置已保存！","success")}catch(e){setActionStatus("localAiStatus","保存失败："+String(e),"error")}finally{setButtonBusy(btn,false,"保存中...","保存 AI 配置")}}
+async function testLocalAi(){if(!nativeReady){applyNativeUnavailable();return}const url=$("localAiUrl").value.trim(),model=$("localAiModel").value.trim(),key=$("localAiKey").value.trim(),btn=$("testLocalAiButton");setButtonBusy(btn,true,"测试中...","测试连接");try{const res=await nativeInvoke("test_local_ai",{url:url||null,model:model||null,apiKey:key||null});setActionStatus("localAiStatus",res,"success")}catch(e){setActionStatus("localAiStatus",String(e),"error")}finally{setButtonBusy(btn,false,"测试中...","测试连接")}}
+async function clearLocalAiKey(){if(!confirm("确定清空保存在系统钥匙串中的 API Key 吗？"))return;try{await nativeInvoke("clear_local_api_key");localAiConfigured=false;$("localAiKey").value="";updateLocalAiKeyStatus();toggleAiModeDisplay();setActionStatus("localAiStatus","API Key 已从系统钥匙串移除","success")}catch(e){setActionStatus("localAiStatus","清空失败："+String(e),"error")}}
+function toggleLocalAiKey(){const input=$("localAiKey"),btn=$("localAiKeyToggle"),isText=input.type==="text";input.type=isText?"password":"text";btn.textContent=isText?"显示":"隐藏";input.focus()}
+async function loadSettings(){try{const s=await nativeInvoke("get_settings");document.getElementById("statDir").textContent=(s.output_dir||"output").split("/").pop();if(s.output_dir)document.getElementById("outDir").value=s.output_dir;currentAiMode=s.ai_mode||"local";if($("aiModeLocal")&&$("aiModeCloud")){$("aiModeLocal").checked=currentAiMode==="local";$("aiModeCloud").checked=currentAiMode==="cloud"}if($("localAiUrl")&&s.api_url)$("localAiUrl").value=s.api_url;if($("localAiModel")&&s.api_model)$("localAiModel").value=s.api_model;localAiConfigured=s.api_key_configured===true;updateLocalAiKeyStatus();toggleAiModeDisplay()}catch(e){setActionStatus("cloudStatus","设置读取失败："+String(e),"error")}}
 function accountRow(account={name:"",region:"斗门",level:"2档",persona:"热情约球型",tone:"口语化",status:"养号中"}){const tr=document.createElement("tr");for(const key of ["name","region","level"]){const td=document.createElement("td"),input=document.createElement("input");input.dataset.key=key;input.value=account[key]||"";td.appendChild(input);tr.appendChild(td)}const td=document.createElement("td"),del=document.createElement("span");del.className="del";del.textContent="×";del.title="删除账号";del.addEventListener("click",()=>tr.remove());td.appendChild(del);tr.appendChild(td);tr.dataset.cloudId=account.cloudId||"";tr.dataset.persona=account.persona||"";tr.dataset.tone=account.tone||"";tr.dataset.status=account.status||"";return tr}
 function addAccount(){document.getElementById("accountRows").appendChild(accountRow())}
 async function loadAccounts(){try{const accounts=await nativeInvoke("get_accounts"),rows=document.getElementById("accountRows");rows.innerHTML="";accounts.forEach(account=>rows.appendChild(accountRow(account)))}catch(e){document.getElementById("accountRows").innerHTML="";setActionStatus("cloudStatus","账号配置读取失败："+String(e),"error")}}
@@ -473,12 +505,13 @@ async function saveAccounts(){try{await nativeInvoke("set_accounts",{accounts:co
 async function migrateLegacy(){try{await nativeInvoke("migrate_legacy");const parsed=JSON.parse(localStorage.getItem("lib")||"[]"),items=Array.isArray(parsed)?parsed:[];await nativeInvoke("migrate_copy_library",{items});localStorage.removeItem("lib")}catch(e){setActionStatus("cloudStatus","旧版数据迁移失败："+String(e),"error")}}
 function bindStaticEvents(){
   document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",()=>showTab(Number(tab.dataset.tabIndex)));tab.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();tab.click()}})});
-  document.getElementById("tpl").addEventListener("change",()=>{updateSingleCapacity();updateSingleFitStates();refreshPromptFromConfig("g","promptView");scheduleRender()});
+  document.getElementById("tpl").addEventListener("change",()=>{refreshThemeColors();updateSingleCapacity();updateSingleFitStates();refreshPromptFromConfig("g","promptView");scheduleRender()});
   document.getElementById("preset").addEventListener("change",loadPreset);
+  document.getElementById("colorMode").addEventListener("change",()=>{refreshThemeColors();scheduleRender()});
   ["num","tag","title","bodytxt","tags"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{updateSingleCapacity();updateSingleFitStates();scheduleRender()}));
-  document.getElementById("color1").addEventListener("change",event=>{cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
-  document.getElementById("color2").addEventListener("change",event=>{cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
-  ["fontFamily","titleWeight","bodyWeight","customTextColors","titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs();scheduleRender()}));
+  document.getElementById("color1").addEventListener("change",event=>{document.getElementById("colorMode").value="custom";cur={...cur,g1:event.target.value,a:event.target.value};updateGrad();scheduleRender()});
+  document.getElementById("color2").addEventListener("change",event=>{document.getElementById("colorMode").value="custom";cur={...cur,g2:event.target.value};updateGrad();scheduleRender()});
+  ["layoutMode","fontFamily","titleWeight","bodyWeight","customTextColors","titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs();scheduleRender()}));
   ["titleColor","bodyColor","tagColor"].forEach(id=>document.getElementById(id).addEventListener("input",scheduleRender));
   document.getElementById("preview0").addEventListener("click",event=>openLightbox(event.currentTarget.src));
   document.getElementById("clearHistoryButton").onclick=clearHist;
@@ -490,12 +523,16 @@ function bindStaticEvents(){
   document.getElementById("batchGenerateCopyButton").addEventListener("click",event=>bGen(event.currentTarget));
   ["gTheme","gLevel","gPersona","gTone","useEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("g","promptView")));
   document.getElementById("gRegion").addEventListener("input",()=>refreshPromptFromConfig("g","promptView"));
+  document.getElementById("gTheme").addEventListener("change",()=>updateMatchFields("g"));
+  document.getElementById("gMatchDetails").addEventListener("input",()=>refreshPromptFromConfig("g","promptView"));
   ["bTheme","bLevel","bPersona","bTone","bUseEmoji"].forEach(id=>document.getElementById(id).addEventListener("change",()=>refreshPromptFromConfig("b","bPrompt")));
   document.getElementById("bRegion").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
+  document.getElementById("bTheme").addEventListener("change",()=>updateMatchFields("b"));
+  document.getElementById("bMatchDetails").addEventListener("input",()=>refreshPromptFromConfig("b","bPrompt"));
   document.getElementById("bTplMode").addEventListener("change",setBatchTemplateMode);
   document.getElementById("bTpl").addEventListener("change",()=>{updateTemplateMixSummary();updateBatchCapacityStatuses();refreshPromptFromConfig("b","bPrompt")});
   document.getElementById("bCount").addEventListener("input",()=>{resetRandomTemplatePlan();updateTemplateMixSummary();updateBatchCapacityStatuses()});
-  ["bFontFamily","bTitleWeight","bBodyWeight","bCustomTextColors","bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs("b");updateBatchCapacityStatuses()}));
+  ["bLayoutMode","bFontFamily","bTitleWeight","bBodyWeight","bCustomTextColors","bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{syncTextColorInputs("b");updateBatchCapacityStatuses()}));
   ["bTitleColor","bBodyColor","bTagColor"].forEach(id=>document.getElementById(id).addEventListener("input",updateBatchCapacityStatuses));
   document.getElementById("batchRenderButton").addEventListener("click",bRender);
   document.getElementById("saveCloudServerButton").addEventListener("click",()=>saveCloudServer());
@@ -512,6 +549,12 @@ function bindStaticEvents(){
   document.getElementById("cloudDownloadButton").addEventListener("click",cloudDownload);
   document.getElementById("saveDirectoryButton").addEventListener("click",saveDir);
   document.getElementById("openFolderButton").addEventListener("click",openFolder);
+  document.getElementById("saveLocalAiButton").addEventListener("click",saveLocalAiConfig);
+  document.getElementById("testLocalAiButton").addEventListener("click",testLocalAi);
+  document.getElementById("clearLocalAiKeyButton").addEventListener("click",clearLocalAiKey);
+  document.getElementById("localAiKeyToggle").addEventListener("click",toggleLocalAiKey);
+  document.getElementById("localAiPreset").addEventListener("change",e=>{const p=AI_PRESETS[e.target.value];if(p){$("localAiUrl").value=p.url;$("localAiModel").value=p.model}});
+  document.querySelectorAll('input[name="aiMode"]').forEach(r=>r.addEventListener("change",async e=>{currentAiMode=e.target.value;toggleAiModeDisplay();try{await nativeInvoke("set_settings",{settings:{ai_mode:currentAiMode}})}catch(_){}}));
   document.getElementById("addAccountButton").addEventListener("click",addAccount);
   document.getElementById("saveAccountsButton").addEventListener("click",saveAccounts);
   const lightbox=document.getElementById("lightbox"),close=document.getElementById("lightboxClose");
@@ -519,6 +562,7 @@ function bindStaticEvents(){
   close.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();closeLightbox()}});
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeLightbox()});
 }
+populateMatchThemes();
 populateToneSelects();
 syncTextColorInputs();
 syncTextColorInputs("b");
@@ -530,4 +574,7 @@ updateSingleCapacity();
 updateSingleFitStates();
 updateBatchFitHint();
 if(nativeReady){loadStartupStatus();migrateLegacy().then(()=>Promise.all([loadSettings(),loadCloudStatus(),loadAccounts(),loadHistory(),renderLib()]))}else{applyNativeUnavailable();loadHistory()}
-</script></body></html>
+</script>
+<script src="workspace-fields.js"></script>
+<script src="workbench.js"></script>
+</body></html>

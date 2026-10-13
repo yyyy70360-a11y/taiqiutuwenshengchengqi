@@ -181,15 +181,15 @@ pub async fn dashboard(State(state): State<AppState>, headers: HeaderMap) -> Res
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let stats = match dashboard_stats(&state).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let recent_errors = match recent_error_rows(&state).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let ai_config = match crate::ai_config::load(&state.db, &state.config).await {
         Ok(value) => value,
@@ -213,12 +213,12 @@ pub async fn users(
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let normalized = normalize_users_query(query);
     let rows = match user_rows(&state, &normalized).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "用户管理",
@@ -234,7 +234,7 @@ pub async fn new_user(State(state): State<AppState>, headers: HeaderMap) -> Resp
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "创建用户",
@@ -253,7 +253,7 @@ pub async fn registration_applications(
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let rows = match sqlx::query(
         "SELECT id, email, status, requested_at, review_note FROM registration_applications ORDER BY requested_at DESC LIMIT 200",
@@ -513,7 +513,7 @@ pub async fn user_detail(
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let detail = match user_detail_data(&state, &user_id).await {
         Ok(Some(value)) => value,
@@ -525,7 +525,7 @@ pub async fn user_detail(
                 "<p class=\"error\">用户不存在。</p>",
             ))
         }
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "用户详情",
@@ -614,7 +614,7 @@ pub async fn ai_usage(State(state): State<AppState>, headers: HeaderMap) -> Resp
     }
     let rows = match ai_usage_rows(&state).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "AI 调用记录",
@@ -630,7 +630,7 @@ pub async fn ai_config(State(state): State<AppState>, headers: HeaderMap) -> Res
     };
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let config = match crate::ai_config::load(&state.db, &state.config).await {
         Ok(value) => value,
@@ -688,7 +688,7 @@ pub async fn save_ai_config(
     }
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "AI 配置",
@@ -765,7 +765,7 @@ async fn load_session(state: &AppState, headers: &HeaderMap) -> Option<AdminSess
     })
 }
 
-async fn rotate_csrf(state: &AppState, session: &AdminSession) -> Result<String, Response> {
+async fn rotate_csrf(state: &AppState, session: &AdminSession) -> Result<String, Box<Response>> {
     let token = new_token();
     sqlx::query("UPDATE admin_sessions SET csrf_token_hash = $1 WHERE id = $2")
         .bind(auth::hash_token(&token))
@@ -810,7 +810,7 @@ async fn render_user_detail_message(
 ) -> Response {
     let csrf = match rotate_csrf(&state, &session).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let detail = match user_detail_data(&state, &user_id).await {
         Ok(Some(value)) => value,
@@ -822,7 +822,7 @@ async fn render_user_detail_message(
                 "<p class=\"error\">用户不存在。</p>",
             ))
         }
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     html_response(layout(
         "用户详情",
@@ -843,7 +843,7 @@ async fn revoke_sessions(state: &AppState, user_id: &str) -> Result<(), sqlx::Er
 async fn user_detail_data(
     state: &AppState,
     user_id: &str,
-) -> Result<Option<UserDetailData>, Response> {
+) -> Result<Option<UserDetailData>, Box<Response>> {
     let Some(user) = sqlx::query(
         "SELECT id, email, disabled, created_at, last_login_at FROM users WHERE id = $1",
     )
@@ -918,7 +918,7 @@ async fn user_detail_data(
     }))
 }
 
-async fn dashboard_stats(state: &AppState) -> Result<DashboardStats, Response> {
+async fn dashboard_stats(state: &AppState) -> Result<DashboardStats, Box<Response>> {
     let users = sqlx::query("SELECT COUNT(*)::BIGINT AS total, COUNT(*) FILTER (WHERE disabled)::BIGINT AS disabled FROM users")
         .fetch_one(&state.db)
         .await
@@ -935,7 +935,7 @@ async fn dashboard_stats(state: &AppState) -> Result<DashboardStats, Response> {
     })
 }
 
-async fn recent_error_rows(state: &AppState) -> Result<Vec<String>, Response> {
+async fn recent_error_rows(state: &AppState) -> Result<Vec<String>, Box<Response>> {
     let rows = sqlx::query(
         "SELECT u.email, r.operation, r.error_message, r.created_at FROM usage_records r JOIN users u ON u.id = r.user_id WHERE r.status <> 'success' ORDER BY r.created_at DESC LIMIT 5",
     )
@@ -960,7 +960,10 @@ async fn recent_error_rows(state: &AppState) -> Result<Vec<String>, Response> {
         .collect())
 }
 
-async fn user_rows(state: &AppState, filter: &UserListFilter) -> Result<Vec<String>, Response> {
+async fn user_rows(
+    state: &AppState,
+    filter: &UserListFilter,
+) -> Result<Vec<String>, Box<Response>> {
     let rows = sqlx::query(
         "SELECT u.id, u.email, u.disabled, u.created_at, u.last_login_at, COALESCE(SUM(r.item_count), 0)::BIGINT AS items, COUNT(r.id)::BIGINT AS calls FROM users u LEFT JOIN usage_records r ON r.user_id = u.id WHERE ($1 = '' OR u.email ILIKE '%' || $1 || '%') AND ($2 = 'all' OR ($2 = 'active' AND u.disabled = FALSE) OR ($2 = 'disabled' AND u.disabled = TRUE)) GROUP BY u.id ORDER BY u.created_at DESC LIMIT 200",
     )
@@ -1001,7 +1004,7 @@ async fn user_rows(state: &AppState, filter: &UserListFilter) -> Result<Vec<Stri
         .collect())
 }
 
-async fn ai_usage_rows(state: &AppState) -> Result<Vec<String>, Response> {
+async fn ai_usage_rows(state: &AppState) -> Result<Vec<String>, Box<Response>> {
     let rows = sqlx::query(
         "SELECT u.email, r.operation, r.item_count, r.status, r.duration_ms, r.error_message, r.created_at FROM usage_records r JOIN users u ON u.id = r.user_id ORDER BY r.created_at DESC LIMIT 100",
     )

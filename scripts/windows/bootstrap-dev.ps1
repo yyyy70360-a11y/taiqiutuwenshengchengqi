@@ -46,8 +46,8 @@ if (-not (Test-Path $rustup)) {
 & $rustup default stable-msvc
 & $rustup target add x86_64-pc-windows-msvc
 
-Write-Host "Installing Tauri CLI 2.11.4..."
-& $cargo install tauri-cli --version 2.11.4 --locked
+Write-Host "Installing Tauri CLI 2.12.2..."
+& $cargo install tauri-cli --version 2.12.2 --locked
 
 $webViewRoot = Join-Path ${env:ProgramFiles(x86)} "Microsoft\EdgeWebView\Application"
 if (-not (Test-Path $webViewRoot)) {
