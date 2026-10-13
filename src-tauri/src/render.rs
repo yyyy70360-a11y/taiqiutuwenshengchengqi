@@ -1407,10 +1407,17 @@ fn legible_text<'a>(preferred: &'a str, background: &str) -> &'a str {
     }
 }
 
-fn theme_motif(template: &str, accent: &str) -> String {
+fn theme_motif(template: &str, accent: &str, bottom: u32) -> String {
+    let felt_height = bottom - 184;
+    let rail_y = bottom - 55;
+    let pocket_y = bottom - 25;
+    let corner_y = bottom - 28;
+    let rail_top = bottom - 210;
+    let glow_y = bottom - 34;
+    let glow_top = bottom - 216;
     match template {
-        "billiard_felt" => format!("<rect x='42' y='202' width='996' height='1516' rx='48' fill='none' stroke='#674735' stroke-width='26'/><path d='M105 275H975M105 1645H975' stroke='{accent}' stroke-opacity='.20'/><g fill='#050B07'><circle cx='85' cy='245' r='20'/><circle cx='995' cy='245' r='20'/><circle cx='85' cy='1675' r='20'/><circle cx='995' cy='1675' r='20'/></g>"),
-        "neon_club" | "green_laser" => format!("<path d='M84 430V248H280M800 1672H996V1490' fill='none' stroke='{accent}' stroke-width='5'/><path d='M90 436V254H286M794 1666H990V1484' fill='none' stroke='{accent}' stroke-opacity='.25' stroke-width='12'/>"),
+        "billiard_felt" => format!("<rect x='42' y='202' width='996' height='{felt_height}' rx='48' fill='none' stroke='#674735' stroke-width='26'/><path d='M105 275H975M105 {rail_y}H975' stroke='{accent}' stroke-opacity='.20'/><g fill='#050B07'><circle cx='85' cy='245' r='20'/><circle cx='995' cy='245' r='20'/><circle cx='85' cy='{pocket_y}' r='20'/><circle cx='995' cy='{pocket_y}' r='20'/></g>"),
+        "neon_club" | "green_laser" => format!("<path d='M84 430V248H280M800 {corner_y}H996V{rail_top}' fill='none' stroke='{accent}' stroke-width='5'/><path d='M90 436V254H286M794 {glow_y}H990V{glow_top}' fill='none' stroke='{accent}' stroke-opacity='.25' stroke-width='12'/>"),
         "tactical_blue" | "chalkboard" => format!("<g fill='none' stroke='{accent}' stroke-width='3' stroke-opacity='.45'><circle cx='858' cy='300' r='16'/><circle cx='928' cy='332' r='12'/><path d='M820 260L928 332L875 395' stroke-dasharray='7 8'/></g>"),
         "matrix_code" => format!("<text x='86' y='1790' fill='{accent}' font-size='24' letter-spacing='10' font-family='Noto Sans Mono, monospace'>0101 0011 1000 1010</text>"),
         _ => String::new(),
@@ -1585,14 +1592,7 @@ fn designed_template(request: &RenderRequest, seed: usize) -> String {
         )
     };
     let background = designer_background(seed, g1, g2, accent);
-    let motif = theme_motif(&request.template, accent)
-        .replace("1516", &(card_bottom - 184).to_string())
-        .replace("1645", &(card_bottom - 55).to_string())
-        .replace("1675", &(card_bottom - 25).to_string())
-        .replace("1672", &(card_bottom - 28).to_string())
-        .replace("1666", &(card_bottom - 34).to_string())
-        .replace("1490", &(card_bottom - 210).to_string())
-        .replace("1484", &(card_bottom - 216).to_string());
+    let motif = theme_motif(&request.template, accent, card_bottom);
     let card = designer_card(seed, palette, accent, card_bottom);
     let header = designer_header(seed, request, content_x, content_right, palette, accent);
     let divider = designer_divider(seed, content_x, content_right, line_y, palette, accent);
@@ -1620,23 +1620,22 @@ fn designer_background(seed: usize, g1: &str, g2: &str, accent: &str) -> String 
 
 fn designer_card(seed: usize, palette: DesignerPalette, accent: &str, bottom: u32) -> String {
     let surface = palette.surface;
+    let height = bottom - FRAME_Y;
+    let inner_height = height - 36;
+    let inner_height2 = height - 40;
+    let bottom_line = bottom - 30;
+    let corner_top = bottom - 90;
     let outline = match seed % 8 {
-        0 => format!("<rect x='78' y='238' width='924' height='1444' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-width='2'/>"),
-        1 => format!("<path d='M88 310V250H200M880 250H992V310M88 1610V1670H200M880 1670H992V1610' fill='none' stroke='{accent}' stroke-width='3'/>"),
-        2 => format!("<path d='M88 250H992M88 1670H992' fill='none' stroke='{accent}' stroke-width='4'/>"),
-        3 => format!("<rect x='80' y='240' width='920' height='1440' rx='24' fill='none' stroke='{accent}' stroke-opacity='.28' stroke-width='2'/>"),
-        4 => format!("<rect x='78' y='238' width='924' height='1444' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-dasharray='8 12'/>"),
-        5 => format!("<path d='M88 310V250H250M830 1670H992V1610' fill='none' stroke='{accent}' stroke-width='4'/>"),
-        6 => format!("<rect x='60' y='220' width='18' height='1480' rx='9' fill='{accent}' opacity='.65'/>"),
+        0 => format!("<rect x='78' y='238' width='924' height='{inner_height}' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-width='2'/>"),
+        1 => format!("<path d='M88 310V250H200M880 250H992V310M88 {corner_top}V{bottom_line}H200M880 {bottom_line}H992V{corner_top}' fill='none' stroke='{accent}' stroke-width='3'/>"),
+        2 => format!("<path d='M88 250H992M88 {bottom_line}H992' fill='none' stroke='{accent}' stroke-width='4'/>"),
+        3 => format!("<rect x='80' y='240' width='920' height='{inner_height2}' rx='24' fill='none' stroke='{accent}' stroke-opacity='.28' stroke-width='2'/>"),
+        4 => format!("<rect x='78' y='238' width='924' height='{inner_height}' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-dasharray='8 12'/>"),
+        5 => format!("<path d='M88 310V250H250M830 {bottom_line}H992V{corner_top}' fill='none' stroke='{accent}' stroke-width='4'/>"),
+        6 => format!("<rect x='60' y='220' width='18' height='{height}' rx='9' fill='{accent}' opacity='.65'/>"),
         _ => format!("<path d='M88 440H992' stroke='{accent}' stroke-opacity='.22' stroke-width='2'/>"),
     };
-    let outline = outline
-        .replace("1444", &(bottom - 256).to_string())
-        .replace("1440", &(bottom - 260).to_string())
-        .replace("1480", &(bottom - 220).to_string())
-        .replace("1670", &(bottom - 30).to_string())
-        .replace("1610", &(bottom - 90).to_string());
-    format!("<rect id='content-surface' x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{height}' rx='36' fill='{surface}'/>{outline}",height=bottom-220)
+    format!("<rect id='content-surface' x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{height}' rx='36' fill='{surface}'/>{outline}")
 }
 
 fn designer_header(
@@ -2358,6 +2357,30 @@ mod tests {
             };
             let tree = usvg::Tree::from_str(&svg_for(&request), &options).unwrap();
             assert_copy_bounds(tree.root(), template);
+        }
+    }
+
+    #[test]
+    fn compact_card_geometry_never_rewrites_custom_color_digits() {
+        for template in GENERATED_TEMPLATE_IDS {
+            for accent in ["#161011", "#144444", "#1672AB", "#1516AB"] {
+                let mut request = RenderRequest {
+                    template: (*template).into(),
+                    title: "一起参赛".into(),
+                    body: "找个同城球友一起去".into(),
+                    color_mode: "custom".into(),
+                    accent: accent.into(),
+                    ..Default::default()
+                };
+                let classic = svg_for(&request);
+                request.layout_mode = "auto".into();
+                let compact = svg_for(&request);
+                assert_eq!(
+                    classic.matches(accent).count(),
+                    compact.matches(accent).count(),
+                    "{template}: {accent} changed with card geometry"
+                );
+            }
         }
     }
 
