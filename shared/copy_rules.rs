@@ -208,7 +208,7 @@ fn bigrams(text: &str) -> HashSet<String> {
 pub fn near_duplicate(title: &str, body: &str, existing_title: &str, existing_body: &str) -> bool {
     let lhs = normalize(&format!("{title}{body}"));
     let rhs = normalize(&format!("{existing_title}{existing_body}"));
-    if lhs == rhs {
+    if lhs == rhs || normalize(body) == normalize(existing_body) {
         return true;
     }
     let opening: String = normalize(body).chars().take(14).collect();
@@ -265,6 +265,12 @@ mod tests {
     }
     #[test]
     fn repetition_and_empty_conditions_are_detected() {
+        assert!(near_duplicate(
+            "先练再去",
+            "限1–3档，免报名费，一天打完。有一起去的么？",
+            "比赛找搭子",
+            "限1–3档，免报名费，一天打完。有一起去的么？"
+        ));
         assert!(near_duplicate(
             "一起参赛",
             "有没有想去比赛的球搭子？",
