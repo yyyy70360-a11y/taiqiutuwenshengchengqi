@@ -54,9 +54,8 @@ pub async fn generate_copy(
     let started = Instant::now();
     let result = async {
         let text = call_provider(&state, &single_prompt(&input.prompt, capacity), 600).await?;
-        parse_item(&text)
-            .map(|item| fit_item_to_capacity(item, capacity))
-            .ok_or_else(|| ApiError::internal("AI 返回内容无法解析"))
+        let item = parse_item(&text).ok_or_else(|| ApiError::internal("AI 返回内容无法解析"))?;
+        validate_or_rewrite(&state, &input.prompt, item, capacity).await
     }
     .await;
     match result {
@@ -104,15 +103,38 @@ pub async fn generate_batch_copy(
     let count = input.count.clamp(1, 100);
     let capacity = template_capacity(input.template.as_deref());
     let started = Instant::now();
-    let prompt = batch_prompt(&input.prompt, count, capacity);
     let result = async {
-        let text = call_provider(&state, &prompt, (count as u32 * 600).min(12000)).await?;
-        let items: Vec<CopyItem> = parse_batch(&text)
-            .into_iter()
-            .map(|item| fit_item_to_capacity(item, capacity))
-            .collect();
-        if items.is_empty() {
-            return Err(ApiError::internal("AI 批量返回内容无法解析"));
+        let mut items: Vec<CopyItem> = Vec::new();
+        let mut rounds = 0;
+        while items.len() < count && rounds < count.div_ceil(5) * 3 + 3 {
+            rounds += 1;
+            let remaining = (count - items.len()).min(5);
+            let avoid: Vec<_> = items.iter().map(|item| item.title.as_str()).collect();
+            let prompt = batch_prompt(
+                &format!(
+                    "{}\n以下标题已经生成，请换开头和角度：{}",
+                    input.prompt,
+                    avoid.join("；")
+                ),
+                remaining,
+                capacity,
+            );
+            let text = call_provider(&state, &prompt, remaining as u32 * 700).await?;
+            for item in parse_batch(&text).into_iter().take(remaining) {
+                if let Ok(item) = validate_or_rewrite(&state, &input.prompt, item, capacity).await {
+                    if !items.iter().any(|old| {
+                        copy_rules::near_duplicate(&item.title, &item.body, &old.title, &old.body)
+                    }) {
+                        items.push(item);
+                    }
+                }
+            }
+        }
+        if items.len() != count {
+            return Err(ApiError::unavailable(format!(
+                "只生成 {} / {count} 条合格且不重复文案，请重试缺失部分",
+                items.len()
+            )));
         }
         Ok(items)
     }
@@ -238,152 +260,47 @@ async fn record_usage(
     }
 }
 
-#[derive(Clone, Copy)]
-struct TemplateCapacity {
-    title: usize,
-    body: usize,
-    body_lines: usize,
-    tags: usize,
-    tag: usize,
-}
+use crate::copy_rules::{self, template_capacity, TemplateCapacity};
 
-const STANDARD_CAPACITY_TEMPLATES: &[&str] = &[
-    "magazine_pro",
-    "fresh",
-    "journal",
-    "neon_club",
-    "chalkboard",
-    "retro_ticket",
-    "cyber_grid",
-    "cream_note",
-    "arena_score",
-    "sunset_gradient",
-    "ink_stamp",
-    "glass_card",
-    "tactical_blue",
-    "midnight_lux",
-    "candy_pop",
-    "forest_match",
-    "steel_gray",
-    "royal_gold",
-    "ocean_wave",
-    "lava_motion",
-    "pearl_lite",
-    "street_snap",
-    "comic_burst",
-    "vaporwave",
-    "newspaper",
-    "coffee_receipt",
-    "scoreboard_green",
-    "purple_stage",
-    "ice_blue",
-    "red_warning",
-    "kraft_label",
-    "mint_mono",
-    "black_gold",
-    "gradient_ring",
-    "billiard_felt",
-    "tournament_bracket",
-    "soft_shadow",
-    "bold_blocks",
-    "pink_soda",
-    "desert_sand",
-    "matrix_code",
-    "club_vip",
-    "clean_blue",
-    "orange_zine",
-    "silver_card",
-    "green_laser",
-    "classic_serif",
-];
-
-fn template_capacity(template: Option<&str>) -> TemplateCapacity {
-    let template = template.unwrap_or("magazine").trim();
-    if STANDARD_CAPACITY_TEMPLATES.contains(&template) {
-        return TemplateCapacity {
-            title: 30,
-            body: 112,
-            body_lines: 7,
-            tags: 3,
-            tag: 12,
+async fn validate_or_rewrite(
+    state: &crate::AppState,
+    prompt: &str,
+    mut item: CopyItem,
+    cap: TemplateCapacity,
+) -> Result<CopyItem, ApiError> {
+    let mut facts = copy_rules::required_facts(prompt);
+    if facts.is_empty() && !prompt.contains("【可使用的比赛条件】") {
+        facts = copy_rules::critical_clauses(&item.body);
+    }
+    for attempt in 0..=2 {
+        let reason = match copy_rules::validate(&item.title, &item.body, &item.tags, cap, &facts)
+            .and_then(|_| {
+                copy_rules::validate_match_conditions(
+                    prompt,
+                    &format!("{}。{}", item.title, item.body),
+                )
+            }) {
+            Ok(()) => return Ok(item),
+            Err(reason) => reason,
         };
-    }
-    match template {
-        "minimal" | "mono" => TemplateCapacity {
-            title: 30,
-            body: 136,
-            body_lines: 8,
-            tags: 3,
-            tag: 12,
-        },
-        "poster" => TemplateCapacity {
-            title: 30,
-            body: 144,
-            body_lines: 8,
-            tags: 3,
-            tag: 12,
-        },
-        _ => TemplateCapacity {
-            title: 30,
-            body: 96,
-            body_lines: 6,
-            tags: 3,
-            tag: 12,
-        },
-    }
-}
-
-fn fit_item_to_capacity(mut item: CopyItem, capacity: TemplateCapacity) -> CopyItem {
-    item.title = trim_chars(&item.title, capacity.title);
-    item.body = fit_body(&item.body, capacity);
-    item.tags = item
-        .tags
-        .split_whitespace()
-        .take(capacity.tags)
-        .map(|tag| trim_chars(tag, capacity.tag))
-        .collect::<Vec<_>>()
-        .join(" ");
-    item
-}
-
-fn fit_body(body: &str, capacity: TemplateCapacity) -> String {
-    let per_line = capacity.body.div_ceil(capacity.body_lines).max(1);
-    let mut lines = Vec::new();
-    let mut truncated = count_chars(body) > capacity.body;
-    for raw in body.trim().lines() {
-        let chars: Vec<char> = raw.trim().chars().collect();
-        if chars.is_empty() {
-            continue;
+        if attempt == 2 {
+            return Err(ApiError::bad_request(format!(
+                "文案改写后仍不合格：{reason}。请缩短条件或换容量更大的模板。"
+            )));
         }
-        for chunk in chars.chunks(per_line) {
-            lines.push(chunk.iter().collect::<String>());
-        }
+        let repair = copy_rules::repair_prompt(
+            prompt,
+            &item.title,
+            &item.body,
+            &item.tags,
+            cap,
+            &facts,
+            &reason,
+        );
+        let text = call_provider(state, &repair, 700).await?;
+        item = parse_item(&text).ok_or_else(|| ApiError::internal("改写结果缺少标题或正文"))?;
     }
-    if lines.len() > capacity.body_lines {
-        truncated = true;
-        lines.truncate(capacity.body_lines);
-    }
-    let mut fitted = lines.join("\n");
-    fitted = trim_chars(&fitted, capacity.body);
-    if truncated && !fitted.ends_with('…') {
-        fitted = trim_chars(&fitted, capacity.body.saturating_sub(1));
-        fitted.push('…');
-    }
-    fitted
-}
-
-fn trim_chars(value: &str, max_chars: usize) -> String {
-    let mut chars = value.trim().chars();
-    let mut result = chars.by_ref().take(max_chars).collect::<String>();
-    if chars.next().is_some() && max_chars > 0 {
-        result.pop();
-        result.push('…');
-    }
-    result
-}
-
-fn count_chars(value: &str) -> usize {
-    value.trim().chars().count()
+    unreachable!()
 }
 
 fn single_prompt(prompt: &str, capacity: TemplateCapacity) -> String {
@@ -520,8 +437,12 @@ mod tests {
 
     #[test]
     fn new_template_capacities_are_recognized() {
-        for template in STANDARD_CAPACITY_TEMPLATES {
-            let capacity = template_capacity(Some(*template));
+        for template in copy_rules::catalog()
+            .iter()
+            .filter(|item| !["magazine", "minimal", "poster"].contains(&item.id.as_str()))
+            .map(|item| item.id.as_str())
+        {
+            let capacity = template_capacity(Some(template));
             assert_eq!(capacity.body, 112);
             assert_eq!(capacity.body_lines, 7);
         }
@@ -548,20 +469,15 @@ mod tests {
     }
 
     #[test]
-    fn copy_item_is_trimmed_to_template_capacity() {
-        let item = CopyItem {
-            id: None,
-            title: "这个标题真的特别特别特别长已经明显超过三十个字限制".into(),
-            body: "这是一段专门用来测试模板容量兜底的正文内容，它会持续描述今晚球房里的气氛、约球节奏、球友互动、打球心态和进群理由，长度刻意超过高级杂志风模板能够承载的范围，确保服务端最后会把它收口到安全长度。".into(),
-            tags: "#珠海台球搭子超长话题 #今晚约球 #新手友好 #多余话题".into(),
-        };
-        let fitted = fit_item_to_capacity(item, template_capacity(Some("magazine")));
-        assert!(count_chars(&fitted.title) <= 30);
-        assert!(count_chars(&fitted.body) <= 96);
-        assert!(fitted.body.lines().count() <= 6);
-        assert!(fitted.body.ends_with('…'));
-        let tags: Vec<&str> = fitted.tags.split_whitespace().collect();
-        assert_eq!(tags.len(), 3);
-        assert!(tags.iter().all(|tag| count_chars(tag) <= 12));
+    fn oversize_copy_is_rejected_without_losing_fees() {
+        let facts = vec!["败方结台费".to_string()];
+        assert!(copy_rules::validate(
+            "一起去",
+            &format!("{}败方结台费", "练球".repeat(90)),
+            "",
+            template_capacity(None),
+            &facts
+        )
+        .is_err());
     }
 }

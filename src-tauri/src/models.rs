@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderRequest {
     #[serde(default = "default_template")]
@@ -23,6 +23,8 @@ pub struct RenderRequest {
     pub accent: String,
     #[serde(default = "default_color_mode")]
     pub color_mode: String,
+    #[serde(default = "default_layout_mode")]
+    pub layout_mode: String,
     #[serde(default = "default_font_family")]
     pub font_family: String,
     #[serde(default)]
@@ -52,6 +54,7 @@ impl Default for RenderRequest {
             glow2: default_glow2(),
             accent: default_accent(),
             color_mode: "theme".into(),
+            layout_mode: "classic".into(),
             font_family: default_font_family(),
             title_weight: 0,
             body_weight: 0,
@@ -79,6 +82,9 @@ fn default_accent() -> String {
     "#FF5E62".into()
 }
 
+fn default_layout_mode() -> String {
+    "classic".into()
+}
 fn default_color_mode() -> String {
     // Existing callers supplying colors keep their custom-color behavior.
     "custom".into()
@@ -100,6 +106,7 @@ pub struct RenderResponse {
 pub struct TemplateInfo {
     pub id: String,
     pub name: String,
+    pub category: String,
     #[serde(rename = "copyLimits")]
     pub copy_limits: CopyFitLimits,
     #[serde(rename = "themeColors")]
@@ -140,6 +147,7 @@ pub struct PresetInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobProgress {
+    pub job_id: String,
     pub completed: usize,
     pub total: usize,
     pub file_name: String,
@@ -148,6 +156,7 @@ pub struct JobProgress {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobFailure {
+    pub job_id: String,
     pub completed: usize,
     pub total: usize,
     pub error: String,
@@ -156,6 +165,7 @@ pub struct JobFailure {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobComplete {
+    pub job_id: String,
     pub total: usize,
     pub succeeded: usize,
     pub failed: usize,
@@ -254,4 +264,46 @@ pub struct UiDiagnostics {
     pub center_overflow: String,
     pub left_overflow: String,
     pub right_overflow: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderFailure {
+    pub index: usize,
+    pub request: RenderRequest,
+    pub error: String,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRenderResult {
+    pub job_id: String,
+    pub total: usize,
+    pub completed: usize,
+    pub outputs: Vec<RenderResponse>,
+    pub failed: Vec<RenderFailure>,
+    pub cancelled: bool,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyBatchResult {
+    pub job_id: String,
+    pub total: usize,
+    pub items: Vec<CopyItem>,
+    pub cancelled: bool,
+    pub warning: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryEntry {
+    pub id: i64,
+    pub title: String,
+    pub body: String,
+    pub tags: String,
+    pub category: String,
+    pub favorite: bool,
+}
+#[derive(Debug, Serialize)]
+pub struct LibraryPage {
+    pub entries: Vec<LibraryEntry>,
+    pub total: usize,
 }

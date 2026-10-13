@@ -4,6 +4,8 @@ mod ai_config;
 mod api;
 mod auth;
 mod config;
+#[path = "../../shared/copy_rules.rs"]
+mod copy_rules;
 mod db;
 mod errors;
 mod models;

@@ -19,7 +19,9 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            server
           cache-on-failure: true
       - uses: actions/setup-node@v4
         with:
@@ -27,7 +29,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - name: Check prompt scripts
-        run: node --check frontend/match-prompts.js
+        run: node scripts/check-frontend.mjs
+      - name: Test shared API rules
+        run: cargo test --locked --manifest-path server/Cargo.toml
+      - name: Check API service
+        run: cargo clippy --locked --manifest-path server/Cargo.toml --all-targets -- -D warnings
       - name: Test Windows client
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Check Windows client
@@ -46,7 +52,7 @@ jobs:
           Copy-Item $installer.FullName dist/
           Copy-Item src-tauri/target/release/billiards_matrix.exe dist/
           Copy-Item docs/WINDOWS_EXE.md dist/README.md
-          Copy-Item docs/MATCH_BUDDY_PROMPTS.md, docs/RENDER_FIXES.md dist/
+          Copy-Item docs/MATCH_BUDDY_PROMPTS.md, docs/RENDER_FIXES.md, docs/WORKFLOW_IMPROVEMENTS.md dist/
           New-Item -ItemType Directory -Path dist/fonts -Force | Out-Null
           Copy-Item src-tauri/fonts/OFL*.txt, src-tauri/fonts/NOTICE.md dist/fonts/
           Get-ChildItem dist/*.exe | ForEach-Object {
@@ -66,6 +72,7 @@ jobs:
             dist/*-setup.exe
             dist/README.md
             dist/RENDER_FIXES.md
+            dist/WORKFLOW_IMPROVEMENTS.md
             dist/MATCH_BUDDY_PROMPTS.md
             dist/SHA256SUMS.txt
             dist/fonts/

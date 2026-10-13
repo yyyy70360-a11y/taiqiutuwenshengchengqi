@@ -5,6 +5,7 @@
 ## 已实现
 
 - 50 套 SVG 模板输出固定 `1080 x 1920` PNG。
+- 0.1.5 支持文案保留条件改写、分组补齐与去重、批量取消与失败重试、模板缩略图、自动草稿、常用配置和文案库管理，详见 [工作流优化说明](docs/WORKFLOW_IMPROVEMENTS.md)。
 - 模板默认配色、自定义配色、三行话题安全区和离线表情字体，详见 [0.1.4 渲染修复](docs/RENDER_FIXES.md)。
 - `resvg + usvg + tiny-skia + fontdb` 原生渲染。
 - 内置 Noto Sans/Serif CJK 字体，不读取系统字体。

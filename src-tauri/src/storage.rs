@@ -20,6 +20,8 @@ pub fn connection(app: &AppHandle) -> Result<Connection, String> {
     fs::create_dir_all(&directory).map_err(|error| format!("创建应用数据目录失败: {error}"))?;
     let path = directory.join("billiards.sqlite3");
     let conn = Connection::open(path).map_err(|error| format!("打开数据库失败: {error}"))?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))
+        .map_err(|error| error.to_string())?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
          CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, cloud_id TEXT, name TEXT NOT NULL, level TEXT NOT NULL, region TEXT NOT NULL, persona TEXT NOT NULL, tone TEXT NOT NULL, status TEXT NOT NULL);

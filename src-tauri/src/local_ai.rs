@@ -34,153 +34,7 @@ struct ChatMessage {
     content: String,
 }
 
-#[derive(Clone, Copy)]
-pub struct TemplateCapacity {
-    pub title: usize,
-    pub body: usize,
-    pub body_lines: usize,
-    pub tags: usize,
-    pub tag: usize,
-}
-
-const STANDARD_CAPACITY_TEMPLATES: &[&str] = &[
-    "magazine_pro",
-    "fresh",
-    "journal",
-    "neon_club",
-    "chalkboard",
-    "retro_ticket",
-    "cyber_grid",
-    "cream_note",
-    "arena_score",
-    "sunset_gradient",
-    "ink_stamp",
-    "glass_card",
-    "tactical_blue",
-    "midnight_lux",
-    "candy_pop",
-    "forest_match",
-    "steel_gray",
-    "royal_gold",
-    "ocean_wave",
-    "lava_motion",
-    "pearl_lite",
-    "street_snap",
-    "comic_burst",
-    "vaporwave",
-    "newspaper",
-    "coffee_receipt",
-    "scoreboard_green",
-    "purple_stage",
-    "ice_blue",
-    "red_warning",
-    "kraft_label",
-    "mint_mono",
-    "black_gold",
-    "gradient_ring",
-    "billiard_felt",
-    "tournament_bracket",
-    "soft_shadow",
-    "bold_blocks",
-    "pink_soda",
-    "desert_sand",
-    "matrix_code",
-    "club_vip",
-    "clean_blue",
-    "orange_zine",
-    "silver_card",
-    "green_laser",
-    "classic_serif",
-];
-
-pub fn template_capacity(template: Option<&str>) -> TemplateCapacity {
-    let template = template.unwrap_or("magazine").trim();
-    if STANDARD_CAPACITY_TEMPLATES.contains(&template) {
-        return TemplateCapacity {
-            title: 30,
-            body: 112,
-            body_lines: 7,
-            tags: 3,
-            tag: 12,
-        };
-    }
-    match template {
-        "minimal" | "mono" => TemplateCapacity {
-            title: 30,
-            body: 136,
-            body_lines: 8,
-            tags: 3,
-            tag: 12,
-        },
-        "poster" => TemplateCapacity {
-            title: 30,
-            body: 144,
-            body_lines: 8,
-            tags: 3,
-            tag: 12,
-        },
-        _ => TemplateCapacity {
-            title: 30,
-            body: 96,
-            body_lines: 6,
-            tags: 3,
-            tag: 12,
-        },
-    }
-}
-
-pub fn fit_item_to_capacity(mut item: CopyItem, capacity: TemplateCapacity) -> CopyItem {
-    item.title = trim_chars(&item.title, capacity.title);
-    item.body = fit_body(&item.body, capacity);
-    item.tags = item
-        .tags
-        .split_whitespace()
-        .take(capacity.tags)
-        .map(|tag| trim_chars(tag, capacity.tag))
-        .collect::<Vec<_>>()
-        .join(" ");
-    item
-}
-
-fn fit_body(body: &str, capacity: TemplateCapacity) -> String {
-    let per_line = capacity.body.div_ceil(capacity.body_lines).max(1);
-    let mut lines = Vec::new();
-    let mut truncated = count_chars(body) > capacity.body;
-    for raw in body.trim().lines() {
-        let chars: Vec<char> = raw.trim().chars().collect();
-        if chars.is_empty() {
-            continue;
-        }
-        for chunk in chars.chunks(per_line) {
-            lines.push(chunk.iter().collect::<String>());
-        }
-    }
-    if lines.len() > capacity.body_lines {
-        truncated = true;
-        lines.truncate(capacity.body_lines);
-    }
-    let mut fitted = lines.join("\n");
-    fitted = trim_chars(&fitted, capacity.body);
-    if truncated && !fitted.ends_with('…') {
-        fitted = trim_chars(&fitted, capacity.body.saturating_sub(1));
-        fitted.push('…');
-    }
-    fitted
-}
-
-fn trim_chars(value: &str, max_chars: usize) -> String {
-    let mut chars = value.trim().chars();
-    let mut result = chars.by_ref().take(max_chars).collect::<String>();
-    if chars.next().is_some() && max_chars > 0 {
-        result.pop();
-        result.push('…');
-    }
-    result
-}
-
-fn count_chars(value: &str) -> usize {
-    value.trim().chars().count()
-}
+use crate::copy_rules::{self, template_capacity, TemplateCapacity};
 
 pub fn single_prompt(prompt: &str, capacity: TemplateCapacity) -> String {
     format!(
@@ -430,11 +284,15 @@ pub async fn generate_copy(
     )
     .await?;
 
-    let item = parse_item(&text)
-        .map(|item| fit_item_to_capacity(item, capacity))
-        .ok_or_else(|| format!("AI 返回内容无法解析为标题与正文：\n{text}"))?;
-
-    Ok(item)
+    let item =
+        parse_item(&text).ok_or_else(|| format!("AI 返回内容无法解析为标题与正文：\n{text}"))?;
+    let provider = Provider {
+        client: &client,
+        endpoint: &endpoint,
+        api_key: &api_key,
+        model,
+    };
+    validate_or_rewrite(&provider, prompt, item, capacity).await
 }
 
 pub async fn generate_batch(
@@ -482,16 +340,86 @@ pub async fn generate_batch(
     )
     .await?;
 
-    let items: Vec<CopyItem> = parse_batch(&text)
-        .into_iter()
-        .map(|item| fit_item_to_capacity(item, capacity))
-        .collect();
+    let provider = Provider {
+        client: &client,
+        endpoint: &endpoint,
+        api_key: &api_key,
+        model,
+    };
+    let mut items = Vec::new();
+    let mut last_reason = String::new();
+    for item in parse_batch(&text).into_iter().take(count) {
+        match validate_or_rewrite(&provider, prompt, item, capacity).await {
+            Ok(item) => items.push(item),
+            Err(reason) => last_reason = reason,
+        }
+    }
 
     if items.is_empty() {
+        if !last_reason.is_empty() {
+            return Err(format!("本组没有合格文案：{last_reason}"));
+        }
         return Err(format!("AI 批量返回内容无法解析为【第N条】格式：\n{text}"));
     }
 
     Ok(items)
+}
+
+struct Provider<'a> {
+    client: &'a Client,
+    endpoint: &'a str,
+    api_key: &'a str,
+    model: &'a str,
+}
+
+async fn validate_or_rewrite(
+    provider: &Provider<'_>,
+    prompt: &str,
+    mut item: CopyItem,
+    cap: TemplateCapacity,
+) -> Result<CopyItem, String> {
+    let mut facts = copy_rules::required_facts(prompt);
+    if facts.is_empty() && !prompt.contains("【可使用的比赛条件】") {
+        facts = copy_rules::critical_clauses(&item.body);
+    }
+    for attempt in 0..=2 {
+        let reason = match copy_rules::validate(&item.title, &item.body, &item.tags, cap, &facts)
+            .and_then(|_| {
+                copy_rules::validate_match_conditions(
+                    prompt,
+                    &format!("{}。{}", item.title, item.body),
+                )
+            }) {
+            Ok(()) => return Ok(item),
+            Err(reason) => reason,
+        };
+        if attempt == 2 {
+            return Err(format!(
+                "文案改写后仍不合格：{reason}。原始条件没有被截断，请缩短条件或换容量更大的模板。"
+            ));
+        }
+        let repair = copy_rules::repair_prompt(
+            prompt,
+            &item.title,
+            &item.body,
+            &item.tags,
+            cap,
+            &facts,
+            &reason,
+        );
+        let text = call_chat_completions(
+            provider.client,
+            provider.endpoint,
+            provider.api_key,
+            provider.model,
+            &repair,
+            700,
+            45,
+        )
+        .await?;
+        item = parse_item(&text).ok_or_else(|| "改写结果缺少标题或正文".to_string())?;
+    }
+    unreachable!()
 }
 
 #[cfg(test)]
@@ -533,17 +461,69 @@ mod tests {
     }
 
     #[test]
-    fn fits_within_capacity() {
+    fn over_capacity_copy_is_rejected_instead_of_truncated() {
         let cap = template_capacity(Some("magazine"));
-        let item = CopyItem {
-            cloud_id: None,
-            title: "超长标题测试超过了三十个字符的部分应该被自动截断并且添加省略符号".into(),
-            body: "超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试超长正文测试".into(),
-            tags: "#标签一 #标签二 #标签三 #标签四".into(),
+        assert!(copy_rules::validate("找搭子", &"练球".repeat(100), "#台球", cap, &[]).is_err());
+    }
+
+    #[tokio::test]
+    async fn rewrite_calls_provider_and_preserves_fee_at_end() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
         };
-        let fitted = fit_item_to_capacity(item, cap);
-        assert!(fitted.title.chars().count() <= cap.title);
-        assert!(fitted.body.chars().count() <= cap.body + 1);
-        assert_eq!(fitted.tags.split_whitespace().count(), 3);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}/chat/completions", listener.local_addr().unwrap());
+        let thread = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                let count = stream.read(&mut chunk).unwrap();
+                bytes.extend_from_slice(&chunk[..count]);
+                if let Some(position) = bytes.windows(4).position(|part| part == b"\r\n\r\n") {
+                    let header = String::from_utf8_lossy(&bytes[..position]);
+                    let len: usize = header
+                        .lines()
+                        .find_map(|line| {
+                            line.to_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|value| value.trim().parse().unwrap())
+                        })
+                        .unwrap();
+                    if bytes.len() >= position + 4 + len {
+                        break;
+                    }
+                }
+            }
+            let request = String::from_utf8(bytes).unwrap();
+            assert!(request.contains("败方结台费"));
+            assert!(request.contains("不能截断结尾"));
+            let body=serde_json::json!({"choices":[{"message":{"content":"标题：找个参赛搭子\n正文：限1–3档，免报名费，败方结台费，一天打完。有没有一起去的？\n话题：#台球"}}]}).to_string();
+            write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+        });
+        let client = Client::new();
+        let provider = Provider {
+            client: &client,
+            endpoint: &endpoint,
+            api_key: "test-only",
+            model: "fixture",
+        };
+        let original = CopyItem {
+            cloud_id: None,
+            title: "找搭子".into(),
+            body: format!("{}败方结台费", "想一起练球".repeat(30)),
+            tags: "#台球".into(),
+        };
+        let prompt = "【可使用的比赛条件】\n限1–3档，免报名费，败方结台费，一天打完\n【说明】";
+        let item = validate_or_rewrite(&provider, prompt, original, template_capacity(None))
+            .await
+            .unwrap();
+        assert!(item.body.contains("败方结台费"));
+        assert!(!item.body.contains('…'));
+        thread.join().unwrap();
     }
 }

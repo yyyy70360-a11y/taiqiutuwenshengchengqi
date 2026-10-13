@@ -1,19 +1,32 @@
 mod cloud;
 mod commands;
+#[path = "../../shared/copy_rules.rs"]
+mod copy_rules;
+mod jobs;
 mod local_ai;
 mod models;
 mod render;
 mod storage;
+mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::get_templates,
+            commands::template_thumbnail,
             commands::get_presets,
             commands::render_preview,
             commands::render_save,
             commands::render_batch,
+            commands::cancel_job,
+            workspace::list_library_entries,
+            workspace::update_library_entry,
+            workspace::delete_library_entry,
+            workspace::export_library_entries,
+            workspace::save_workspace,
+            workspace::load_workspace,
+            workspace::load_render_checkpoint,
             commands::open_output_folder,
             commands::get_settings,
             commands::set_settings,

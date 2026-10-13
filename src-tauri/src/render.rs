@@ -61,40 +61,22 @@ pub const TEMPLATE_IDS: &[&str] = &[
 ];
 
 pub fn copy_limits_for_template(template: &str) -> crate::models::CopyFitLimits {
-    match template {
-        "minimal" => crate::models::CopyFitLimits {
-            title_chars: 30,
-            body_chars: 136,
-            body_lines: 8,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-        "poster" => crate::models::CopyFitLimits {
-            title_chars: 30,
-            body_chars: 144,
-            body_lines: 8,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-        "magazine" => crate::models::CopyFitLimits {
-            title_chars: 30,
-            body_chars: 96,
-            body_lines: 6,
-            tags_count: 3,
-            tag_chars: 12,
-        },
-        _ => crate::models::CopyFitLimits {
-            title_chars: 30,
-            body_chars: 112,
-            body_lines: 7,
-            tags_count: 3,
-            tag_chars: 12,
-        },
+    let cap = crate::copy_rules::template_capacity(Some(template));
+    crate::models::CopyFitLimits {
+        title_chars: cap.title,
+        body_chars: cap.body,
+        body_lines: cap.body_lines,
+        tags_count: cap.tags,
+        tag_chars: cap.tag,
     }
 }
 static FONT_DATABASE: OnceLock<Arc<fontdb::Database>> = OnceLock::new();
 
 pub fn render_png(request: &RenderRequest) -> Result<Vec<u8>, String> {
+    render_png_at_width(request, WIDTH)
+}
+
+pub fn render_png_at_width(request: &RenderRequest, width: u32) -> Result<Vec<u8>, String> {
     let svg = svg_for(request);
     let options = usvg::Options {
         fontdb: font_database(),
@@ -102,9 +84,13 @@ pub fn render_png(request: &RenderRequest) -> Result<Vec<u8>, String> {
     };
     let tree = usvg::Tree::from_str(&svg, &options)
         .map_err(|error| format!("SVG parse failed: {error}"))?;
-    let mut pixmap = tiny_skia::Pixmap::new(WIDTH, HEIGHT)
+    let mut pixmap = tiny_skia::Pixmap::new(width, width * HEIGHT / WIDTH)
         .ok_or_else(|| "unable to allocate render surface".to_string())?;
-    resvg::render(&tree, tiny_skia::Transform::default(), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(width as f32 / WIDTH as f32, width as f32 / WIDTH as f32),
+        &mut pixmap.as_mut(),
+    );
     pixmap
         .encode_png()
         .map_err(|error| format!("PNG encode failed: {error}"))
@@ -1533,8 +1519,15 @@ fn designed_template(request: &RenderRequest, seed: usize) -> String {
     );
     let content_x = 132;
     let content_right = 948;
-    let title_size = [76, 74, 78, 80, 74, 76][seed % 6];
-    let body_size = 46;
+    let compact = request.layout_mode == "auto"
+        && request.title.chars().count() <= 22
+        && request.body.chars().count() <= 72;
+    let title_size = if compact {
+        84
+    } else {
+        [76, 74, 78, 80, 74, 76][seed % 6]
+    };
+    let body_size = if compact { 56 } else { 46 };
     let (title, title_last_y) = text_lines(
         &request.title,
         chars_for_width(content_x, content_right, title_size),
@@ -1563,21 +1556,44 @@ fn designed_template(request: &RenderRequest, seed: usize) -> String {
         400,
         1.58,
     );
+    let last_body_y = body
+        .split(" y='")
+        .skip(1)
+        .filter_map(|part| part.split("'").next()?.parse::<u32>().ok())
+        .max()
+        .unwrap_or(body_y);
+    let tags_y = if compact {
+        (last_body_y + 120).clamp(1050, 1460)
+    } else {
+        1460
+    };
+    let card_bottom = if compact {
+        (tags_y + 240).clamp(1330, 1700)
+    } else {
+        1700
+    };
     let tags = if seed % 4 == 0 {
-        tag_pills(&request.tags, accent, content_x, content_right, 1460)
+        tag_pills(&request.tags, accent, content_x, content_right, tags_y)
     } else {
         tag_lines(
             &request.tags,
             content_x,
             content_right,
-            1510,
+            tags_y + 50,
             legible_text(palette.muted, palette.surface),
             32,
         )
     };
     let background = designer_background(seed, g1, g2, accent);
-    let motif = theme_motif(&request.template, accent);
-    let card = designer_card(seed, palette, accent);
+    let motif = theme_motif(&request.template, accent)
+        .replace("1516", &(card_bottom - 184).to_string())
+        .replace("1645", &(card_bottom - 55).to_string())
+        .replace("1675", &(card_bottom - 25).to_string())
+        .replace("1672", &(card_bottom - 28).to_string())
+        .replace("1666", &(card_bottom - 34).to_string())
+        .replace("1490", &(card_bottom - 210).to_string())
+        .replace("1484", &(card_bottom - 216).to_string());
+    let card = designer_card(seed, palette, accent, card_bottom);
     let header = designer_header(seed, request, content_x, content_right, palette, accent);
     let divider = designer_divider(seed, content_x, content_right, line_y, palette, accent);
     format!("<svg xmlns='http://www.w3.org/2000/svg' width='{WIDTH}' height='{HEIGHT}' viewBox='0 0 {WIDTH} {HEIGHT}'>{background}{card}{motif}{header}{title}{divider}{body}{tags}</svg>")
@@ -1602,7 +1618,7 @@ fn designer_background(seed: usize, g1: &str, g2: &str, accent: &str) -> String 
     format!("{defs}<rect width='100%' height='100%' fill='url(#designer-bg)'/>{motif}")
 }
 
-fn designer_card(seed: usize, palette: DesignerPalette, accent: &str) -> String {
+fn designer_card(seed: usize, palette: DesignerPalette, accent: &str, bottom: u32) -> String {
     let surface = palette.surface;
     let outline = match seed % 8 {
         0 => format!("<rect x='78' y='238' width='924' height='1444' rx='30' fill='none' stroke='{accent}' stroke-opacity='.32' stroke-width='2'/>"),
@@ -1614,7 +1630,13 @@ fn designer_card(seed: usize, palette: DesignerPalette, accent: &str) -> String 
         6 => format!("<rect x='60' y='220' width='18' height='1480' rx='9' fill='{accent}' opacity='.65'/>"),
         _ => format!("<path d='M88 440H992' stroke='{accent}' stroke-opacity='.22' stroke-width='2'/>"),
     };
-    format!("<rect id='content-surface' x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{FRAME_HEIGHT}' rx='36' fill='{surface}'/>{outline}")
+    let outline = outline
+        .replace("1444", &(bottom - 256).to_string())
+        .replace("1440", &(bottom - 260).to_string())
+        .replace("1480", &(bottom - 220).to_string())
+        .replace("1670", &(bottom - 30).to_string())
+        .replace("1610", &(bottom - 90).to_string());
+    format!("<rect id='content-surface' x='{FRAME_X}' y='{FRAME_Y}' width='{FRAME_WIDTH}' height='{height}' rx='36' fill='{surface}'/>{outline}",height=bottom-220)
 }
 
 fn designer_header(
@@ -1983,8 +2005,13 @@ fn chars_for_width(left: u32, right: u32, font_size: u32) -> usize {
 
 fn tag_lines(tags: &str, x: u32, right: u32, y: u32, fill: &str, size: u32) -> String {
     let line_step = (size as f32 * 1.4) as u32;
-    limited_word_lines(tags, chars_for_width(x, right, size), 2)
-        .iter()
+    let lines = limited_word_lines(tags, chars_for_width(x, right, size), 3);
+    let y = if lines.len() > 2 {
+        y.min(1680 - (lines.len() as u32 - 1) * line_step)
+    } else {
+        y
+    };
+    lines.iter()
         .enumerate()
         .map(|(index, line)| {
             let baseline = y + (index as u32 * line_step);
@@ -2090,8 +2117,52 @@ fn wrap_text(text: &str, max_chars: usize) -> Vec<String> {
         if !word.is_empty() {
             tokens.push(word);
         }
+        let mut protected = Vec::new();
+        let mut index = 0;
+        while index < tokens.len() {
+            let phrase = [
+                "一天",
+                "打完",
+                "报名费",
+                "台费",
+                "比赛",
+                "同城",
+                "球友",
+                "一起",
+                "参赛",
+            ]
+            .iter()
+            .find(|phrase| {
+                let count = phrase.chars().count();
+                tokens
+                    .iter()
+                    .skip(index)
+                    .take(count)
+                    .cloned()
+                    .collect::<String>()
+                    == **phrase
+            });
+            if let Some(phrase) = phrase {
+                protected.push(phrase.to_string());
+                index += phrase.chars().count();
+            } else {
+                protected.push(tokens[index].clone());
+                index += 1;
+            }
+        }
+        let mut joined = Vec::<String>::new();
+        for token in protected {
+            if token.chars().count() == 1
+                && "，。！？：；）】》、".contains(&token)
+                && !joined.is_empty()
+            {
+                joined.last_mut().unwrap().push_str(&token);
+            } else {
+                joined.push(token);
+            }
+        }
         let mut current = String::new();
-        for token in tokens {
+        for token in joined {
             let width = measure_units(&token);
             if width > capacity {
                 for ch in token.chars() {
@@ -2259,6 +2330,15 @@ mod tests {
     }
 
     #[test]
+    fn catalog_and_renderer_have_identical_template_ids() {
+        let ids: Vec<_> = crate::copy_rules::catalog()
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(ids, TEMPLATE_IDS);
+    }
+
+    #[test]
     fn legal_copy_stays_inside_all_template_cards() {
         let options = usvg::Options {
             fontdb: font_database(),
@@ -2278,6 +2358,52 @@ mod tests {
             };
             let tree = usvg::Tree::from_str(&svg_for(&request), &options).unwrap();
             assert_copy_bounds(tree.root(), template);
+        }
+    }
+
+    #[test]
+    fn compact_copy_and_three_tags_stay_inside_resized_cards() {
+        fn inside(group: &usvg::Group, bottom: f32, template: &str) {
+            for node in group.children() {
+                match node {
+                    usvg::Node::Group(group) => inside(group, bottom, template),
+                    usvg::Node::Text(text) => {
+                        let copy: String = text.chunks().iter().map(|chunk| chunk.text()).collect();
+                        if copy.contains(['甲', '乙', '丙']) {
+                            let bounds = text.flattened().abs_stroke_bounding_box();
+                            assert!(
+                                bounds.bottom() <= bottom - 12.0,
+                                "{template}: {copy} below resized card: {bounds:?}, {bottom}"
+                            );
+                            assert!(!copy.contains('…'), "{template}: short copy truncated");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let options = usvg::Options {
+            fontdb: font_database(),
+            ..Default::default()
+        };
+        for template in GENERATED_TEMPLATE_IDS {
+            for length in [24, 72] {
+                let request = RenderRequest {
+                    template: (*template).into(),
+                    title: "甲".repeat(22),
+                    body: "乙".repeat(length),
+                    tags: vec!["丙".repeat(12); 3].join(" "),
+                    layout_mode: "auto".into(),
+                    title_weight: 900,
+                    body_weight: 700,
+                    ..Default::default()
+                };
+                let tree = usvg::Tree::from_str(&svg_for(&request), &options).unwrap();
+                if let Some(card) = tree.node_by_id("content-surface") {
+                    inside(tree.root(), card.abs_bounding_box().bottom(), template);
+                }
+                assert_copy_bounds(tree.root(), template);
+            }
         }
     }
 
